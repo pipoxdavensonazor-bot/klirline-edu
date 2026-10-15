@@ -1,0 +1,6 @@
+$meta
+  title = Klirline Édu — Maquette MVP
+  description = Prototype SaaS de gestion scolaire pour Haïti : élèves, présences hors-ligne, notes, communications, frais, bibliothèque. Bilingue FR/HT, mobile-first. Données synthétiques.
+  tags = école, Haïti, gestion scolaire, présences, notes, finances, bibliothèque, créole, français
+
+$output = Klirline

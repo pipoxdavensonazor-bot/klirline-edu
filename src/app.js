@@ -1,0 +1,353 @@
+/* Klirline app — prototype local, données synthétiques */
+(function(){
+const $=s=>document.querySelector(s);
+const LS="klirline_school_v1";
+let S=null;
+function load(){ try{const r=localStorage.getItem(LS); if(r){const o=JSON.parse(r); if(o&&o.v===1&&o.students&&o.school){S=o; ensureCards(); return;}}}catch(e){} S=window.KL_SEED(); ensureCards(); save(); }
+function ensureCards(){ const seen=new Set(S.students.map(s=>s.cardRef).filter(Boolean)); let mk=false; S.students.forEach(s=>{ if(!s.cardRef){ let c; do{ c="KLC-"+Math.random().toString(36).slice(2,8).toUpperCase(); }while(seen.has(c)); seen.add(c); s.cardRef=c; mk=true; } }); if(mk) save(); }
+function save(){ try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){} }
+function t(k){ const d=window.KL_I18N[S.lang]||window.KL_I18N.fr; return d[k]||window.KL_I18N.fr[k]||k; }
+function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function money(n){ return Number(n||0).toLocaleString("fr-FR").replace(/,/g," ")+" G"; }
+function today(){ return new Date().toISOString().slice(0,10); }
+let ROUTE="dashboard";
+function toast(m){ const c=$("#toasts"); const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3200); }
+function logExport(kind,detail){ S.exportLog.unshift({date:new Date().toLocaleString(),by:S.role,kind,detail}); S.exportLog=S.exportLog.slice(0,50); save(); }
+function dl(name,content,type){ const b=new Blob([content],{type:type||"text/plain"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+function toCSV(rows){ return rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n"); }
+window.KL={};
+KL.t=t;
+
+const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["settings",""]];
+const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",settings:"École"};
+const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi"};
+function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
+const ROLE_MODULES={
+  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","settings"],
+  secretariat:["dashboard","students","classes","attendance","comms","reports"],
+  enseignant:["dashboard","classes","attendance","academic","comms"],
+  comptable:["dashboard","students","finance","reports"],
+  bibliothecaire:["dashboard","students","library","reports"],
+  parent:["dashboard","attendance","academic","comms","finance","library"],
+  eleve:["dashboard","academic","library","comms"],
+};
+function can(m){ return (ROLE_MODULES[S.role]||[]).includes(m); }
+function teacherClasses(){ if(S.role==="enseignant"){ return ["c7a","c8a"]; } return S.classes.map(c=>c.id); }
+function kidStudents(){ if(S.role==="parent") return S.students.filter(s=>S.currentUser.parentKids.includes(s.id)); if(S.role==="eleve") return S.students.filter(s=>s.id===S.currentUser.studentId); return S.students; }
+function classById(id){ return S.classes.find(c=>c.id===id); }
+function stuById(id){ return S.students.find(s=>s.id===id); }
+function feeDue(s){ const f=S.fees[s.level]; if(!f) return {due:0,paid:0,rest:0}; const paid=S.payments.filter(p=>p.studentId===s.id).reduce((a,p)=>a+ +p.amount,0)+ (S.discounts.filter(d=>d.studentId===s.id).reduce((a,d)=>a+ +d.amount,0)); return {due:f.tuition,paid,rest:f.tuition-paid}; }
+
+/* ---------- shell ---------- */
+function renderShell(){
+  const L=window.KL_I18N[S.lang];
+  $("#roleSel").value=S.role; $("#langSel").value=S.lang;
+  $("#connBtn").innerHTML=`<span class="dot ${S.online?"on":"off"}"></span> ${S.online?L.online:L.offline}`;
+  const nav=$("#nav"), mn=$("#mnav"); nav.innerHTML=""; mn.innerHTML="";
+  let lastSp="";
+  MODULES.forEach(([m,ic])=>{ if(!can(m))return;
+    const sp=SPACE[m]||"École";
+    if(sp!==lastSp){ lastSp=sp; const lb=document.createElement("small"); lb.textContent=spaceLbl(sp); nav.appendChild(lb); }
+    const b=document.createElement("button"); b.innerHTML=`${ic} ${t(m==="comms"?"comms":m)}`; b.className=ROUTE===m?"on":""; b.onclick=()=>{ROUTE=m; render();};
+    nav.appendChild(b);
+    const mb=b.cloneNode(true); mb.onclick=b.onclick; mn.appendChild(mb);
+  });
+  const q=S.queue.length;
+  $("#syncBadge").textContent=q?` • ${q} ${t("pending")}`:"";
+  $("#syncBtn").style.display=q?"":"none";
+}
+function render(){
+  if(!S) load();
+  renderShell();
+  const v=$("#view");
+  if(!can(ROUTE)) ROUTE="dashboard";
+  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,settings:vSet}[ROUTE];
+  v.innerHTML=fn();
+  const fb={students:bStu,attendance:bAtt,academic:bAcad,comms:bComms,finance:bFin,library:bLib,settings:bSet}[ROUTE];
+  if(fb) try{fb();}catch(e){console.warn(e);}
+  window.scrollTo(0,0);
+}
+
+/* ---------- DASHBOARD ---------- */
+function vDash(){
+  const atts=Object.values(S.attendance);
+  const rate=atts.length?Math.round(atts.flatMap(a=>Object.values(a.records||{})).filter(x=>x==="P").length/Math.max(1,atts.flatMap(a=>Object.values(a.records||{})).length)*100):87;
+  const collected=S.payments.reduce((a,p)=>a+ +p.amount,0);
+  const loaned=S.loans.filter(l=>!l.back).length;
+  if(S.role==="parent"){ const kids=kidStudents();
+    return `<div class="grid g3">${kids.map(k=>{const d=feeDue(k);const c=classById(k.classId);return `<div class="card"><h3>${esc(k.firstName)} ${esc(k.lastName)} <span class="mut small">${esc(k.code)}</span></h3><div class="small mut">${esc(c?.name||"")} • ${esc(k.level)}</div><div class="row" style="margin-top:8px"><span class="badge ${d.rest<=0?"b-paid":"b-unpaid"}">${d.rest<=0?t("paid"):money(d.rest)+" • "+t("remaining")}</span></div><div class="toolbar"><button class="ghost" onclick="KL.go('attendance')">${t("attendance")}</button><button class="ghost" onclick="KL.go('academic')">${t("reportCard")}</button><button class="ghost" onclick="KL.go('finance')">${t("receipts")}</button></div></div>`;}).join("")}</div><p class="mut small">${esc(t("onlyLinked"))}</p>`+commsPreview();
+  }
+  if(S.role==="eleve"){ const me=kidStudents()[0]; const c=classById(me?.classId);
+    return `<div class="card"><h3>${esc(me.firstName)} ${esc(me.lastName)} — ${esc(c?.name)}</h3><p class="mut">${t("mySchedule")} • ${t("homework")} • ${t("reportCard")}</p><div class="toolbar"><button onclick="KL.go('academic')">${t("reportCard")}</button><button class="ghost" onclick="KL.go('library')">${t("catalog")}</button></div></div>`+commsPreview();
+  }
+  if(S.role==="enseignant") return `<div class="notice">${esc(t("onlyAssigned"))}</div><div class="grid g4">
+    ${kpi(S.students.filter(s=>teacherClasses().includes(s.classId)).length,t("totalStudents"))}
+    ${kpi(rate+" %",t("attRate"))}${kpi(S.evals.length,t("eval"))}${kpi(S.meetings.length,t("meetings"))}</div>
+    <div class="card" style="margin-top:12px"><h3>${t("myClasses")}</h3>${teacherClasses().map(id=>{const c=classById(id);return `<div class="row sp" style="padding:6px 0;border-bottom:1px solid var(--line)"><span><b>${esc(c.name)}</b> <span class="mut small">${esc(c.level)} • ${esc(c.room)}</span></span><span class="row"><button class="soft" onclick="KL.attGo('${id}')">${t("rollCall")}</button><button class="ghost" onclick="KL.go('academic')">${t("grades")}</button></span></div>`;}).join("")}</div>`+commsPreview();
+  return `<p class="mut">${esc(t("welcomeDir"))}</p><div class="warnbox small"> ${esc(t("pilotNote"))} •  ${esc(t("lowConn"))}</div>
+  ${S.online?"":`<div class="badbox"> ${esc(t("offlineNote"))}</div>`}
+  <div class="grid g4">${kpi(S.students.length,t("totalStudents"))}${kpi(rate+" %",t("attRate"))}${kpi(money(collected),t("feesCollected"))}${kpi(loaned,t("booksLoaned"))}</div>
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card"><h3>${t("todayView")}</h3><div class="small">• ${t("enrol")}: <b>${S.students.length}</b><br>• ${t("attToDo")}: <b>${S.classes.length} classes</b><br>• ${t("dues")}: <b>${S.students.filter(s=>feeDue(s).rest>0).length} ${t("unpaid")}</b><br>• ${t("alerts")}: <b>${S.queue.length} ${t("pending")}, ${S.loans.filter(l=>!l.back&&l.due<today()).length} ${t("delays")}</b></div><div class="toolbar"><button class="soft" onclick="KL.go('attendance')">${t("rollCall")}</button><button class="ghost" onclick="KL.go('reports')">${t("reports")}</button></div></div>
+    <div class="card"><h3>${t("announcements")}</h3>${S.announces.slice(0,3).map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${esc(a.title)}</b><div class="small mut">${esc(a.target)} • ${esc(a.date)} • <span class="badge b-sent">${a.ok} OK / ${a.fail} ✕</span></div></div>`).join("")}<div class="toolbar"><button class="ghost" onclick="KL.go('comms')">${t("view")}</button></div><p class="small mut">${esc(t("readAck"))}</p></div>
+  </div>`;
+}
+function kpi(n,l){ return `<div class="card"><div class="kpi">${n}</div><div class="kpi-sub">${l}</div></div>`; }
+function commsPreview(){ return `<div class="card" style="margin-top:12px"><h3>${t("announcements")}</h3>${S.announces.slice(0,4).map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${esc(a.title)}</b> <span class="mut small">• ${esc(a.date)}</span><div class="small">${esc(a.text)}</div></div>`).join("")}</div>`; }
+
+/* ---------- ELEVES ---------- */
+let stuQ="";
+function vStudents(){
+  const full=["direction","secretariat"].includes(S.role);
+  const q=stuQ.toLowerCase();
+  const f=S.students.filter(s=>!q||(s.firstName+" "+s.lastName+" "+s.code).toLowerCase().includes(q)).slice(0,60);
+  const canEdit=full;
+  const tools=`<span class="row"><input id="stuQ" placeholder="${t("search")}" value="${esc(stuQ)}" oninput="KL.stuQ(this.value)">${canEdit?`<button onclick="KL.stuModal()">${t("newStudent")}</button>`:""}${(full||S.role==="comptable")?`<button class="ghost" onclick="KL.stuCSV()">${t("export")}</button>`:""}${canEdit?`<label class="pill" style="background:#fff;color:var(--ink);border:1px solid var(--line);cursor:pointer">${t("import")} CSV<input type="file" id="csvIn" accept=".csv" hidden></label>`:""}</span>`;
+  const head=`<div class="row sp"><h2 style="margin:0">${t("students")} (${S.students.length})</h2>${tools}</div>`;
+  if(full) return head+`
+  <div class="card"><div style="overflow:auto"><table><tr><th>Code</th><th>${t("firstName")} / ${t("lastName")}</th><th>${t("class")}</th><th>${t("guardians")}</th><th>${t("status")}</th><th>${t("actions")}</th></tr>
+  ${f.map(s=>{const c=classById(s.classId);return `<tr><td class="small">${esc(s.code)}</td><td><b>${esc(s.firstName)} ${esc(s.lastName)}</b> <span class="mut small">${s.sex} • ${esc(s.birth)}</span></td><td>${esc(c?.name||"")} <span class="mut small">${esc(s.level)}</span></td><td class="small">${esc(s.guardians[0]?.name||"")} <span class="mut">${esc(s.guardians[0]?.phone||"")}</span></td><td><span class="badge b-present">${esc(s.status)}</span></td><td class="row"><button class="ghost" onclick="KL.stuFile('${s.id}')">${t("studentFile")}</button>${canEdit?`<button class="ghost" onclick="KL.stuModal('${s.id}')">${t("edit")}</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="6">${t("empty")}</td></tr>`}</table></div></div>
+  <p class="small mut">${esc(t("menfpNote"))}</p><div id="stuModal"></div>`;
+  if(S.role==="comptable") return head+`
+  <div class="card"><div style="overflow:auto"><table><tr><th>Code</th><th>${t("firstName")} / ${t("lastName")}</th><th>${t("class")}</th><th>${t("balance")}</th><th></th></tr>
+  ${f.map(s=>{const c=classById(s.classId);const d=feeDue(s);return `<tr><td class="small">${esc(s.code)}</td><td><b>${esc(s.firstName)} ${esc(s.lastName)}</b></td><td>${esc(c?.name||"")} <span class="mut small">${esc(s.level)}</span></td><td><b>${money(d.rest)}</b></td><td><button class="ghost" onclick="KL.go('finance')">${t("receipts")}</button></td></tr>`;}).join("")||`<tr><td colspan="5">${t("empty")}</td></tr>`}</table></div></div>
+  <p class="small mut">${S.lang==="ht"?"Done finansye sèlman — pa gen fichye konplè, pa gen nòt.":"Données financières uniquement — ni fiche complète, ni notes."}</p><div id="stuModal"></div>`;
+  return head+`
+  <div class="card"><div style="overflow:auto"><table><tr><th>Code</th><th>${t("firstName")} / ${t("lastName")}</th><th>${t("class")}</th></tr>
+  ${f.map(s=>{const c=classById(s.classId);return `<tr><td class="small">${esc(s.code)}</td><td><b>${esc(s.firstName)} ${esc(s.lastName)}</b></td><td>${esc(c?.name||"")} <span class="mut small">${esc(s.level)}</span></td></tr>`;}).join("")||`<tr><td colspan="3">${t("empty")}</td></tr>`}</table></div></div>
+  <p class="small mut">${S.lang==="ht"?"Idantite minimòm pou pre : non, kòd, klas. Pa gen dat nesans, kontak fanmi, nòt oswa finans. Kat la sèvi pou jwenn kont pre a, pa pou ouvri pòtal.":"Identité minimale de prêt : nom, code, classe. Ni naissance, ni contacts familiaux, ni notes, ni finances. La carte sert à retrouver le compte de prêt, pas à ouvrir le portail."}</p><div id="stuModal"></div>`;
+}
+function bStu(){ const f=$("#csvIn"); if(f) f.onchange=e=>{ const fl=e.target.files[0]; if(!fl)return; const r=new FileReader(); r.onload=()=>{ const lines=String(r.result).split("\n").slice(1).filter(Boolean); let add=0; lines.forEach((ln,i)=>{ const p=ln.split(",").map(x=>x.replace(/^"|"$/g,"")); if(p.length<3)return; const fn=p[0]||"Prénom"+i,ln2=p[1]||"Nom",cl=p[2]||"c7a"; S.students.push({id:"e"+Date.now()+i,code:"KL-2025-"+String(S.students.length+1).padStart(3,"0"),firstName:fn,lastName:ln2,sex:"M",birth:"2012-01-01",level:classById(cl)?.level||"7e AF",classId:cl,campus:"Delmas",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}); add++; }); save(); render(); toast(add+" importés"); }; r.readAsText(fl); }; }
+KL.stuQ=v=>{stuQ=v; const i=$("#stuQ"); render(); const n=$("#stuQ"); if(n){n.focus(); n.setSelectionRange(n.value.length,n.value.length);}};
+KL.stuCSV=()=>{ if(!["direction","secretariat","comptable"].includes(S.role)){toast(t("noAccess"));return;} const rows=[["prenom","nom","classe","code","niveau","statut"],...S.students.map(s=>[s.firstName,s.lastName,s.classId,s.code,s.level,s.status])]; dl("eleves.csv","\uFEFF"+toCSV(rows),"text/csv"); logExport("CSV","eleves.csv ("+S.students.length+")"); toast(t("savedOk")); };
+KL.stuModal=id=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;} const s=id?stuById(id):{firstName:"",lastName:"",sex:"F",birth:"2013-05-01",level:"7e AF",classId:"c7a",campus:"Delmas",guardians:[{name:"",link:"Manman",phone:""}]};
+  const dups=!id?S.students.filter(x=>x.firstName.toLowerCase()===String($("#stuQ")?.value||"").toLowerCase().slice(0,4)): [];
+  $("#stuModal").innerHTML=`<div class="modal"><div class="sheet"><h3>${id?t("edit"):t("newStudent")}</h3>
+  ${S.students.filter(x=>x.firstName===s.firstName&&x.lastName===s.lastName).length?`<div class="warnbox"> ${esc(t("dupWarn"))}</div>`:""}
+  <div class="grid g2"><div class="fld"><label>${t("firstName")}</label><input id="f_fn" value="${esc(s.firstName)}"></div><div class="fld"><label>${t("lastName")}</label><input id="f_ln" value="${esc(s.lastName)}"></div>
+  <div class="fld"><label>${t("sex")}</label><select id="f_sex"><option ${s.sex==="F"?"selected":""}>F</option><option ${s.sex==="M"?"selected":""}>M</option></select></div><div class="fld"><label>${t("birth")}</label><input id="f_bi" type="date" value="${esc(s.birth)}"></div>
+  <div class="fld"><label>${t("class")}</label><select id="f_cl">${S.classes.map(c=>`<option value="${c.id}" ${s.classId===c.id?"selected":""}>${esc(c.name)} — ${esc(c.level)}</option>`).join("")}</select></div><div class="fld"><label>${t("guardians")} — nom</label><input id="f_g" value="${esc(s.guardians?.[0]?.name||"")}"></div></div>
+  <div class="fld"><label>${t("phone")}</label><input id="f_ph" value="${esc(s.guardians?.[0]?.phone||"")}"></div>
+  <div class="row"><button onclick="KL.stuSave('${id||""}')">${t("save")}</button><button class="ghost" onclick="document.querySelector('#stuModal').innerHTML=''">${t("cancel")}</button></div></div></div>`; };
+KL.stuSave=id=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;} const g=v=>$(v).value.trim();
+  const fn=g("#f_fn"),ln=g("#f_ln"); if(!fn||!ln){toast("!");return;}
+  const dup=S.students.find(x=>x.firstName.toLowerCase()===fn.toLowerCase()&&x.lastName.toLowerCase()===ln.toLowerCase()&&x.id!==id);
+  const cl=classById(g("#f_cl"));
+  if(id){ const s=stuById(id); Object.assign(s,{firstName:fn,lastName:ln,sex:g("#f_sex"),birth:g("#f_bi"),classId:cl.id,level:cl.level}); s.guardians=[{name:g("#f_g"),link:"-",phone:g("#f_ph")}]; }
+  else{ S.students.push({id:"e"+Date.now(),code:"KL-2025-"+String(S.students.length+1).padStart(3,"0"),firstName:fn,lastName:ln,sex:g("#f_sex"),birth:g("#f_bi"),level:cl.level,classId:cl.id,campus:cl.campus,status:"inscrit",guardians:[{name:g("#f_g"),link:"-",phone:g("#f_ph")}],siblings:[],address:"",year:S.year}); }
+  save(); render(); toast((dup?" ":"")+t("createdOk")); };
+KL.stuFile=id=>{ if(denyLeak("fiche",id)) return; const box=$("#stuModal"); if(!box) return; const s=stuById(id); const c=classById(s.classId); const d=feeDue(s);
+  $("#stuModal").innerHTML=`<div class="modal"><div class="sheet"><div class="noprint row sp"><b>${t("studentFile")}</b><span class="row"><button onclick="window.print()">${t("print")}</button><button class="ghost" onclick="document.querySelector('#stuModal').innerHTML=''">${t("close")}</button></span></div>
+  <h3>${esc(s.firstName)} ${esc(s.lastName)} <span class="mut small">${esc(s.code)}</span></h3>
+  <div class="small">Classe: <b>${esc(c?.name)}</b> • ${esc(s.level)} • ${esc(s.campus)}<br>Né(e): ${esc(s.birth)} • ${esc(s.address)}<br>Responsable: ${esc(s.guardians[0]?.name||"—")} ${esc(s.guardians[0]?.phone||"")}<br>Solde frais: <b>${money(d.rest)}</b> (payé ${money(d.paid)} / ${money(d.due)})</div>
+  <p class="small mut">Bileng FR/HT • Document généré par la maquette — sans valeur officielle MENFP.</p></div></div>`; };
+
+/* ---------- CLASSES ---------- */
+function vClasses(){
+  const list=S.role==="enseignant"?S.classes.filter(c=>teacherClasses().includes(c.id)):S.classes;
+  return `<h2 style="margin:0">${t("classes")}</h2><div class="grid g2" style="margin-top:10px">
+  ${list.map(c=>{const n=S.students.filter(s=>s.classId===c.id).length;const te=S.staff.find(x=>x.id===c.teacherId);
+  return `<div class="card"><h3>${esc(c.name)} <span class="mut small">${esc(c.level)} • ${esc(c.campus)} • ${esc(c.room)}</span></h3><div class="small mut">Enseignant: ${esc(te?.name||"—")} • ${n} élèves</div>
+  <div class="toolbar"><button class="soft" onclick="KL.attGo('${c.id}')">${t("rollCall")}</button><button class="ghost" onclick="KL.clList('${c.id}')">${t("classLists")} / ${t("print")}</button></div></div>`;}).join("")}</div>
+  <div class="card" style="margin-top:12px"><h3>${t("yearConfig")}</h3><div class="small">Année: <b>${esc(S.year)}</b> • Périodes: ${S.periods.join(", ")} • Niveaux: ${S.levels.join(", ")} • Barème: /${S.scale.max}, passage ${S.scale.pass}, arrondi ${S.scale.round}</div></div>`;
+}
+KL.clList=id=>{ if(S.role==="enseignant"&&!teacherClasses().includes(id)){toast(t("noAccess"));return;} const c=classById(id); const rows=S.students.filter(s=>s.classId===id);
+  dl(`liste-${c.name}.csv`,"\uFEFF"+toCSV([["code","prenom","nom","sexe"],...rows.map(s=>[s.code,s.firstName,s.lastName,s.sex])]),"text/csv"); logExport("CSV","liste "+c.name); toast(t("savedOk")); };
+
+/* ---------- PRESENCES ---------- */
+let attC="c7a", attD=today();
+function vAtt(){
+  let list=S.classes; if(S.role==="enseignant") list=S.classes.filter(c=>teacherClasses().includes(c.id));
+  if(S.role==="parent"||S.role==="eleve"){ const kids=kidStudents();
+    return `<h2 style="margin:0">${t("attendance")}</h2><p class="small mut">${esc(t("onlyLinked"))}</p>${kids.map(k=>{const c=classById(k.classId);const recs=Object.entries(S.attendance).filter(([k2,a])=>a.classId===k.classId&&a.records?.[k.id]).slice(-6);return `<div class="card"><h3>${esc(k.firstName)} ${esc(k.lastName)} — ${esc(c?.name)}</h3>${recs.map(([k2,a])=>`<div class="small">${k2.split("|")[1]} : <b>${a.records[k.id]}</b> <span class="mut">(${esc(a.sync)})</span></div>`).join("")||`<span class="mut small">${t("empty")}</span>`}</div>`;}).join("")}`; }
+  const key=attC+"|"+attD; const sheet=S.attendance[key];
+  const cls=classById(attC); const pupils=S.students.filter(s=>s.classId===attC);
+  const states=["P","A","R","E"]; const lbl={P:t("present"),A:t("absent"),R:t("late"),E:t("excused")};
+  return `<div class="row sp"><h2 style="margin:0">${t("attendance")}</h2><span class="badge ${S.online?"b-synced":"b-pending"}">${S.online?t("online"):t("offline")} • ${sheet?sheet.sync:t("local")}</span></div>
+  ${S.online?"":`<div class="badbox small"> ${esc(t("offlineNote"))}</div>`}
+  ${sheet?.sync==="conflict"?`<div class="warnbox small"> ${esc(t("conflictNote"))}<br>Locale: ${JSON.stringify(sheet.records)}<br>Précédente: ${JSON.stringify(sheet.prev||{})} <button class="soft" onclick="KL.attResolve('${key}')">${t("approve")}</button></div>`:""}
+  <div class="toolbar"><select onchange="KL.attC(this.value)">${list.map(c=>`<option value="${c.id}" ${c.id===attC?"selected":""}>${esc(c.name)} — ${esc(c.level)}</option>`).join("")}</select><input type="date" value="${attD}" onchange="KL.attD(this.value)"><button class="ghost" onclick="KL.attAll()">${t("markAllPresent")}</button><button onclick="KL.attSave()">${t("save")} ${S.online?"":"()"}</button></div>
+  <div class="card"><div style="overflow:auto"><table>${pupils.map(s=>{const v=sheet?.records?.[s.id]||"P";return `<tr><td><b>${esc(s.firstName)} ${esc(s.lastName)}</b><br><span class="mut small">${esc(s.code)}</span></td><td class="row">${states.map(st=>`<button class="attbtn ${v===st?(st==="P"?"on-P":st==="A"?"on-A":st==="R"?"on-R":"on-E"):""}" onclick="KL.attMark('${s.id}','${st}')">${st} <span class="small">${lbl[st]}</span></button>`).join("")}</td></tr>`;}).join("")}</table></div></div>
+  <div class="card" style="margin-top:12px"><h3>${t("history")}</h3>${S.attLog.slice(0,8).map(l=>`<div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(l.date)} — ${esc(l.by)} : ${esc(l.classId)} ${esc(l.day)} → ${esc(l.info)} <span class="badge ${l.sync==="synced"?"b-synced":"b-pending"}">${esc(l.sync)}</span></div>`).join("")||`<span class="mut small">${t("empty")}</span>`}</div>`;
+}
+function bAtt(){}
+KL.attGo=id=>{ if(S.role==="enseignant"&&!teacherClasses().includes(id)){toast(t("noAccess"));return;} attC=id;ROUTE="attendance";render();};
+KL.attC=v=>{ if(S.role==="enseignant"&&!teacherClasses().includes(v)){toast(t("noAccess"));return;} attC=v;render();}; KL.attD=v=>{attD=v;render();};
+KL.attMark=(sid,st)=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const key=attC+"|"+attD; S.attendance[key]=S.attendance[key]||{classId:attC,day:attD,records:{},sync:"local"}; S.attendance[key].records[sid]=st; save(); render(); };
+KL.attAll=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const key=attC+"|"+attD; const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); S.attendance[key]={classId:attC,day:attD,records:rec,sync:S.online?"synced":"local"}; save(); render(); };
+KL.attSave=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const key=attC+"|"+attD; let sh=S.attendance[key];
+  if(!sh){ const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); sh={classId:attC,day:attD,records:rec}; }
+  if(!S.online){ if(sh.sync==="pending"){ sh.prev=Object.assign({},sh.records); sh.sync="conflict"; } else sh.sync="pending";
+    S.attendance[key]=sh; S.queue.push({kind:"attendance",key,at:Date.now()});
+  } else { sh.sync="synced"; S.attendance[key]=sh; }
+  S.attLog.unshift({date:new Date().toLocaleString(),by:S.role,classId:attC,day:attD,info:Object.values(sh.records).filter(x=>x!=="P").length+" non-présents",sync:sh.sync});
+  save(); render(); toast(t("attDone")+(S.online?"":" — "+t("pending"))); };
+KL.attResolve=key=>{ if(!["direction","secretariat","enseignant"].includes(S.role)){toast(t("noAccess"));return;} S.attendance[key].sync="synced"; S.attendance[key].prev=null; S.attLog.unshift({date:new Date().toLocaleString(),by:S.role,classId:attC,day:attD,info:"conflit résolu",sync:"synced"}); save(); render(); toast(t("savedOk")); };
+
+/* ---------- ACADEMIQUE ---------- */
+let acEv="ev1";
+function vAcad(){
+  if(S.role==="parent"||S.role==="eleve"){ const kids=kidStudents();
+    return `<h2 style="margin:0">${t("reportCard")}</h2>${kids.map(k=>`<div class="card" style="margin-top:10px"><h3>${esc(k.firstName)} ${esc(k.lastName)}</h3>${S.evals.filter(e=>e.status==="published"&&e.classId===k.classId).map(e=>`<div class="small">${esc(e.subject)} — ${esc(e.title)} : <b>${S.grades[e.id]?.[k.id]??"—"}/${e.max}</b></div>`).join("")||`<span class="mut small">${t("draft")} — ${t("noAccess")}</span>`}<div class="toolbar"><button class="ghost" onclick="KL.bulletin('${k.id}')">${t("reportCard")} / ${t("print")}</button></div></div>`).join("")}`; }
+  const scopeEvs = S.role==="enseignant" ? S.evals.filter(e=>teacherClasses().includes(e.classId)) : S.evals;
+  if(!scopeEvs.find(e=>e.id===acEv)) acEv = scopeEvs[0]?scopeEvs[0].id:acEv;
+  const ev=S.evals.find(e=>e.id===acEv)||scopeEvs[0];
+  if(!ev) return `<div class="badbox">${esc(t("empty"))}</div>`;
+  const pupils=S.students.filter(s=>s.classId===ev.classId);
+  const isDir = S.role==="direction";
+  const stBadge = ev.status==="published"?`<span class="badge b-published">${t("published")}</span>`:ev.status==="submitted"?`<span class="badge b-pending">✓ ${S.lang==="ht"?"Soumèt":"Soumis"} — ${S.lang==="ht"?"ap tann direksyon":"en vérification"}</span>`:`<span class="badge b-draft">${t("draft")}</span>`;
+  const editable = ev.status==="draft"&&(S.role==="enseignant"||isDir);
+  const hist = (S.gradeHist||[]).filter(h=>h.ev===ev.id);
+  return `<div class="row sp"><h2 style="margin:0">${t("academic")}</h2><span class="row"><select onchange="KL.acEv(this.value)">${scopeEvs.map(e=>`<option value="${e.id}" ${e.id===acEv?"selected":""}>${esc(e.title)} — ${esc(e.subject)} (${e.status})</option>`).join("")}</select><button class="ghost" onclick="KL.evModal()">${t("newEval")}</button></span></div>
+  <div class="card"><div class="row sp"><span><b>${esc(ev.title)}</b> <span class="mut small">${esc(ev.subject)} • /${ev.max} • ${esc(ev.date)} • </span>${stBadge}</span>
+  <span class="row">${ev.status==="draft"?`${(S.role==="enseignant"||isDir)?`<button class="soft" onclick="KL.evSubmit('${ev.id}')">${S.lang==="ht"?"Soumèt bay direksyon":"Soumettre à la direction"}</button>`:""}${isDir?`<button onclick="KL.evPub('${ev.id}')">${t("publish")}</button>`:""}`:ev.status==="submitted"?`${isDir?`<button onclick="KL.evPub('${ev.id}')">${t("publish")}</button><button class="ghost" onclick="KL.evReturn('${ev.id}')">${S.lang==="ht"?"Retounen bouyon":"Renvoyer en brouillon"}</button>`:`<span class="mut small">${S.lang==="ht"?"Ap tann direksyon":"En attente de la direction"}</span>`}`:`<span class="badge b-lock"> ${t("lock")}</span>`}<button class="ghost" onclick="KL.bulletinClass('${ev.classId}')">Aperçu relevés</button></span></div>
+  <div style="overflow:auto;margin-top:8px"><table><tr><th>Élève</th><th>${t("score")} / ${ev.max}</th><th>Appréciation</th>${isDir&&ev.status==="published"?`<th></th>`:""}</tr>
+  ${pupils.map(s=>{const g=S.grades[ev.id]?.[s.id]??"";const dis=editable?"":"disabled";return `<tr><td>${esc(s.firstName)} ${esc(s.lastName)}</td><td><input type="number" min="0" max="${ev.max}" value="${g}" ${dis} style="width:90px" onchange="KL.grade('${ev.id}','${s.id}',this.value)"></td><td class="small mut">${g===""?"—":g>=ev.max/2?"Bien":"À encourager"}</td>${isDir&&ev.status==="published"?`<td><button class="ghost" onclick="KL.corrModal('${ev.id}','${s.id}')">${S.lang==="ht"?"Korije":"Corriger"}</button></td>`:""}</tr>`;}).join("")}</table></div>
+  <p class="small mut">Préparé par le professeur, vérifié puis publié par la direction. Après publication, seule la direction corrige (motif + historique). Arrondi ${esc(S.scale.round)}.</p>
+  ${isDir&&hist.length?`<details class="small"><summary>Historique des corrections (${hist.length})</summary>${hist.map(h=>{const s=stuById(h.sid);return `<div>• ${esc(h.at)} — ${esc(s?s.firstName+" "+s.lastName:h.sid)} : ${esc(h.prev)} → <b>${esc(h.next)}</b> — ${esc(h.motif)} (${esc(h.by)})</div>`;}).join("")}</details>`:""}</div>`;
+}
+function bAcad(){}
+function leakOk(kind,sid){
+  if(S.role==="parent") return S.currentUser.parentKids.includes(sid);
+  if(S.role==="eleve") return S.currentUser.studentId===sid;
+  if(S.role==="enseignant"){ const s=stuById(sid); return !!(s&&teacherClasses().includes(s.classId)); }
+  if(S.role==="bibliothecaire") return false;
+  if(S.role==="comptable") return kind==="recu";
+  return true;
+}
+function denyLeak(kind,sid){ if(!leakOk(kind,sid)){ toast(t("noAccess")); return true; } return false; }
+function anTargets(){ if(S.role==="enseignant") return teacherClasses().map(id=>`<option>${esc(classById(id)?.name||id)}</option>`).join(""); return `<option>Toute l'école</option><option>Campus Delmas</option><option>Campus Pétion-Ville</option><option>7e A</option><option>8e A</option>`; }
+function canPublish(){ return ["direction","secretariat","enseignant"].includes(S.role); }
+KL.acEv=v=>{ if(S.role==="enseignant"){ const e=S.evals.find(x=>x.id===v); if(!e||!teacherClasses().includes(e.classId)){ toast(t("noAccess")); return; } } acEv=v;render();};
+KL.grade=(ev,sid,v)=>{ const e=S.evals.find(x=>x.id===ev); if(!e) return;
+  if(e.status!=="draft"){ toast(S.lang==="ht"?"Nòt kadnase — mande direksyon":"Note verrouillée — voir la direction pour correction"); return; }
+  if(S.role==="enseignant"&&!teacherClasses().includes(e.classId)){ toast(t("noAccess")); return; }
+  if(!(S.role==="enseignant"||S.role==="direction")){ toast(t("noAccess")); return; }
+  v=Math.max(0,Math.min(e.max||100,+v||0)); S.grades[ev]=S.grades[ev]||{}; S.grades[ev][sid]=v; if(!S.online) S.queue.push({kind:"grade",key:ev+sid,at:Date.now()}); save(); toast(t("savedOk")); };
+KL.evSubmit=id=>{ const e=S.evals.find(x=>x.id===id); if(!e||e.status!=="draft") return;
+  if(S.role==="enseignant"&&!teacherClasses().includes(e.classId)){ toast(t("noAccess")); return; }
+  if(!(S.role==="enseignant"||S.role==="direction")){ toast(t("noAccess")); return; }
+  e.status="submitted"; save(); render(); toast(t("savedOk")); };
+KL.evReturn=id=>{ if(S.role!=="direction"){ toast(t("noAccess")); return; } const e=S.evals.find(x=>x.id===id); if(e&&e.status==="submitted"){ e.status="draft"; save(); render(); } };
+KL.evPub=id=>{ if(S.role!=="direction"){ toast(t("noAccess")); return; } const e=S.evals.find(x=>x.id===id); if(!e) return; e.status="published"; save(); render(); toast(t("publishOk")); };
+KL.corrModal=(ev,sid)=>{ if(S.role!=="direction") return; const cur=(S.grades[ev]||{})[sid]??""; const s=stuById(sid);
+  openPrint((S.lang==="ht"?"Korije nòt":"Corriger la note")+` — ${esc(s.firstName)} ${esc(s.lastName)}`,`<div class="fld"><label>Valeur actuelle : <b>${esc(cur)}</b></label><input id="cg_v" type="number" min="0" max="100" value="${esc(cur)}"></div><div class="fld"><label>${t("motif")} (obligatoire)</label><input id="cg_m" placeholder="Erreur de saisie…"></div><div class="row noprint"><button onclick="KL.corrSave('${ev}','${sid}')">${t("save")}</button></div><p class="small mut">Après publication, seule la direction corrige — motif et historique conservés.</p>`); };
+KL.corrSave=(ev,sid)=>{ if(S.role!=="direction") return; const motif=(document.querySelector("#cg_m").value||"").trim(); if(!motif){ toast("!"); return; }
+  const ee=S.evals.find(x=>x.id===ev); const nv=Math.max(0,Math.min(ee?(ee.max||100):100,+document.querySelector("#cg_v").value||0)); S.gradeHist=S.gradeHist||[];
+  S.gradeHist.unshift({ev,sid,prev:(S.grades[ev]||{})[sid]??"",next:nv,motif,by:S.role,at:new Date().toLocaleString()});
+  S.grades[ev]=S.grades[ev]||{}; S.grades[ev][sid]=nv; save(); document.querySelectorAll(".modal").forEach(m=>m.remove()); render(); toast(t("savedOk")); };
+KL.evModal=()=>{ if(!(S.role==="direction"||S.role==="enseignant")){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherClasses().includes(attC)){toast(t("noAccess"));return;} const id="ev"+Date.now(); S.evals.push({id,classId:attC,subject:"Français / Kreyòl",title:"Contrôle "+(S.evals.length+1),max:100,date:today(),status:"draft"}); S.grades[id]={}; acEv=id; save(); render(); };
+KL.bulletin=sid=>{ if(denyLeak("bulletin",sid)) return; const s=stuById(sid); const evs=S.evals.filter(e=>e.classId===s.classId&&e.status==="published");
+  const rows=evs.map(e=>`<tr><td>${esc(e.subject)}</td><td>${esc(e.title)}</td><td><b>${S.grades[e.id]?.[sid]??"—"}/${e.max}</b></td></tr>`).join("");
+  const avg=evs.length?(evs.reduce((a,e)=>a+(+S.grades[e.id]?.[sid]||0),0)/evs.length).toFixed(1):"—";
+  openPrint(`${t("reportCard")} — ${esc(s.firstName)} ${esc(s.lastName)}`,`<p>Classe ${esc(classById(s.classId)?.name)} • Année ${esc(S.year)} • ${esc(s.code)}</p><table><tr><th>${t("subject")}</th><th>${t("eval")}</th><th>${t("score")}</th></tr>${rows}</table><p><b>${t("average")}: ${avg}</b></p><p class="small">Bilten / Relevé bilingue — document de maquette, sans valeur officielle.</p>`); };
+KL.bulletinClass=cid=>{ if(S.role==="enseignant"&&!teacherClasses().includes(cid)){toast(t("noAccess"));return;} if(["parent","eleve","comptable","bibliothecaire","secretariat"].includes(S.role)){toast(t("noAccess"));return;} const rows=S.students.filter(s=>s.classId===cid); const evs=S.evals.filter(e=>e.classId===cid&&e.status==="published");
+  openPrint("Aperçu relevés — "+classById(cid)?.name,`<table><tr><th>Élève</th>${evs.map(e=>`<th>${esc(e.title)}</th>`).join("")}<th>${t("average")}</th></tr>${rows.map(s=>{const gs=evs.map(e=>+S.grades[e.id]?.[s.id]||0);const a=evs.length?(gs.reduce((x,y)=>x+y,0)/evs.length).toFixed(1):"—";return `<tr><td>${esc(s.firstName)} ${esc(s.lastName)}</td>${gs.map(g=>`<td>${g}</td>`).join("")}<td><b>${a}</b></td></tr>`;}).join("")}</table>`); };
+
+/* ---------- COMMS ---------- */
+function vComms(){
+  const canPub=["direction","secretariat","enseignant"].includes(S.role);
+  return `<div class="row sp"><h2 style="margin:0">${t("comms")}</h2>${canPub?`<button onclick="KL.anModal()">${t("newAnnounce")}</button>`:""}</div>
+  <div class="grid g2" style="margin-top:10px"><div>${S.announces.map(a=>`<div class="card" style="margin-bottom:10px"><h3>${esc(a.title)}</h3><div class="small mut">${esc(a.target)} • ${esc(a.channel)} • ${esc(a.date)} • <span class="badge b-sent">✓ ${a.ok} / ✕ ${a.fail}</span></div><p>${esc(a.text)}</p></div>`).join("")}</div>
+  <div><div class="card"><h3>${t("meetings")}</h3>${S.meetings.map(m=>`<div class="small" style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${esc(m.title)}</b><br>${esc(m.date)} • ${esc(m.place)} • ${m.confirmed}/${m.invited} </div>`).join("")}
+  ${canPub?`<div class="toolbar"><button class="ghost" onclick="KL.mtAdd()">${t("add")}</button></div>`:""}</div>
+  <div class="card" style="margin-top:10px"><h3>${t("requests")}</h3><p class="small mut">${S.role==="parent"?t("updateContact"):t("history")}</p><button class="ghost" onclick="KL.req()">${S.role==="parent"?t("updateContact"):t("view")}</button></div></div></div>
+  <p class="small mut">${esc(t("readAck"))}</p><div id="anModal"></div>`;
+}
+function bComms(){}
+KL.anModal=()=>{ if(!canPublish()){toast(t("noAccess"));return;} $("#anModal").innerHTML=`<div class="modal"><div class="sheet"><h3>${t("newAnnounce")}</h3><div class="fld"><label>${t("title")}</label><input id="a_t"></div><div class="grid g2"><div class="fld"><label>${t("target")}</label><select id="a_c">${anTargets()}</select></div><div class="fld"><label>${t("channel")}</label><select id="a_ch"><option>Papier + WhatsApp</option><option>SMS + Papier</option><option>Courriel</option><option>Papier</option></select></div></div><div class="fld"><label>Message (FR/HT)</label><textarea id="a_x" rows="3"></textarea></div><div class="row"><button onclick="KL.anSave()">${t("publishNow")}</button><button class="ghost" onclick="document.querySelector('#anModal').innerHTML=''">${t("cancel")}</button></div></div></div>`; };
+KL.anSave=()=>{ if(!canPublish()){toast(t("noAccess"));return;} const v=id=>$("#"+id).value; if(!v("a_t"))return; S.announces.unshift({id:"a"+Date.now(),title:v("a_t"),target:v("a_c"),channel:v("a_ch"),date:today(),text:v("a_x")||"—",status:"sent",ok:Math.floor(150+Math.random()*150),fail:Math.floor(Math.random()*9)}); if(!S.online)S.queue.push({kind:"announce",key:"a"+Date.now(),at:Date.now()}); save(); render(); toast(t("savedOk")); };
+KL.mtAdd=()=>{ if(!canPublish()){toast(t("noAccess"));return;} S.meetings.push({id:"m"+Date.now(),title:"Réunion parents — "+today(),date:today()+" 10:00",place:"Salle polyvalente",invited:30,confirmed:0}); save(); render(); };
+KL.req=()=>toast(t("requestSent"));
+
+/* ---------- FINANCES ---------- */
+function vFin(){
+  if(S.role==="parent"){ const kids=kidStudents();
+    return `<h2 style="margin:0">${t("finance")}</h2>${kids.map(k=>{const d=feeDue(k);const ps=S.payments.filter(p=>p.studentId===k.id);return `<div class="card" style="margin-top:10px"><h3>${esc(k.firstName)} ${esc(k.lastName)} — ${t("balance")}: <b>${money(d.rest)}</b></h3><div class="small mut">${t("paid")}: ${money(d.paid)} / ${money(d.due)}</div>${ps.map(p=>`<div class="small"> ${esc(p.date)} — ${money(p.amount)} (${esc(p.method)}, ${esc(p.ref)}) <button class="ghost" onclick="KL.receipt('${p.id}')">PDF</button></div>`).join("")}</div>`;}).join("")}<p class="small mut"> ${esc(t("noCard"))}</p>`; }
+  if(!["direction","comptable"].includes(S.role)) return `<div class="badbox">${esc(t("noAccess"))}</div>`;
+  const unp=S.students.map(s=>({s,d:feeDue(s)})).filter(x=>x.d.rest>0).slice(0,20);
+  return `<div class="row sp"><h2 style="margin:0">${t("finance")}</h2><button onclick="KL.payModal()">${t("newPayment")}</button></div>
+  <p class="small mut"> ${esc(t("noCard"))}</p>
+  <div class="grid g2"><div class="card"><h3>${t("feeConfig")}</h3>${Object.entries(S.fees).map(([k,f])=>`<div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(k)} : <b>${money(f.tuition)}</b> <span class="mut">(${f.tranches.map(money).join(" + ")})</span></div>`).join("")}</div>
+  <div class="card"><h3>${t("unpaid")} (${S.students.filter(s=>feeDue(s).rest>0).length})</h3>${unp.map(x=>`<div class="small row sp" style="padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(x.s.firstName)} ${esc(x.s.lastName)} <span class="mut">${esc(x.s.code)}</span></span><b>${money(x.d.rest)}</b></div>`).join("")}</div></div>
+  <div class="card" style="margin-top:12px"><h3>${t("payments")} (${S.payments.length})</h3><div style="overflow:auto"><table><tr><th>${t("receipt")}</th><th>Élève</th><th>${t("amount")}</th><th>${t("method")}</th><th>${t("dueDate")}</th><th></th></tr>
+  ${S.payments.slice().reverse().slice(0,15).map(p=>{const s=stuById(p.studentId);return `<tr><td class="small">${esc(p.ref)}</td><td>${esc(s?.firstName||"")} ${esc(s?.lastName||"")}</td><td><b>${money(p.amount)}</b></td><td class="small">${esc(p.method)}</td><td class="small">${esc(p.date)}</td><td><button class="ghost" onclick="KL.receipt('${p.id}')">${t("receipt")}</button></td></tr>`;}).join("")}</table></div></div><div id="payModal"></div>`;
+}
+function bFin(){}
+KL.payModal=()=>{ if(!["direction","comptable"].includes(S.role)){toast(t("noAccess"));return;} $("#payModal").innerHTML=`<div class="modal"><div class="sheet"><h3>${t("newPayment")}</h3><div class="fld"><label>Élève</label><select id="p_s">${S.students.slice(0,40).map(s=>`<option value="${s.id}">${esc(s.firstName)} ${esc(s.lastName)} — ${esc(s.code)} (reste ${money(feeDue(s).rest)})</option>`).join("")}</select></div><div class="grid g2"><div class="fld"><label>${t("amount")} (G)</label><input id="p_a" type="number" value="8000"></div><div class="fld"><label>${t("method")}</label><select id="p_m"><option>Espèces</option><option>Chèque</option><option>Virement</option></select></div></div><div class="fld"><label>${t("reference")}</label><input id="p_r" value="REC-${String(S.paySeq).padStart(4,"0")}"></div><div class="row"><button onclick="KL.paySave()">${t("save")}</button><button class="ghost" onclick="document.querySelector('#payModal').innerHTML=''">${t("cancel")}</button></div></div></div>`; };
+KL.paySave=()=>{ if(!["direction","comptable"].includes(S.role)){toast(t("noAccess"));return;} const sid=$("#p_s").value,am=+$("#p_a").value||0,m=$("#p_m").value,r=$("#p_r").value||("REC-"+S.paySeq);
+  const id="p"+Date.now(); S.payments.push({id,studentId:sid,amount:am,method:m,ref:r,date:today(),by:S.role}); S.paySeq++; if(!S.online)S.queue.push({kind:"payment",key:id,at:Date.now()}); save(); document.querySelector("#payModal").innerHTML=""; render(); toast(t("payOk")); KL.receipt(id); };
+KL.receipt=id=>{ const p=S.payments.find(x=>x.id===id); if(!p) return; if(denyLeak("recu",p.studentId)) return; const s=stuById(p.studentId); const d=feeDue(s);
+  openPrint(`${t("receipt")} ${esc(p.ref)}`,`<div class="receipt"><h3>${esc(S.school.name)} — ${t("receipt")} ${esc(p.ref)}</h3><p>Élève: <b>${esc(s.firstName)} ${esc(s.lastName)}</b> (${esc(s.code)})<br>Montant: <b>${money(p.amount)}</b> • ${esc(p.method)} • ${esc(p.date)}<br>Payé total: ${money(d.paid)} • Reste: <b>${money(d.rest)}</b><br><span class="small mut">Reçu généré localement — paiement manuel vérifié par ${esc(p.by)}. Aucune donnée bancaire conservée.</span></p></div>`); };
+
+/* ---------- BIBLIO ---------- */
+function vLib(){
+  const loanScope = (S.role==="parent"||S.role==="eleve") ? kidStudents().map(s=>s.id) : null;
+  const loans = loanScope ? S.loans.filter(l=>loanScope.includes(l.studentId)) : S.loans;
+  return `<div class="row sp"><h2 style="margin:0">${t("library")}</h2>${["direction","bibliothecaire"].includes(S.role)?`<button onclick="KL.bkModal()">${t("newBook")}</button>`:""}</div>
+  <div class="grid g2" style="margin-top:10px"><div class="card"><h3>${t("catalog")} (${S.books.length})</h3>
+  ${S.books.map(b=>`<div class="row sp" style="padding:7px 0;border-bottom:1px solid var(--line)"><span><b>${esc(b.title)}</b><br><span class="mut small">${esc(b.author)} • ${esc(b.ref)} • </span><span class="badge ${b.available>0?"b-available":"b-borrowed"}">${b.available}/${b.copies} ${t("available")}</span></span><span class="row">${["direction","bibliothecaire"].includes(S.role)?`<button class="soft" onclick="KL.loan('${b.id}')" ${b.available<=0?"disabled":""}>${t("borrow")}</button>`:`<button class="ghost" onclick="KL.reserve('${b.id}')">${t("reserve")}</button>`}</span></div>`).join("")}</div>
+  <div class="card"><h3>${t("loans")} (${loans.filter(l=>!l.back).length})</h3>${loans.slice().reverse().slice(0,12).map(l=>{const b=S.books.find(x=>x.id===l.bookId);const s=stuById(l.studentId);const late=!l.back&&l.due<today();return `<div class="small" style="padding:6px 0;border-bottom:1px solid var(--line)"> <b>${esc(b?.title)}</b> → ${esc(s?.firstName)} ${esc(s?.lastName)} <span class="mut">(${esc(l.out)} → ${esc(l.due)})</span> ${late?`<span class="badge b-conflict">${t("delays")}</span>`:l.back?`<span class="badge b-synced">✓ ${esc(l.back)}</span>`:`<span class="badge b-borrowed">${t("borrowed")}</span>`} ${!l.back&&!l.lost&&["direction","bibliothecaire"].includes(S.role)?`<button class="ghost" onclick="KL.back('${l.id}')">${t("returnBtn")}</button>${!l.back?` <button class="ghost" onclick="KL.remind('${l.id}')">${S.lang==="ht"?"Make rapèl":"Marquer un rappel"}</button> <button class="ghost" onclick="KL.loanExt('${l.id}')">+7 j</button> <button class="ghost" onclick="KL.loanLost('${l.id}')">Perdu</button>`:""}${remHtml(l)}`:`${l.lost?` <span class="badge b-conflict">perdu</span>`:""}${remHtml(l)}`}</div>`;}).join("")||`<span class="mut small">${t("empty")}</span>`}</div></div>
+  <div id="bkModal"></div>`;
+}
+function bLib(){}
+function remHtml(l){ const r=l.reminded; if(!r) return ""; if(typeof r==="string") return ` <span class="badge b-pending"> ${esc(r)}</span>`;
+  const b=r.st==="remis"?"b-synced":r.st==="echec"?"b-conflict":"b-pending"; return ` <span class="badge ${b}"> ${esc(r.date)} • ${esc(r.canal)} • ${esc(r.st)}</span>`; }
+KL.bkModal=()=>{ $("#bkModal").innerHTML=`<div class="modal"><div class="sheet"><h3>${t("newBook")}</h3><div class="fld"><label>${t("bookTitle")}</label><input id="b_t"></div><div class="fld"><label>${t("author")}</label><input id="b_a"></div><div class="fld"><label>${t("copies")}</label><input id="b_c" type="number" value="3"></div><div class="row"><button onclick="KL.bkSave()">${t("save")}</button><button class="ghost" onclick="document.querySelector('#bkModal').innerHTML=''">${t("cancel")}</button></div></div></div>`; };
+KL.bkSave=()=>{ if(!["direction","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const n=($("#b_t").value||"Livre").trim(); S.books.push({id:"bk"+Date.now(),title:n,author:$("#b_a").value||"—",copies:+$("#b_c").value||1,available:+$("#b_c").value||1,ref:"LOC-"+S.books.length}); save(); render(); toast(t("savedOk")); };
+KL.loanFor=(bid,sid)=>{ if(!["direction","bibliothecaire"].includes(S.role)){ toast(t("noAccess")); return false; }
+  const b=S.books.find(x=>x.id===bid); if(!b||b.available<=0) return false;
+  const lim = S.bibLimit||1;
+  if(S.loans.filter(l=>l.studentId===sid&&!l.back).length>=lim){ toast((S.lang==="ht"?"Limit : ":"Limite : ")+lim+(S.lang==="ht"?" liv (reglabl)":" livre(s) — réglable par l'école")); return false; }
+  b.available--; const dd=new Date(); dd.setDate(dd.getDate()+(S.loanDays||14)); S.loans.push({id:"l"+Date.now(),bookId:bid,studentId:sid,out:today(),due:dd.toISOString().slice(0,10),back:null,reminded:null}); if(!S.online)S.queue.push({kind:"loan",key:bid+Date.now(),at:Date.now()}); save(); render(); toast(t("loanOk")); return true; };
+KL.loan=bid=>{ const who = S.role==="parent" ? S.currentUser.parentKids[0] : S.role==="eleve" ? S.currentUser.studentId : S.students[0].id; return KL.loanFor(bid, who); };
+KL.back=lid=>{ if(!["direction","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const l=S.loans.find(x=>x.id===lid); l.back=today(); const b=S.books.find(x=>x.id===l.bookId); b.available=Math.min(b.copies,b.available+1); save(); render(); toast(t("returnOk")); };
+KL.remind=lid=>{ if(!["direction","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const l=S.loans.find(x=>x.id===lid); if(!l||l.back) return; l.reminded=today(); save(); render(); toast(t("savedOk")); };
+KL.reserve=bid=>toast(t("requestSent"));
+
+/* ---------- RAPPORTS ---------- */
+function vRep(){
+  const finOk=["direction","comptable"].includes(S.role);
+  const byClass=S.classes.map(c=>{const st=S.students.filter(s=>s.classId===c.id);const keys=Object.entries(S.attendance).filter(([k,a])=>a.classId===c.id);const all=keys.flatMap(([k,a])=>Object.values(a.records));const r=all.length?Math.round(all.filter(x=>x==="P").length/all.length*100):100;return {c,n:st.length,r};});
+  const coll=S.payments.reduce((a,p)=>a+ +p.amount,0);
+  return `<h2 style="margin:0">${t("reports")}</h2><div class="grid g2" style="margin-top:10px">
+  <div class="card"><h3>${t("enrol")} / ${t("absByClass")}</h3>${byClass.map(x=>`<div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(x.c.name)} : <b>${x.n}</b> élèves • ${x.r}% ${t("present")}</div>`).join("")}</div>
+  ${finOk?`<div class="card"><h3>${t("feeStatus")}</h3><div class="small">${t("feesCollected")}: <b>${money(coll)}</b><br>${t("unpaid")}: <b>${S.students.filter(s=>feeDue(s).rest>0).length}</b> élèves</div><div class="toolbar"><button class="ghost" onclick="KL.csvPay()">${t("export")} CSV</button></div></div>`:`<div class="card"><h3>${t("feeStatus")}</h3><p class="small mut"> ${S.lang==="ht"?"Rezève pou direksyon ak kontabilite.":"Réservé à la direction et à la comptabilité."}</p></div>`}
+  <div class="card"><h3>${t("avgByClass")}</h3>${S.classes.map(c=>{const pe=S.evals.filter(e=>e.classId===c.id&&e.status==="published");const vs=pe.flatMap(e=>Object.values(S.grades[e.id]||{}));const m=vs.length?(vs.reduce((a,b)=>a+(+b||0),0)/vs.length).toFixed(1):"—";return `<div class="small">${esc(c.name)} : <b>${m}</b>${vs.length?"":" <span class='mut'>("+(S.lang==="ht"?"okenn nòt pibliye":"aucune note publiée")+")</span>"}</div>`;}).join("")}</div>
+  <div class="card"><h3>${t("exportLog")}</h3>${S.exportLog.slice(0,8).map(e=>`<div class="small">${esc(e.date)} — ${esc(e.by)} — ${esc(e.kind)} : ${esc(e.detail)}</div>`).join("")||`<span class="mut small">${t("empty")}</span>`}<div class="toolbar"><button class="ghost" onclick="KL.csvStu()">${t("students")} CSV</button><button class="ghost" onclick="KL.allJSON()">${t("exportAll")}</button></div></div></div>
+  <p class="small mut">${esc(t("menfpNote"))}</p>`;
+}
+KL.csvPay=()=>{ if(!["direction","comptable"].includes(S.role)){toast(t("noAccess"));return;} dl("paiements.csv","\uFEFF"+toCSV([["recu","eleve","montant","mode","date"],...S.payments.map(p=>{const s=stuById(p.studentId);return [p.ref,(s?.firstName||"")+" "+(s?.lastName||""),p.amount,p.method,p.date];})]),"text/csv"); logExport("CSV","paiements"); };
+KL.csvStu=()=>KL.stuCSV();
+KL.allJSON=()=>{ dl("klirline-export.json",JSON.stringify(S,null,2),"application/json"); logExport("JSON","export complet"); toast(t("savedOk")); };
+
+/* ---------- PARAMETRES ---------- */
+function vSet(){
+  const mat=[["direction","Tout établissement"],["secretariat","Dossiers nécessaires"],["enseignant","Classes attribuées"],["comptable","Finances uniquement"],["bibliothecaire","Bibliothèque"],["parent","Enfants reliés"],["eleve","Ses infos"]];
+  return `<h2 style="margin:0">${t("settings")}</h2><div class="grid g2" style="margin-top:10px">
+  <div class="card"><h3>${t("yearConfig")}</h3><div class="fld"><label>${t("schoolYear")}</label><select onchange="KL.setYear(this.value)">${S.years.map(y=>`<option ${y===S.year?"selected":""}>${y}</option>`).join("")}</select></div><div class="small mut">Périodes: ${S.periods.join(", ")} • Passage: ${S.scale.pass}/${S.scale.max}</div>
+  <div class="toolbar"><button class="ghost" onclick="window.print()">${t("printCal")}</button></div></div>
+  <div class="card"><h3>${t("calendar")}</h3>${S.calendar.map(k=>`<div class="small row sp" style="padding:4px 0;border-bottom:1px solid var(--line)"><span><b>${esc(k.name)}</b> <span class="mut">${esc(k.start)} → ${esc(k.end)} • ${t(k.type)||k.type}</span></span>${["direction"].includes(S.role)?`<button class="ghost" onclick="KL.calDel('${k.id}')">Supprimer</button>`:""}</div>`).join("")}
+  ${["direction"].includes(S.role)?`<div class="toolbar"><input id="calN" placeholder="${t("eventName")}" style="flex:1"><input id="calS" type="date" value="${today()}"><button onclick="KL.calAdd()">${t("addEvent")}</button></div>`:""}</div>
+  <div class="card"><h3>${t("users")}</h3><table>${mat.map(m=>`<tr><td><b>${m[0]}</b></td><td class="small">${m[1]}</td></tr>`).join("")}</table><p class="small mut">Un rôle ne donne jamais accès à tous les élèves par défaut. Isolation par établissement appliquée.</p></div>
+  <div class="card"><h3> ${t("library")} — réglage d'école</h3><div class="small">Limite de livres simultanés par élève : <b>${S.bibLimit||1}</b> <span class="mut">(initial : 1, modifiable)</span><br>Durée d'un prêt : <b>${S.loanDays||14}</b> jours <span class="mut">(échéance = sortie + durée)</span></div>${["direction"].includes(S.role)?`<div class="toolbar"><input id="bibLim" type="number" min="1" max="10" value="${S.bibLimit||1}" style="width:80px"><input id="loanDays" type="number" min="1" max="90" value="${S.loanDays||14}" style="width:80px"><button onclick="KL.setBibLimit()">${t("save")}</button></div>`:""}</div>
+  <div class="card"><h3> Langues</h3><div class="row"><button class="${S.lang==="fr"?"":"ghost"}" onclick="KL.lang('fr')">Français</button><button class="${S.lang==="ht"?"":"ghost"}" onclick="KL.lang('ht')">Kreyòl</button></div><p class="small mut">Interface, erreurs, reçus et relevés bilingues.</p><h3 style="margin-top:12px"> ${t("danger")}</h3><div class="toolbar"><button class="ghost" onclick="KL.allJSON()">${t("exportAll")}</button><button class="warn" onclick="KL.reset()">${t("demoReset")}</button></div></div></div>`;
+}
+function bSet(){}
+KL.calAdd=()=>{ if(S.role!=="direction"){toast(t("noAccess"));return;} const n=$("#calN").value||"Événement"; S.calendar.push({id:"k"+Date.now(),name:n,start:$("#calS").value||today(),end:$("#calS").value||today(),type:"meeting"}); save(); render(); };
+KL.calDel=id=>{ if(S.role!=="direction"){toast(t("noAccess"));return;} S.calendar=S.calendar.filter(k=>k.id!==id); save(); render(); };
+KL.setYear=y=>{ if(S.role!=="direction"){toast(t("noAccess"));return;} S.year=y; save(); render(); };
+KL.setBibLimit=()=>{ if(S.role!=="direction") return; S.bibLimit=Math.max(1,Math.min(10,+document.querySelector("#bibLim").value||1)); S.loanDays=Math.max(1,Math.min(90,+document.querySelector("#loanDays").value||14)); save(); render(); toast(t("savedOk")); };
+KL.reset=()=>{ if(!confirm("Réinitialiser la démo ?"))return; try{localStorage.removeItem(LS);localStorage.removeItem("klirline_v1");}catch(e){} load(); ROUTE="dashboard"; render(); };
+
+/* ---------- misc ---------- */
+function openPrint(title,html){ const w=document.createElement("div"); w.innerHTML=`<div class="modal"><div class="sheet"><div class="noprint row sp"><b>${esc(title)}</b><span class="row"><button onclick="window.print()">${t("print")}</button><button class="ghost" onclick="this.closest('.modal').remove()">${t("close")}</button></span></div><div>${html}</div></div></div>`; document.body.appendChild(w); }
+KL.go=m=>{ROUTE=m;render();};
+KL.lang=l=>{S.lang=l;save();render();};
+KL.role=r=>{S.role=r;ROUTE="dashboard";save();render();};
+KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};
+KL.sync=()=>{ if(!S.online){toast(t("offline"));return;} const n=S.queue.length; S.queue=[]; Object.values(S.attendance).forEach(a=>{if(a.sync==="pending")a.sync="synced";}); save(); render(); toast(t("syncedOk")+(n?` (${n})`:"")); };
+function boot(){ try{ load(); render(); }catch(e){ console.error(e); } }
+if(document.readyState!=="loading") boot(); else document.addEventListener("DOMContentLoaded",boot);
+window.KL=KL;
+})();
