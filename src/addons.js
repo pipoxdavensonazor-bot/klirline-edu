@@ -37,6 +37,10 @@ const XR = [
   {r:"ext-hub", fr:"Extensions", ht:"Ekstansyon", ic:"", roles:["direction","secretariat","enseignant","comptable","bibliothecaire","parent","eleve"]},
   {r:"ext-devoirs", fr:"Devoirs & leçons", ht:"Devwa & leson", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
   {r:"ext-classe", fr:"Classe virtuelle", ht:"Klas vityèl", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
+  {r:"ext-reunion", fr:"Centre de réunion", ht:"Sant reyinyon", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
+  {r:"ext-visuel", fr:"Classe visuelle", ht:"Klas vizyèl", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
+  {r:"ext-discussion", fr:"Discussion", ht:"Diskisyon", ic:"", roles:["direction","enseignant","parent","eleve"]},
+  {r:"ext-portails", fr:"Portails", ht:"Pòtay", ic:"", roles:["direction"]},
   {r:"ext-structure", fr:"Structure établissement", ht:"Estrikti lekòl", ic:"", roles:["direction","secretariat"]},
   {r:"ext-inscriptions", fr:"Suivi inscriptions", ht:"Swivi enskripsyon", ic:"", roles:["direction","secretariat"]},
   {r:"ext-presences", fr:"Présences +", ht:"Prezans +", ic:"", roles:["direction","secretariat","enseignant"]},
@@ -53,7 +57,67 @@ const XR = [
   {r:"ext-pilote", fr:"Validation pilote", ht:"Validasyon pilòt", ic:"", roles:["direction","secretariat"]},
   {r:"ext-continuite", fr:"Continuité scolaire", ht:"Kontinite lekòl", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
 ];
-const canX = r=>{ const m=XR.find(x=>x.r===r); return m&&m.roles.includes(role()); };
+const CORE_DEFAULT={
+  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","settings"],
+  secretariat:["dashboard","students","classes","attendance","comms","reports"],
+  enseignant:["dashboard","classes","attendance","academic","comms"],
+  comptable:["dashboard","students","finance","reports"],
+  bibliothecaire:["dashboard","students","library","reports"],
+  parent:["dashboard","attendance","academic","comms","finance","library"],
+  eleve:["dashboard","academic","library","comms"]
+};
+const SPACE_DEFAULT={
+  direction:["ext-reunion","ext-visuel","ext-discussion","ext-portails"],
+  secretariat:["ext-reunion","ext-visuel"],
+  enseignant:["ext-reunion","ext-visuel","ext-discussion"],
+  comptable:[],
+  bibliothecaire:[],
+  parent:["ext-reunion","ext-visuel","ext-discussion"],
+  eleve:["ext-reunion","ext-visuel","ext-discussion"]
+};
+const DENY={
+  bibliothecaire:["finance","academic","settings"],
+  eleve:["finance","students","settings","reports"],
+  parent:["students","settings","reports"],
+  enseignant:["finance","settings"]
+};
+const CORE_LBL={dashboard:"Tableau de bord",students:"Élèves",classes:"Classes",attendance:"Présences",academic:"Notes",comms:"Annonces",finance:"Finances",library:"Bibliothèque",reports:"Rapports",settings:"Paramètres"};
+const SPACE_LBL={"ext-reunion":"Centre de réunion","ext-visuel":"Classe visuelle","ext-discussion":"Discussion","ext-portails":"Portails"};
+const ROLE_LBL={direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptable:"Comptabilité",bibliothecaire:"Bibliothèque",parent:"Parent",eleve:"Élève"};
+function denied(rn,key){ return ((DENY[rn]||[]).includes(key)); }
+function ensurePortals(){
+  if(!X.portals){
+    X.portals={};
+    Object.keys(CORE_DEFAULT).forEach(rn=>{ X.portals[rn]={core:CORE_DEFAULT[rn].slice(), spaces:(SPACE_DEFAULT[rn]||[]).slice()}; });
+    save();
+  }
+  Object.keys(CORE_DEFAULT).forEach(rn=>{
+    if(!X.portals[rn]) X.portals[rn]={core:CORE_DEFAULT[rn].slice(), spaces:(SPACE_DEFAULT[rn]||[]).slice()};
+    if(!Array.isArray(X.portals[rn].core)) X.portals[rn].core=CORE_DEFAULT[rn].slice();
+    if(!Array.isArray(X.portals[rn].spaces)) X.portals[rn].spaces=(SPACE_DEFAULT[rn]||[]).slice();
+  });
+  return X.portals;
+}
+function spacesOf(rn){
+  const p=ensurePortals()[rn];
+  const list=p?p.spaces.slice():(SPACE_DEFAULT[rn]||[]).slice();
+  if(rn==="direction" && !list.includes("ext-portails")) list.push("ext-portails");
+  return list;
+}
+const canX = r=>{
+  if(r==="ext-portails") return role()==="direction";
+  if(Object.prototype.hasOwnProperty.call(SPACE_LBL,r)) return spacesOf(role()).includes(r);
+  const m=XR.find(x=>x.r===r); return m&&m.roles.includes(role());
+};
+window.KL_PORTAL={
+  allow(rn, module, base){
+    const p=ensurePortals()[rn];
+    if(!p) return base;
+    if(denied(rn, module)) return false;
+    if(rn==="direction" && module==="settings") return true;
+    return p.core.includes(module);
+  }
+};
 const lbl = m=>lang()==="ht"?m.ht:m.fr;
 
 /* ---------- hub ---------- */
@@ -64,8 +128,8 @@ function vHub(){
   <div class="card" style="margin-top:10px"><h3> ${lang()==="ht"?"Pakou gide — 3 priyorite":"Parcours guidés — 3 priorités"}</h3>
   <div class="small mut">${lang()==="ht"?"Fè apèl • dosye pitit • pibliye anons. Etap pa etap, pou tès pilòt.":"Faire l'appel • dossier d'un enfant • publier une annonce. Étape par étape, pour les tests pilotes."}</div>
   <div class="toolbar" id="xTours">${(window.KLX&&window.KLX.toursList?window.KLX.toursList():[]).map(t=>`<button class="soft" onclick="KLX.tour('${t.id}')">${esc(t.title)}${t.done?" ✓":""}</button>`).join("")}</div></div>
-  <div class="grid g3" style="margin-top:10px">${XR.filter(m=>m.r!=="ext-hub"&&m.roles.includes(role())).map(m=>{
-    const desc={ "ext-devoirs":"Devoirs, leçons, fichiers légers — faible connexion","ext-classe":"Horaire, lien Zoom, objectifs et ressources pédagogiques","ext-structure":"Campus, sections, matières/coefs, périodes, barème","ext-inscriptions":"Transferts, promotions, retraits, urgences, fratries","ext-presences":"Motifs de correction, avis parents, consentements","ext-comms":"Annonces programmées, RSVP réunions, canaux/coûts","ext-finances":"Échéanciers datés, bourses, remboursements, compta","ext-biblio":"Ressources vérifiées, licences, listes, paquets hors-ligne","ext-rapports":"Filtres + presets MENFP configurables","ext-audit":"Traçabilité, exports, portabilité","ext-setup":"Parcours progressif : école → classe pilote","ext-comptes":"Rôles, codes d'activation à usage unique","ext-impressions":"Rapports par module : aperçu + permissions","ext-pret":"Carte de prêt, limite d'école, QR identifiant","ext-cal":"Publication, partage ciblé, historique","ext-pilote":"Checklist terrain : cibles à mesurer, pas des promesses","ext-continuite":"Perturbation → reprise : événement, plans par classe, suivi" }[m.r]||"";
+  <div class="grid g3" style="margin-top:10px">${XR.filter(m=>m.r!=="ext-hub"&&canX(m.r)).map(m=>{
+    const desc={ "ext-devoirs":"Devoirs, leçons, fichiers légers — faible connexion","ext-classe":"Horaire et lien externe, puis salle visuelle","ext-reunion":"Séances de classe : ordre du jour, présence, salle","ext-visuel":"Tableau, élèves présents et lien vers la discussion","ext-discussion":"Fil de la classe entre enseignant et élèves","ext-portails":"La direction ouvre ou ferme l'accès de chaque rôle","ext-structure":"Campus, sections, matières/coefs, périodes, barème","ext-inscriptions":"Transferts, promotions, retraits, urgences, fratries","ext-presences":"Motifs de correction, avis parents, consentements","ext-comms":"Annonces programmées, RSVP réunions, canaux/coûts","ext-finances":"Échéanciers datés, bourses, remboursements, compta","ext-biblio":"Ressources vérifiées, licences, listes, paquets hors-ligne","ext-rapports":"Filtres + presets MENFP configurables","ext-audit":"Traçabilité, exports, portabilité","ext-setup":"Parcours progressif : école → classe pilote","ext-comptes":"Rôles, codes d'activation à usage unique","ext-impressions":"Rapports par module : aperçu + permissions","ext-pret":"Carte de prêt, limite d'école, QR identifiant","ext-cal":"Publication, partage ciblé, historique","ext-pilote":"Checklist terrain : cibles à mesurer, pas des promesses","ext-continuite":"Perturbation → reprise : événement, plans par classe, suivi" }[m.r]||"";
     return `<div class="card"><h3>${m.ic} ${esc(lbl(m))}</h3><div class="small mut">${esc(desc)}</div><div class="toolbar"><button class="soft" onclick="KL.go('${m.r}')">${esc(T("view"))}</button></div></div>`;}).join("")}</div>`;
 }
 
@@ -106,7 +170,7 @@ function vClasse(){
   <div class="notice small">${ht?"Zoom pa konekte ak kont lekòl la nan demonstrasyon sa a. Se pwofesè a ki mete yon lyen Zoom deja kreye.":"Zoom n'est pas connecté au compte de l'école dans cette démonstration. L'enseignant ajoute un lien Zoom déjà créé."}</div>
   ${canCreate?`<section class="card" style="margin-top:10px"><h3>${ht?"Planifye yon kou":"Planifier un cours"}</h3><div class="grid g2"><label class="fld">${ht?"Klas":"Classe"}<select id="cl_cls">${classes.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label><label class="fld">${ht?"Matyè":"Matière"}<input id="cl_subject" maxlength="80" placeholder="${ht?"Matematik":"Mathématiques"}"></label><label class="fld">${ht?"Tit kou a":"Titre du cours"}<input id="cl_title" maxlength="120" placeholder="${ht?"Egzanp: fraksyon":"Ex. : Les fractions"}"></label><label class="fld">${ht?"Dat ak lè":"Date et heure"}<input id="cl_date" type="date" value="${today()}"><input id="cl_time" type="time" value="09:00"></label><label class="fld">${ht?"Lyen reyinyon Zoom":"Lien de la réunion Zoom"}<input id="cl_zoom" type="url" placeholder="https://zoom.us/j/..." autocomplete="url"></label><label class="fld">${ht?"Objektif ak enstriksyon":"Objectifs et consignes"}<textarea id="cl_agenda" rows="3" maxlength="1000" placeholder="${ht?"Sa elèv la pral aprann":"Ce que les élèves vont apprendre"}"></textarea></label><label class="fld">${ht?"Resous oswa lyen kou":"Ressource ou lien du cours"}<input id="cl_resource" type="url" placeholder="https://"></label></div><button onclick="KLX.clAdd()">${ht?"Anrejistre kou a":"Enregistrer le cours"}</button></section>`:""}
   ${sessions.length?sessions.map(s=>{const c=cls(s.classId);return `<article class="card" style="margin-top:10px"><div class="row sp"><div><h3>${esc(s.title)}</h3><div class="small mut">${esc(c?c.name:"Classe")} • ${esc(s.subject)} • ${esc(s.date)} ${esc(s.time)}</div></div>${isStaff?`<button class="ghost" onclick="KLX.clDel('${esc(s.id)}')">${ht?"Retire":"Supprimer"}</button>`:""}</div><p>${esc(s.agenda|| (ht?"Pa gen enstriksyon adisyonèl.":"Aucune consigne supplémentaire."))}</p><div class="toolbar">${s.zoom?`<a class="soft button-link" href="${esc(s.zoom)}" target="_blank" rel="noopener noreferrer">${ht?"Antre nan klas Zoom":"Rejoindre le cours sur Zoom"}</a>`:""}${s.resource?`<a class="ghost button-link" href="${esc(s.resource)}" target="_blank" rel="noopener noreferrer">${ht?"Louvri resous la":"Ouvrir la ressource"}</a>`:""}<span class="small mut">${ht?"Kreye pa":"Créé par"} : ${esc(s.by)}</span></div></article>`;}).join(""):`<div class="card mut" style="margin-top:10px">${ht?"Pa gen kou planifye pou klas sa yo.":"Aucun cours n'est planifié pour ces classes."}</div>`}
-  <section class="card" style="margin-top:10px"><h3>${ht?"Zouti kou a":"Outils de cours"}</h3><ul><li>${ht?"Kou an dirèk: lyen Zoom pou reyinyon pwofesè a kreye.":"Cours en direct : lien Zoom vers la réunion créée par l'enseignant."}</li><li>${ht?"Dokiman ak lyen aprantisaj: resous kou a.":"Documents et liens d'apprentissage : ressources du cours."}</li><li>${ht?"Travay pou remèt: sèvi ak Devwa & leksyon pou depoze yon tèks.":"Travaux à rendre : utilisez Devoirs & leçons pour remettre un texte."}</li><li>${ht?"Gwoup travay: disponib nan Devwa & leçons.":"Travaux de groupe : disponibles dans Devoirs & leçons."}</li><li>${ht?"Patisipasyon ak rapò: sèvi ak Prezans + apre chak kou.":"Participation et rapport : utilisez Présences + après chaque cours."}</li></ul><p class="small mut">${ht?"Konvèsasyon prive, chat ak videyo anndan platfòm, anrejistreman, sipèvizyon ak prezans otomatik poko konekte.":"Le chat interne, l'enregistrement, la modération vidéo et la présence automatique ne sont pas encore intégrés."}</p></section>`;
+  <section class="card" style="margin-top:10px"><h3>${ht?"Zouti kou a":"Outils de cours"}</h3><ul><li>${ht?"Kou an dirèk: lyen Zoom pou reyinyon pwofesè a kreye.":"Cours en direct : lien Zoom vers la réunion créée par l'enseignant."}</li><li>${ht?"Dokiman ak lyen aprantisaj: resous kou a.":"Documents et liens d'apprentissage : ressources du cours."}</li><li>${ht?"Travay pou remèt: sèvi ak Devwa & leksyon pou depoze yon tèks.":"Travaux à rendre : utilisez Devoirs & leçons pour remettre un texte."}</li><li>${ht?"Gwoup travay: disponib nan Devwa & leçons.":"Travaux de groupe : disponibles dans Devoirs & leçons."}</li><li>${ht?"Patisipasyon ak rapò: sèvi ak Prezans + apre chak kou.":"Participation et rapport : utilisez Présences + après chaque cours."}</li></ul><p class="small mut">${ht?"Salle a se tablo ak diskisyon lekòl la. Pa gen videyo entegre.":"La salle est le tableau et la discussion de l'école. Il n'y a pas de vidéo intégrée."}</p><div class="toolbar"><button class="soft" onclick="KL.go('ext-reunion')">${ht?"Sant reyinyon":"Centre de réunion"}</button><button class="ghost" onclick="KL.go('ext-visuel')">${ht?"Klas vizyèl":"Classe visuelle"}</button><button class="ghost" onclick="KL.go('ext-discussion')">${ht?"Diskisyon":"Discussion"}</button></div></section>`;
 }
 
 /* ---------- structure ---------- */
@@ -256,7 +320,77 @@ function vAudit(){
 }
 
 /* ---------- dispatcher ---------- */
-const VV = {"ext-hub":vHub,"ext-devoirs":vDevoirs,"ext-classe":vClasse,"ext-structure":vStructure,"ext-inscriptions":vInsc,"ext-presences":vPres,"ext-comms":vComms,"ext-finances":vFin,"ext-biblio":vBib,"ext-rapports":vRep,"ext-audit":vAudit,"ext-setup":vSetup,"ext-comptes":vComptes,"ext-impressions":vPrint,"ext-pret":vPret,"ext-cal":vCal,"ext-pilote":vPilote,"ext-continuite":vContinuite};
+function initials(s){ const a=(s.firstName||"?").slice(0,1), b=(s.lastName||"").slice(0,1); return (a+b).toUpperCase(); }
+function postName(p){
+  if(p.sid){ const s=stu(p.sid); if(s) return p.role==="parent"?("Parent · "+s.firstName+" "+s.lastName):(s.firstName+" "+s.lastName); }
+  if(p.role==="enseignant"){ const o=O(); const t=o&&o.staff&&o.staff.find(x=>x.role==="enseignant"); return t?t.name:"Enseignant"; }
+  if(p.role==="direction"){ const o=O(); const t=o&&o.staff&&o.staff.find(x=>x.role==="direction"); return t?t.name:"Direction"; }
+  return p.name||p.role||"";
+}
+function inScope(classId){ return role()==="direction"||role()==="secretariat"||classScope().some(c=>c.id===classId); }
+function canLead(){ return role()==="direction"||role()==="enseignant"; }
+function extHref(raw){
+  const v=String(raw||"").trim(); if(!v) return "";
+  const u=new URL(v); if(u.protocol!=="https:") throw new Error("https"); return u.href;
+}
+function vReunion(){
+  const ht=lang()==="ht";
+  const list=(X.meetings||[]).filter(m=>inScope(m.classId)).slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const classes=classScope();
+  return `<div class="row sp"><h2 style="margin:0">${ht?"Sant reyinyon":"Centre de réunion"}</h2><button class="ghost" onclick="KL.go('ext-hub')">← ${esc(T("ext"))}</button></div>
+  <p class="portal-kicker">${esc(ROLE_LBL[role()]||role())} · ${ht?"aksè ouvri pa direksyon an":"accès ouvert par la direction"}</p>
+  <div class="notice small">${ht?"Sal travay la chita nan NORIA : tablo, prezans ak diskisyon. Sa pa yon videyo. Yon lyen ekstèn rete opsyonèl epi li ouvri deyò.":"La salle de travail est dans NORIA : tableau, présence et discussion. Ce n'est pas une vidéo. Un lien externe reste optionnel et s'ouvre en dehors."}</div>
+  ${canLead()?`<section class="card" style="margin-top:10px"><h3>${ht?"Nouvo seans":"Nouvelle séance"}</h3><div class="grid g2"><label class="fld">${ht?"Klas":"Classe"}<select id="mt_cls">${classes.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label><label class="fld">${ht?"Matyè":"Matière"}<input id="mt_sub" maxlength="80" value="${ht?"Matematik":"Mathématiques"}"></label><label class="fld">${ht?"Tit":"Titre"}<input id="mt_title" maxlength="120" placeholder="${ht?"Egzanp : fraksyon":"Ex. : Les fractions"}"></label><label class="fld">${ht?"Dat ak lè":"Date et heure"}<input id="mt_date" type="date" value="${today()}"><input id="mt_time" type="time" value="09:00"></label><label class="fld">${ht?"Lòd jounen an":"Ordre du jour"}<textarea id="mt_agenda" rows="3" maxlength="800"></textarea></label><label class="fld">${ht?"Lyen ekstèn opsyonèl (https)":"Lien externe optionnel (https)"}<input id="mt_ext" type="url" placeholder="https://"></label></div><button onclick="KLX.meetAdd()">${ht?"Kreye seans lan":"Créer la séance"}</button></section>`:""}
+  ${list.map(m=>{const c=cls(m.classId); const st=m.status==="open"?(ht?"Louvri":"Ouverte"):m.status==="closed"?(ht?"Fèmen":"Fermée"):(ht?"Planifye":"Planifiée"); return `<article class="card" style="margin-top:10px"><div class="row sp"><div><h3>${esc(m.title)}</h3><div class="small mut">${esc(c?c.name:"")} • ${esc(m.subject)} • ${esc(m.date)} ${esc(m.time)}</div></div><span class="badge ${m.status==="open"?"b-present":m.status==="closed"?"b-pending":"b-borrowed"}">${st}</span></div><p>${esc(m.agenda||"—")}</p><div class="toolbar"><button class="soft" onclick="KLX.roomOpen('${esc(m.id)}')">${ht?"Antre nan sal la":"Entrer dans la salle"}</button>${canX("ext-discussion")?`<button class="ghost" onclick="KL.go('ext-discussion')">${ht?"Diskisyon klas la":"Discussion de la classe"}</button>`:""}${m.external?`<a class="ghost button-link" href="${esc(m.external)}" target="_blank" rel="noopener noreferrer">${ht?"Lyen ekstèn":"Lien externe"}</a>`:""}${canLead()&&m.status!=="open"?`<button class="ghost" onclick="KLX.meetStatus('${esc(m.id)}','open')">${ht?"Louvri":"Ouvrir"}</button>`:""}${canLead()&&m.status==="open"?`<button class="ghost" onclick="KLX.meetStatus('${esc(m.id)}','closed')">${ht?"Fèmen":"Fermer"}</button>`:""}</div></article>`;}).join("")||`<div class="card mut" style="margin-top:10px">${ht?"Pa gen seans pou klas ou yo.":"Aucune séance pour vos classes."}</div>`}`;
+}
+function vVisuel(){
+  const ht=lang()==="ht"; const o=O();
+  const meet=(X.meetings||[]).find(m=>m.id===X.focusMeet&&inScope(m.classId))||(X.meetings||[]).find(m=>m.status==="open"&&inScope(m.classId));
+  if(!meet) return `<div class="row sp"><h2 style="margin:0">${ht?"Klas vizyèl":"Classe visuelle"}</h2><button class="ghost" onclick="KL.go('ext-reunion')">${ht?"Sant reyinyon":"Centre de réunion"}</button></div><div class="card mut">${ht?"Pa gen sal ouvri pou ou.":"Aucune salle ouverte pour vous."}</div>`;
+  const c=cls(meet.classId);
+  const pupils=o?o.students.filter(s=>s.classId===meet.classId):[];
+  const lead=canLead()&&(role()==="direction"||classScope().some(x=>x.id===meet.classId));
+  return `<div class="row sp"><h2 style="margin:0">${ht?"Klas vizyèl":"Classe visuelle"}</h2><span class="row"><button class="ghost" onclick="KL.go('ext-reunion')">${ht?"Reyinyon":"Réunions"}</button>${canX("ext-discussion")?`<button class="ghost" onclick="KL.go('ext-discussion')">${ht?"Diskisyon":"Discussion"}</button>`:""}</span></div>
+  <p class="portal-kicker">${esc(c?c.name:"")} · ${esc(ROLE_LBL[role()]||role())}</p>
+  <section class="board"><div class="board-kicker">${esc(meet.subject)} · ${esc(meet.date)} ${esc(meet.time)}</div><h3 class="board-title">${esc(meet.title)}</h3><p>${esc(meet.agenda||"")}</p></section>
+  <div class="card" style="margin-top:12px"><h3>${ht?"Elèv nan sal la":"Élèves dans la salle"} <span class="mut small">(${(meet.present||[]).length}/${pupils.length})</span></h3>
+  <div class="seats">${pupils.map(s=>{const on=(meet.present||[]).includes(s.id); return `<button type="button" class="seat${on?" on":""}" ${lead?`onclick="KLX.meetHere('${esc(meet.id)}','${esc(s.id)}')"`:"disabled"}><b>${esc(initials(s))}</b><span>${esc(s.firstName)}</span></button>`;}).join("")}</div>
+  <p class="small mut">${lead?(ht?"Klike yon non pou make li prezan. Sa pa yon kamera.":"Cliquez un prénom pour le marquer présent. Ce n'est pas une caméra."):(ht?"Ou wè klas ou. Ou pa ka chanje prezans lan.":"Vous voyez votre classe. Vous ne pouvez pas modifier la présence.")}</p></div>`;
+}
+function vDiscussion(){
+  const ht=lang()==="ht";
+  const classes=role()==="direction"?(O()?O().classes:[]):classScope();
+  const cid=X.focusClass&&classes.some(c=>c.id===X.focusClass)?X.focusClass:(classes[0]&&classes[0].id);
+  const threads=(X.threads||[]).filter(t=>t.classId===cid);
+  const write=cid&&(role()==="direction"||role()==="enseignant"||role()==="eleve"||(role()==="parent"&&X.discParentWrite))&&inScope(cid);
+  const lead=canLead()&&(role()==="direction"||classScope().some(c=>c.id===cid));
+  return `<div class="row sp"><h2 style="margin:0">${ht?"Diskisyon klas la":"Discussion de la classe"}</h2><button class="ghost" onclick="KL.go('ext-hub')">← ${esc(T("ext"))}</button></div>
+  <p class="portal-kicker">${esc(ROLE_LBL[role()]||role())} · ${role()==="parent"?(X.discParentWrite?(ht?"ou ka ekri":"vous pouvez écrire"):(ht?"lekti sèlman":"lecture seule")):(ht?"fil klas la":"fil de la classe")}</p>
+  <div class="toolbar"><select onchange="KLX.discClass(this.value)">${classes.map(c=>`<option value="${esc(c.id)}" ${c.id===cid?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
+  <div class="notice small">${ht?"Mesaj yo rete nan klas la. Yon pwofesè oswa direksyon an ka maske yon mesaj. Pa gen mesaj ki soti deyò lekòl la.":"Les messages restent dans la classe. Un enseignant ou la direction peut masquer un message. Aucun message n'est envoyé hors de l'école."}</div>
+  ${lead?`<div class="card" style="margin-top:10px"><h3>${ht?"Nouvo sijè":"Nouveau sujet"}</h3><div class="toolbar"><input id="th_title" maxlength="120" placeholder="${ht?"Sijè a":"Sujet"}" style="flex:1"><button onclick="KLX.threadAdd('${esc(cid||"")}')">${ht?"Ouvri":"Ouvrir"}</button></div></div>`:""}
+  ${threads.map(th=>`<article class="card" style="margin-top:10px"><h3>${esc(th.title)}</h3>
+    ${(th.posts||[]).map(p=>{const hidden=p.hidden&&!lead; return `<div class="msg"><div class="who">${esc(postName(p))} <span class="mut">${esc(p.at)}</span>${p.hidden&&lead?` <span class="badge b-pending">${ht?"Maske":"Masqué"}</span>`:""}</div><div>${hidden?(ht?"Mesaj maske":"Message masqué"):esc(p.text)}</div>${lead&&!p.hidden?`<button class="ghost" onclick="KLX.postHide('${esc(th.id)}','${esc(p.id)}')">${ht?"Maske":"Masquer"}</button>`:""}</div>`;}).join("")}
+    ${write?`<div class="toolbar"><input id="th_${esc(th.id)}" maxlength="500" placeholder="${ht?"Mesaj ou":"Votre message"}" style="flex:1"><button onclick="KLX.postAdd('${esc(th.id)}')">${ht?"Voye":"Envoyer"}</button></div>`:""}
+  </article>`).join("")||`<div class="card mut" style="margin-top:10px">${ht?"Pa gen sijè pou klas sa a.":"Aucun sujet pour cette classe."}</div>`}`;
+}
+function vPortails(){
+  const ht=lang()==="ht";
+  if(role()!=="direction") return `<div class="badbox">${esc(T("noAccess"))}</div>`;
+  const p=ensurePortals();
+  const roles=Object.keys(ROLE_LBL);
+  const cell=(rn,key,bucket)=>{
+    const on=bucket==="core"?p[rn].core.includes(key):p[rn].spaces.includes(key);
+    const lock=(rn==="direction"&&(key==="settings"||key==="ext-portails"))||denied(rn,key);
+    return `<label class="chk"><input type="checkbox" ${on?"checked":""} ${lock?"disabled":""} onchange="KLX.portalSet('${rn}','${key}','${bucket}',this.checked)"> ${esc(bucket==="core"?CORE_LBL[key]:SPACE_LBL[key])}</label>`;
+  };
+  return `<div class="row sp"><h2 style="margin:0">${ht?"Pòtay chak wòl":"Portails de chaque rôle"}</h2><button class="ghost" onclick="KL.go('ext-hub')">← ${esc(T("ext"))}</button></div>
+  <p class="portal-kicker">${ht?"Direksyon lekòl la":"Direction de l'école"}</p>
+  <div class="notice small">${ht?"Se kont direksyon an ki ouvri oswa fèmen espas chak responsab. Nan maquette sa a, kontwòl la se nan navigatè a : li montre kijan aksè yo dwe mache, li pa ranplase yon sèvè.":"Le compte direction ouvre ou ferme l'espace de chaque responsable. Dans cette maquette, le contrôle est dans le navigateur : il montre comment les accès doivent fonctionner, il ne remplace pas un serveur."}</div>
+  <div class="card" style="margin-top:10px"><label class="chk"><input type="checkbox" ${X.discParentWrite?"checked":""} onchange="KLX.parentWrite(this.checked)"> ${ht?"Paran yo ka ekri nan diskisyon klas la":"Les parents peuvent écrire dans la discussion de la classe"}</label><p class="small mut">${ht?"Si sa pa tcheke, paran an li sèlman mesaj pitit li.":"Sans cette case, le parent lit seulement les messages de la classe de son enfant."}</p></div>
+  ${roles.map(rn=>`<section class="card" style="margin-top:10px"><h3>${esc(ht&&rn==="enseignant"?"Pwofesè":ROLE_LBL[rn])}</h3><div class="checks">${Object.keys(CORE_LBL).map(k=>cell(rn,k,"core")).join("")}${Object.keys(SPACE_LBL).map(k=>cell(rn,k,"spaces")).join("")}</div></section>`).join("")}`;
+}
+const VV = {"ext-hub":vHub,"ext-devoirs":vDevoirs,"ext-classe":vClasse,"ext-reunion":vReunion,"ext-visuel":vVisuel,"ext-discussion":vDiscussion,"ext-portails":vPortails,"ext-structure":vStructure,"ext-inscriptions":vInsc,"ext-presences":vPres,"ext-comms":vComms,"ext-finances":vFin,"ext-biblio":vBib,"ext-rapports":vRep,"ext-audit":vAudit,"ext-setup":vSetup,"ext-comptes":vComptes,"ext-impressions":vPrint,"ext-pret":vPret,"ext-cal":vCal,"ext-pilote":vPilote,"ext-continuite":vContinuite};
 
 /* ---------- installation progressive d'école (PRD §14) ---------- */
 function vSetup(){
@@ -395,7 +529,8 @@ function todayHTML(){
     body=`<div class="small">  ${ht?"reta":"retards"} : <b>${late}</b></div>
     <div class="toolbar"><button class="soft" onclick="KL.go('ext-pret')">Guichet des prêts</button><button class="ghost" onclick="KL.go('library')">Bibliothèque</button></div>`;
   }
-  return `<div class="notice" style="margin-bottom:10px"><div class="row sp"><b> ${ht?"Jodi a":"Aujourd'hui"} — ${esc(td)}</b><span class="row"><span class="badge ${online()?"b-synced":"b-pending"}">${syncLn}</span><button class="ghost" onclick="KLX.help()"> ${ht?"Èd":"Aide"}</button></span></div>${body}<div class="small mut"> ${ht?"Dènye aktivite lokal":"Dernière activité locale"} : ${esc(ageL)} • ${ht?"done yo rete sou aparèy sa a (demo)":"données sur cet appareil (démo)"}.</div></div>`;
+  const doors=[["ext-reunion",ht?"Reyinyon":"Réunions"],["ext-visuel",ht?"Klas vizyèl":"Classe visuelle"],["ext-discussion",ht?"Diskisyon":"Discussion"],["ext-portails",ht?"Pòtay":"Portails"]].filter(([id])=>canX(id));
+  return `<div class="notice" style="margin-bottom:10px"><div class="row sp"><b> ${ht?"Jodi a":"Aujourd'hui"} — ${esc(td)}</b><span class="row"><span class="badge ${online()?"b-synced":"b-pending"}">${syncLn}</span><button class="ghost" onclick="KLX.help()"> ${ht?"Èd":"Aide"}</button></span></div><p class="portal-kicker">${esc(ROLE_LBL[r]||r)}</p>${body}${doors.length?`<div class="toolbar">${doors.map(([id,lb])=>`<button class="ghost" onclick="KL.go('${id}')">${lb}</button>`).join("")}</div>`:""}<div class="small mut"> ${ht?"Dènye aktivite lokal":"Dernière activité locale"} : ${esc(ageL)} • ${ht?"done yo rete sou aparèy sa a (demo)":"données sur cet appareil (démo)"}.</div></div>`;
 }
 function injectToday(){
   if(XROUTE) return;
@@ -497,6 +632,74 @@ function vContinuite(){
 
 /* ---------- API publique KLX ---------- */
 const KLX = window.KLX = {};
+KLX.roomOpen = id=>{ const m=(X.meetings||[]).find(x=>x.id===id); if(!m||!inScope(m.classId)){ toast(T("noAccess")); return; } X.focusMeet=id; X.focusClass=m.classId; save(); XGO("ext-visuel"); };
+KLX.meetAdd = ()=>{
+  if(!canLead()){ toast(T("noAccess")); return; }
+  const g=id=>{ const n=document.querySelector(id); return n?String(n.value||"").trim():""; };
+  const classId=g("#mt_cls"); if(!inScope(classId)){ toast(T("noAccess")); return; }
+  const title=g("#mt_title"); if(!title){ toast("!"); return; }
+  let external=""; try{ external=extHref(g("#mt_ext")); }catch(e){ toast(lang()==="ht"?"Lyen an dwe https":"Le lien doit être en https"); return; }
+  X.meetings=X.meetings||[];
+  X.meetings.push({id:XD.uid("m"),classId,title,subject:g("#mt_sub"),date:g("#mt_date")||today(),time:g("#mt_time")||"09:00",agenda:g("#mt_agenda"),by:role(),status:"planned",external,present:[]});
+  save(); audit("reunion.create",title); XGO("ext-reunion");
+};
+KLX.meetStatus = (id,status)=>{
+  const m=(X.meetings||[]).find(x=>x.id===id); if(!m||!canLead()||!inScope(m.classId)){ toast(T("noAccess")); return; }
+  m.status=status; save(); audit("reunion."+status,m.title); XGO("ext-reunion");
+};
+KLX.meetHere = (id,sid)=>{
+  const m=(X.meetings||[]).find(x=>x.id===id);
+  const staffLead=m&&(role()==="direction"||(role()==="enseignant"&&classScope().some(c=>c.id===m.classId)));
+  if(!staffLead){ toast(T("noAccess")); return; }
+  m.present=m.present||[];
+  const i=m.present.indexOf(sid); if(i>=0) m.present.splice(i,1); else m.present.push(sid);
+  X.focusMeet=id; save(); XGO("ext-visuel");
+};
+KLX.discClass = id=>{ if(!inScope(id)){ toast(T("noAccess")); return; } X.focusClass=id; save(); XGO("ext-discussion"); };
+KLX.threadAdd = classId=>{
+  if(!(role()==="direction"||(role()==="enseignant"&&classScope().some(c=>c.id===classId)))){ toast(T("noAccess")); return; }
+  const title=(document.querySelector("#th_title")||{}).value; if(!String(title||"").trim()){ toast("!"); return; }
+  X.threads=X.threads||[];
+  X.threads.push({id:XD.uid("th"),classId,title:String(title).trim().slice(0,120),posts:[]});
+  X.focusClass=classId; save(); audit("discussion.sujet",title); XGO("ext-discussion");
+};
+KLX.postAdd = threadId=>{
+  const th=(X.threads||[]).find(t=>t.id===threadId); if(!th||!inScope(th.classId)){ toast(T("noAccess")); return; }
+  const r=role();
+  const ok=r==="direction"||r==="enseignant"||r==="eleve"||(r==="parent"&&X.discParentWrite);
+  if(!ok){ toast(T("noAccess")); return; }
+  const input=document.querySelector("#th_"+threadId); const text=input?String(input.value||"").trim():"";
+  if(!text){ toast("!"); return; }
+  const who=r==="eleve"||r==="parent"?kidsOf().find(s=>s.classId===th.classId):null;
+  if((r==="eleve"||r==="parent")&&!who){ toast(T("noAccess")); return; }
+  th.posts.push({id:XD.uid("p"),role:r,sid:who?who.id:"",text:text.slice(0,500),at:new Date().toLocaleString(),hidden:false});
+  save(); audit("discussion.message",th.title); XGO("ext-discussion");
+};
+KLX.postHide = (threadId,postId)=>{
+  const th=(X.threads||[]).find(t=>t.id===threadId); if(!th){ toast(T("noAccess")); return; }
+  const lead=role()==="direction"||(role()==="enseignant"&&classScope().some(c=>c.id===th.classId));
+  if(!lead){ toast(T("noAccess")); return; }
+  const p=(th.posts||[]).find(x=>x.id===postId); if(!p) return;
+  p.hidden=true; save(); audit("discussion.masque",th.title); XGO("ext-discussion");
+};
+KLX.parentWrite = on=>{
+  if(role()!=="direction"){ toast(T("noAccess")); return; }
+  X.discParentWrite=!!on; save(); audit("portail.parent-ecrit",on?"oui":"non"); XGO("ext-portails");
+};
+KLX.portalSet = (rn,key,bucket,on)=>{
+  if(role()!=="direction"){ toast(T("noAccess")); return; }
+  if(rn==="direction"&&(key==="settings"||key==="ext-portails")) return;
+  if(denied(rn,key)){ toast(T("noAccess")); XGO("ext-portails"); return; }
+  const p=ensurePortals()[rn]; if(!p) return;
+  const arr=bucket==="spaces"?p.spaces:p.core;
+  const i=arr.indexOf(key);
+  if(on&&i<0) arr.push(key);
+  if(!on&&i>=0) arr.splice(i,1);
+  save(); audit("portail."+rn,key+" "+(on?"ouvert":"fermé"));
+  if(window.KL.refreshNav) window.KL.refreshNav();
+  injectNav();
+  XGO("ext-portails");
+};
 KLX.go = XGO;
 KLX.lastOld = ()=>window.__klLast||"dashboard";
 KLX.help = ()=>{ helpModal(); };
@@ -684,7 +887,7 @@ KLX.calPub = id=>{ if(role()!=="direction"){ toast(T("noAccess")); return; } con
 KLX.calCSV = ()=>{ if(!["direction","secretariat","enseignant","parent","eleve"].includes(role())){ toast(T("noAccess")); return; } const evts=visibleCalendarEvents(); dl("calendrier.csv",csv([["evenement","debut","fin","statut","cible"],...evts.map(k=>[k.name,k.start,k.end,k.pub.status,k.pub.target])]),"text/csv"); audit("export","calendrier.csv ("+evts.length+" visibles)"); };
 KLX.calICS = ()=>{ if(!["direction","secretariat","enseignant","parent","eleve"].includes(role())){ toast(T("noAccess")); return; } const evts=visibleCalendarEvents();
   const d2=s=>String(s||"").replace(/-/g,""); const ie=s=>String(s||"").replace(/\\/g,"\\\\").replace(/\r?\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");
-  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Klirline Edu//Calendrier//FR",...evts.map(k=>["BEGIN:VEVENT","UID:"+k.id+"@klirline-edu","DTSTAMP:"+d2(today())+"T000000","DTSTART:"+d2(k.start),"DTEND:"+d2(k.end||k.start),"SUMMARY:"+ie(k.name),"DESCRIPTION:"+ie((k.pub.status||"")+" "+(k.pub.target||"")),"END:VEVENT"].join("\r\n")),"END:VCALENDAR"].join("\r\n");
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//NORIA//Calendrier//FR",...evts.map(k=>["BEGIN:VEVENT","UID:"+k.id+"@noria","DTSTAMP:"+d2(today())+"T000000","DTSTART:"+d2(k.start),"DTEND:"+d2(k.end||k.start),"SUMMARY:"+ie(k.name),"DESCRIPTION:"+ie((k.pub.status||"")+" "+(k.pub.target||"")),"END:VEVENT"].join("\r\n")),"END:VCALENDAR"].join("\r\n");
   dl("calendrier.ics",ics,"text/calendar"); audit("export","calendrier.ics ("+evts.length+" visibles)"); toast(T("saveOk")); };
 KLX.calProp = ()=>{ if(role()!=="enseignant"){ toast(T("noAccess")); return; } const n=(document.querySelector("#cp_n").value||"").trim(); if(!n) return;
   const s=document.querySelector("#cp_s").value||today(), t=document.querySelector("#cp_t").value||"Toute l'école";
@@ -764,20 +967,36 @@ function installWraps(){
 
 /* ---------- injection nav (après chaque renderShell) ---------- */
 function injectNav(){
-  const o = O(); const L = (o&&o.lang)||"fr";
-  const label = L==="ht"?"Konpleman":"Compléments";
-  const name = L==="ht"?" Ekstansyon":" Extensions";
+  const o = O(); const L = (o&&o.lang)||"fr"; const ht=L==="ht";
+  const label = ht?"Konpleman":"Compléments";
+  const name = ht?" Ekstansyon":" Extensions";
+  const items=[["ext-reunion",ht?"Reyinyon":"Réunions"],["ext-visuel",ht?"Klas vizyèl":"Classe visuelle"],["ext-discussion",ht?"Diskisyon":"Discussion"],["ext-portails",ht?"Pòtay":"Portails"]].filter(([r])=>canX(r));
   [["#nav",false],["#mnav",true]].forEach(([sel,mob])=>{
-    const el = document.querySelector(sel); if(!el||el.querySelector("[data-xnav]")) return;
+    const el = document.querySelector(sel); if(!el) return;
+    el.querySelectorAll("[data-space]").forEach(n=>n.remove());
+    const anchor=el.querySelector("[data-xnav]");
+    const place=node=>{ if(anchor) el.insertBefore(node, anchor); else el.appendChild(node); };
+    if(items.length){
+      if(!mob){ const s=document.createElement("small"); s.textContent=ht?"Pòtay":"Portail"; s.setAttribute("data-space","1"); place(s); }
+      items.forEach(([r,lab])=>{
+        const b=document.createElement("button"); b.textContent=lab; b.setAttribute("data-space","1");
+        if(XROUTE===r) b.className="on";
+        b.onclick=()=>window.KL.go(r); place(b);
+      });
+    }
+    if(el.querySelector("[data-xnav]")) return;
     if(!mob){ const s=document.createElement("small"); s.textContent=label; s.setAttribute("data-xnav","1"); el.appendChild(s); }
     const b=document.createElement("button"); b.textContent = name+(X.queue.length?` (${X.queue.length})`:""); b.setAttribute("data-xnav","1");
-    if(XROUTE) b.classList.add("on");
+    if(XROUTE==="ext-hub") b.classList.add("on");
     b.onclick=()=>window.KL.go("ext-hub"); el.appendChild(b);
   });
   markNav();
 }
 function boot(){
-  installWraps(); injectNav();
+  try{ ensurePortals(); }catch(e){}
+  installWraps();
+  if(window.KL.refreshNav) window.KL.refreshNav();
+  injectNav();
   if(window.KL){ window.KL.remind=function(lid){ return KLX.loanRemind(lid); }; window.KL.loanExt=function(lid){ return KLX.loanExt(lid); }; window.KL.loanLost=function(lid){ return KLX.loanLost(lid); }; }
   try{ injectToday(); }catch(e){}
   audit("ext.boot","extensions chargées (ancien intact)");

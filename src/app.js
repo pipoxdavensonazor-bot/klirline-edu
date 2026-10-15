@@ -31,7 +31,11 @@ const ROLE_MODULES={
   parent:["dashboard","attendance","academic","comms","finance","library"],
   eleve:["dashboard","academic","library","comms"],
 };
-function can(m){ return (ROLE_MODULES[S.role]||[]).includes(m); }
+function can(m){
+  const base=(ROLE_MODULES[S.role]||[]).includes(m);
+  if(window.KL_PORTAL&&typeof window.KL_PORTAL.allow==="function") return window.KL_PORTAL.allow(S.role,m,base);
+  return base;
+}
 function teacherClasses(){ if(S.role==="enseignant"){ return ["c7a","c8a"]; } return S.classes.map(c=>c.id); }
 function kidStudents(){ if(S.role==="parent") return S.students.filter(s=>S.currentUser.parentKids.includes(s.id)); if(S.role==="eleve") return S.students.filter(s=>s.id===S.currentUser.studentId); return S.students; }
 function classById(id){ return S.classes.find(c=>c.id===id); }
@@ -156,8 +160,11 @@ KL.clList=id=>{ if(S.role==="enseignant"&&!teacherClasses().includes(id)){toast(
 
 /* ---------- PRESENCES ---------- */
 let attC="c7a", attD=today();
+function teacherOwns(classId){ return teacherClasses().includes(classId); }
+function clampAtt(){ if(S.role==="enseignant" && !teacherOwns(attC)) attC=teacherClasses()[0]||attC; }
 function vAtt(){
-  let list=S.classes; if(S.role==="enseignant") list=S.classes.filter(c=>teacherClasses().includes(c.id));
+  clampAtt();
+  let list=S.classes; if(S.role==="enseignant") list=S.classes.filter(c=>teacherOwns(c.id));
   if(S.role==="parent"||S.role==="eleve"){ const kids=kidStudents();
     return `<h2 style="margin:0">${t("attendance")}</h2><p class="small mut">${esc(t("onlyLinked"))}</p>${kids.map(k=>{const c=classById(k.classId);const recs=Object.entries(S.attendance).filter(([k2,a])=>a.classId===k.classId&&a.records?.[k.id]).slice(-6);return `<div class="card"><h3>${esc(k.firstName)} ${esc(k.lastName)} — ${esc(c?.name)}</h3>${recs.map(([k2,a])=>`<div class="small">${k2.split("|")[1]} : <b>${a.records[k.id]}</b> <span class="mut">(${esc(a.sync)})</span></div>`).join("")||`<span class="mut small">${t("empty")}</span>`}</div>`;}).join("")}`; }
   const key=attC+"|"+attD; const sheet=S.attendance[key];
@@ -171,11 +178,11 @@ function vAtt(){
   <div class="card" style="margin-top:12px"><h3>${t("history")}</h3>${S.attLog.slice(0,8).map(l=>`<div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(l.date)} — ${esc(l.by)} : ${esc(l.classId)} ${esc(l.day)} → ${esc(l.info)} <span class="badge ${l.sync==="synced"?"b-synced":"b-pending"}">${esc(l.sync)}</span></div>`).join("")||`<span class="mut small">${t("empty")}</span>`}</div>`;
 }
 function bAtt(){}
-KL.attGo=id=>{ if(S.role==="enseignant"&&!teacherClasses().includes(id)){toast(t("noAccess"));return;} attC=id;ROUTE="attendance";render();};
-KL.attC=v=>{ if(S.role==="enseignant"&&!teacherClasses().includes(v)){toast(t("noAccess"));return;} attC=v;render();}; KL.attD=v=>{attD=v;render();};
-KL.attMark=(sid,st)=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const key=attC+"|"+attD; S.attendance[key]=S.attendance[key]||{classId:attC,day:attD,records:{},sync:"local"}; S.attendance[key].records[sid]=st; save(); render(); };
-KL.attAll=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const key=attC+"|"+attD; const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); S.attendance[key]={classId:attC,day:attD,records:rec,sync:S.online?"synced":"local"}; save(); render(); };
-KL.attSave=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const key=attC+"|"+attD; let sh=S.attendance[key];
+KL.attGo=id=>{ if(S.role==="enseignant"&&!teacherOwns(id)){toast(t("noAccess"));return;} attC=id;ROUTE="attendance";render();};
+KL.attC=v=>{ if(S.role==="enseignant"&&!teacherOwns(v)){toast(t("noAccess"));return;} attC=v;render();}; KL.attD=v=>{attD=v;render();};
+KL.attMark=(sid,st)=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; S.attendance[key]=S.attendance[key]||{classId:attC,day:attD,records:{},sync:"local"}; S.attendance[key].records[sid]=st; save(); render(); };
+KL.attAll=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); S.attendance[key]={classId:attC,day:attD,records:rec,sync:S.online?"synced":"local"}; save(); render(); };
+KL.attSave=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; let sh=S.attendance[key];
   if(!sh){ const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); sh={classId:attC,day:attD,records:rec}; }
   if(!S.online){ if(sh.sync==="pending"){ sh.prev=Object.assign({},sh.records); sh.sync="conflict"; } else sh.sync="pending";
     S.attendance[key]=sh; S.queue.push({kind:"attendance",key,at:Date.now()});
@@ -236,7 +243,7 @@ KL.corrSave=(ev,sid)=>{ if(S.role!=="direction") return; const motif=(document.q
   const ee=S.evals.find(x=>x.id===ev); const nv=Math.max(0,Math.min(ee?(ee.max||100):100,+document.querySelector("#cg_v").value||0)); S.gradeHist=S.gradeHist||[];
   S.gradeHist.unshift({ev,sid,prev:(S.grades[ev]||{})[sid]??"",next:nv,motif,by:S.role,at:new Date().toLocaleString()});
   S.grades[ev]=S.grades[ev]||{}; S.grades[ev][sid]=nv; save(); document.querySelectorAll(".modal").forEach(m=>m.remove()); render(); toast(t("savedOk")); };
-KL.evModal=()=>{ if(!(S.role==="direction"||S.role==="enseignant")){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherClasses().includes(attC)){toast(t("noAccess"));return;} const id="ev"+Date.now(); S.evals.push({id,classId:attC,subject:"Français / Kreyòl",title:"Contrôle "+(S.evals.length+1),max:100,date:today(),status:"draft"}); S.grades[id]={}; acEv=id; save(); render(); };
+KL.evModal=()=>{ if(!(S.role==="direction"||S.role==="enseignant")){toast(t("noAccess"));return;} let cid=attC; if(S.role==="enseignant"&&!teacherOwns(cid)) cid=teacherClasses()[0]||""; if(S.role==="enseignant"&&!teacherOwns(cid)){toast(t("noAccess"));return;} const id="ev"+Date.now(); S.evals.push({id,classId:cid,subject:"Français / Kreyòl",title:"Contrôle "+(S.evals.length+1),max:100,date:today(),status:"draft"}); S.grades[id]={}; acEv=id; save(); render(); };
 KL.bulletin=sid=>{ if(denyLeak("bulletin",sid)) return; const s=stuById(sid); const evs=S.evals.filter(e=>e.classId===s.classId&&e.status==="published");
   const rows=evs.map(e=>`<tr><td>${esc(e.subject)}</td><td>${esc(e.title)}</td><td><b>${S.grades[e.id]?.[sid]??"—"}/${e.max}</b></td></tr>`).join("");
   const avg=evs.length?(evs.reduce((a,e)=>a+(+S.grades[e.id]?.[sid]||0),0)/evs.length).toFixed(1):"—";
@@ -308,18 +315,19 @@ KL.reserve=bid=>toast(t("requestSent"));
 /* ---------- RAPPORTS ---------- */
 function vRep(){
   const finOk=["direction","comptable"].includes(S.role);
-  const byClass=S.classes.map(c=>{const st=S.students.filter(s=>s.classId===c.id);const keys=Object.entries(S.attendance).filter(([k,a])=>a.classId===c.id);const all=keys.flatMap(([k,a])=>Object.values(a.records));const r=all.length?Math.round(all.filter(x=>x==="P").length/all.length*100):100;return {c,n:st.length,r};});
+  const classes=S.role==="enseignant"?S.classes.filter(c=>teacherOwns(c.id)):S.classes;
+  const byClass=classes.map(c=>{const st=S.students.filter(s=>s.classId===c.id);const keys=Object.entries(S.attendance).filter(([k,a])=>a.classId===c.id);const all=keys.flatMap(([k,a])=>Object.values(a.records));const r=all.length?Math.round(all.filter(x=>x==="P").length/all.length*100):100;return {c,n:st.length,r};});
   const coll=S.payments.reduce((a,p)=>a+ +p.amount,0);
   return `<h2 style="margin:0">${t("reports")}</h2><div class="grid g2" style="margin-top:10px">
   <div class="card"><h3>${t("enrol")} / ${t("absByClass")}</h3>${byClass.map(x=>`<div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(x.c.name)} : <b>${x.n}</b> élèves • ${x.r}% ${t("present")}</div>`).join("")}</div>
   ${finOk?`<div class="card"><h3>${t("feeStatus")}</h3><div class="small">${t("feesCollected")}: <b>${money(coll)}</b><br>${t("unpaid")}: <b>${S.students.filter(s=>feeDue(s).rest>0).length}</b> élèves</div><div class="toolbar"><button class="ghost" onclick="KL.csvPay()">${t("export")} CSV</button></div></div>`:`<div class="card"><h3>${t("feeStatus")}</h3><p class="small mut"> ${S.lang==="ht"?"Rezève pou direksyon ak kontabilite.":"Réservé à la direction et à la comptabilité."}</p></div>`}
-  <div class="card"><h3>${t("avgByClass")}</h3>${S.classes.map(c=>{const pe=S.evals.filter(e=>e.classId===c.id&&e.status==="published");const vs=pe.flatMap(e=>Object.values(S.grades[e.id]||{}));const m=vs.length?(vs.reduce((a,b)=>a+(+b||0),0)/vs.length).toFixed(1):"—";return `<div class="small">${esc(c.name)} : <b>${m}</b>${vs.length?"":" <span class='mut'>("+(S.lang==="ht"?"okenn nòt pibliye":"aucune note publiée")+")</span>"}</div>`;}).join("")}</div>
-  <div class="card"><h3>${t("exportLog")}</h3>${S.exportLog.slice(0,8).map(e=>`<div class="small">${esc(e.date)} — ${esc(e.by)} — ${esc(e.kind)} : ${esc(e.detail)}</div>`).join("")||`<span class="mut small">${t("empty")}</span>`}<div class="toolbar"><button class="ghost" onclick="KL.csvStu()">${t("students")} CSV</button><button class="ghost" onclick="KL.allJSON()">${t("exportAll")}</button></div></div></div>
+  <div class="card"><h3>${t("avgByClass")}</h3>${classes.map(c=>{const pe=S.evals.filter(e=>e.classId===c.id&&e.status==="published");const vs=pe.flatMap(e=>Object.values(S.grades[e.id]||{}));const m=vs.length?(vs.reduce((a,b)=>a+(+b||0),0)/vs.length).toFixed(1):"—";return `<div class="small">${esc(c.name)} : <b>${m}</b>${vs.length?"":" <span class='mut'>("+(S.lang==="ht"?"okenn nòt pibliye":"aucune note publiée")+")</span>"}</div>`;}).join("")}</div>
+  <div class="card"><h3>${t("exportLog")}</h3>${S.exportLog.slice(0,8).map(e=>`<div class="small">${esc(e.date)} — ${esc(e.by)} — ${esc(e.kind)} : ${esc(e.detail)}</div>`).join("")||`<span class="mut small">${t("empty")}</span>`}<div class="toolbar"><button class="ghost" onclick="KL.csvStu()">${t("students")} CSV</button>${S.role==="direction"?`<button class="ghost" onclick="KL.allJSON()">${t("exportAll")}</button>`:""}</div></div></div>
   <p class="small mut">${esc(t("menfpNote"))}</p>`;
 }
 KL.csvPay=()=>{ if(!["direction","comptable"].includes(S.role)){toast(t("noAccess"));return;} dl("paiements.csv","\uFEFF"+toCSV([["recu","eleve","montant","mode","date"],...S.payments.map(p=>{const s=stuById(p.studentId);return [p.ref,(s?.firstName||"")+" "+(s?.lastName||""),p.amount,p.method,p.date];})]),"text/csv"); logExport("CSV","paiements"); };
 KL.csvStu=()=>KL.stuCSV();
-KL.allJSON=()=>{ dl("klirline-export.json",JSON.stringify(S,null,2),"application/json"); logExport("JSON","export complet"); toast(t("savedOk")); };
+KL.allJSON=()=>{ if(S.role!=="direction"){toast(t("noAccess"));return;} dl("klirline-export.json",JSON.stringify(S,null,2),"application/json"); logExport("JSON","export complet"); toast(t("savedOk")); };
 
 /* ---------- PARAMETRES ---------- */
 function vSet(){
@@ -331,7 +339,7 @@ function vSet(){
   ${["direction"].includes(S.role)?`<div class="toolbar"><input id="calN" placeholder="${t("eventName")}" style="flex:1"><input id="calS" type="date" value="${today()}"><button onclick="KL.calAdd()">${t("addEvent")}</button></div>`:""}</div>
   <div class="card"><h3>${t("users")}</h3><table>${mat.map(m=>`<tr><td><b>${m[0]}</b></td><td class="small">${m[1]}</td></tr>`).join("")}</table><p class="small mut">Un rôle ne donne jamais accès à tous les élèves par défaut. Isolation par établissement appliquée.</p></div>
   <div class="card"><h3> ${t("library")} — réglage d'école</h3><div class="small">Limite de livres simultanés par élève : <b>${S.bibLimit||1}</b> <span class="mut">(initial : 1, modifiable)</span><br>Durée d'un prêt : <b>${S.loanDays||14}</b> jours <span class="mut">(échéance = sortie + durée)</span></div>${["direction"].includes(S.role)?`<div class="toolbar"><input id="bibLim" type="number" min="1" max="10" value="${S.bibLimit||1}" style="width:80px"><input id="loanDays" type="number" min="1" max="90" value="${S.loanDays||14}" style="width:80px"><button onclick="KL.setBibLimit()">${t("save")}</button></div>`:""}</div>
-  <div class="card"><h3> Langues</h3><div class="row"><button class="${S.lang==="fr"?"":"ghost"}" onclick="KL.lang('fr')">Français</button><button class="${S.lang==="ht"?"":"ghost"}" onclick="KL.lang('ht')">Kreyòl</button></div><p class="small mut">Interface, erreurs, reçus et relevés bilingues.</p><h3 style="margin-top:12px"> ${t("danger")}</h3><div class="toolbar"><button class="ghost" onclick="KL.allJSON()">${t("exportAll")}</button><button class="warn" onclick="KL.reset()">${t("demoReset")}</button></div></div></div>`;
+  <div class="card"><h3> Langues</h3><div class="row"><button class="${S.lang==="fr"?"":"ghost"}" onclick="KL.lang('fr')">Français</button><button class="${S.lang==="ht"?"":"ghost"}" onclick="KL.lang('ht')">Kreyòl</button></div><p class="small mut">Interface, erreurs, reçus et relevés bilingues.</p><h3 style="margin-top:12px"> ${t("danger")}</h3><div class="toolbar">${S.role==="direction"?`<button class="ghost" onclick="KL.allJSON()">${t("exportAll")}</button>`:""}<button class="warn" onclick="KL.reset()">${t("demoReset")}</button></div></div></div>`;
 }
 function bSet(){}
 KL.calAdd=()=>{ if(S.role!=="direction"){toast(t("noAccess"));return;} const n=$("#calN").value||"Événement"; S.calendar.push({id:"k"+Date.now(),name:n,start:$("#calS").value||today(),end:$("#calS").value||today(),type:"meeting"}); save(); render(); };
@@ -343,6 +351,7 @@ KL.reset=()=>{ if(!confirm("Réinitialiser la démo ?"))return; try{localStorage
 /* ---------- misc ---------- */
 function openPrint(title,html){ const w=document.createElement("div"); w.innerHTML=`<div class="modal"><div class="sheet"><div class="noprint row sp"><b>${esc(title)}</b><span class="row"><button onclick="window.print()">${t("print")}</button><button class="ghost" onclick="this.closest('.modal').remove()">${t("close")}</button></span></div><div>${html}</div></div></div>`; document.body.appendChild(w); }
 KL.go=m=>{ROUTE=m;render();};
+KL.refreshNav=function(){ renderShell(); };
 KL.lang=l=>{S.lang=l;save();render();};
 KL.role=r=>{S.role=r;ROUTE="dashboard";save();render();};
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};

@@ -1,7 +1,7 @@
 /* Klirline i18n — FR / HT */
 window.KL_I18N = {
 fr: {
-  appName: "Klirline School", appSub: "Gestion scolaire • Maquette MVP",
+  appName: "NORIA", appSub: "Une école, une famille et un avenir",
   dashboard: "Tableau de bord", students: "Élèves", classes: "Classes",
   attendance: "Présences", academic: "Académique", comms: "Communications",
   finance: "Finances", library: "Bibliothèque", reports: "Rapports", settings: "Paramètres",
@@ -64,7 +64,7 @@ fr: {
   lowConn: "Mode faible connexion : images limitées, listes paginées, impression légère.",
 },
 ht: {
-  appName: "Klirline Lekòl", appSub: "Jesyon lekòl • Matrice MVP",
+  appName: "NORIA", appSub: "Une école, une famille et un avenir",
   dashboard: "Tablo bò", students: "Elèv", classes: "Klas",
   attendance: "Prezans", academic: "Akademik", comms: "Kominikasyon",
   finance: "Finans", library: "Bibliyotèk", reports: "Rapò", settings: "Paramèt",

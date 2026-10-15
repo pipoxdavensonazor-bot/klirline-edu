@@ -34,6 +34,13 @@ function defaults(){
     users:[], actCodes:[], groups:[],
     calPub:{}, calHist:[], calProp:[], drafts:{},
     continuite:[], replans:[], classrooms:[],
+    meetings:[{id:"m-demo",classId:"c7a",title:"Fractions au tableau",subject:"Mathématiques",date:"2026-10-15",time:"09:00",agenda:"Revoir le numérateur et le dénominateur. Un exercice au tableau, puis les questions dans la discussion de la classe.",by:"enseignant",status:"open",external:"",present:["e1"]}],
+    threads:[{id:"th-demo",classId:"c7a",title:"Questions sur les fractions",posts:[
+      {id:"p1",role:"enseignant",sid:"",text:"Déposez ici une question sur le cours. La direction peut masquer un message.",at:"2026-10-15 08:40",hidden:false},
+      {id:"p2",role:"eleve",sid:"e1",text:"Est-ce que 1/2 et 2/4 représentent la même quantité ?",at:"2026-10-15 08:55",hidden:false}
+    ]}],
+    discParentWrite:false,
+    portals:null,
     cfg:{ campuses:[], sections:{}, subjects:[], periods:[], scale:null },
     audit:[]
   };

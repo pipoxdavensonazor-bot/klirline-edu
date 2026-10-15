@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0e1218">
-  <meta name="description" content="Prototype de gestion scolaire Klirline Édu : portails de démonstration pour les écoles, les enseignants, les familles et les élèves.">
-  <title>Klirline Édu — Gestion scolaire (prototype)</title>
+  <meta name="description" content="NORIA, prototype de gestion scolaire : portails de démonstration pour les écoles, les enseignants, les familles et les élèves. Produit de Klirline Inc.">
+  <title>NORIA — Une école, une famille et un avenir</title>
   <link rel="stylesheet" href="src/styles.css">
   <link rel="stylesheet" href="src/addons.css">
   <link rel="stylesheet" href="src/design-refresh.css">
@@ -20,7 +20,7 @@
 <body>
   <a class="skip-link" href="#view">Aller au contenu principal</a>
   <header class="topbar">
-    <div class="brand"><div class="logo" aria-hidden="true">K</div><div><b>Klirline Édu</b><small id="brandSub">Gestion scolaire — prototype, données fictives</small></div></div>
+    <div class="brand"><img class="brand-mark" src="src/noria-logo.png" alt="NORIA — Une école, une famille et un avenir"></div>
     <label class="sr-only" for="roleSel">Profil de démonstration</label>
     <select id="roleSel" onchange="KL.role(this.value)" aria-label="Profil de démonstration">
       <option value="direction">Direction</option><option value="secretariat">Secrétariat</option>
@@ -36,10 +36,11 @@
   <div class="layout">
     <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
     <main class="main" id="view" tabindex="-1">
-      <p class="small mut" style="margin-top:16px">Klirline Édu est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
+      <p class="small mut" style="margin-top:16px">NORIA est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
     </main>
   </div>
   <nav class="mnav" id="mnav" aria-label="Navigation mobile"></nav>
+  <footer class="site-foot">NORIA est un produit de <strong>Klirline Inc.</strong></footer>
   <div class="toast" id="toasts" role="status" aria-live="polite"></div>
 </body>
 </html>

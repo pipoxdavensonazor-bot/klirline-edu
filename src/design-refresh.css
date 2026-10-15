@@ -1,4 +1,4 @@
-/* Klirline Édu — système visuel repris de klirline.ca (mesuré le 15 oct. 2026).
+/* NORIA — système visuel repris de klirline.ca (mesuré le 15 oct. 2026).
    Encre #0e1218, fond #f3f4f2, accent #0f6e64, titres type Fraunces, texte type Sora.
    Les fichiers de polices ne sont pas téléchargés : Georgia et Segoe UI tiennent le même rôle
    sur une connexion limitée. */
@@ -36,31 +36,24 @@ body {
   box-shadow: none;
 }
 .topbar::after { content: none; }
-.brand { gap: 12px; margin-right: auto; align-items: center; }
-.logo {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  border-radius: 2px;
-  color: #fff;
-  background: var(--ink);
-  box-shadow: none;
-  font-family: var(--display);
-  font-weight: 500;
+.brand { gap: 12px; margin-right: auto; align-items: center; min-width: 0; }
+.brand-mark {
+  display: block;
+  height: 72px;
+  width: auto;
+  max-width: min(220px, 70vw);
+  object-fit: contain;
+  object-position: left center;
 }
-.logo::after { content: none; }
-.brand b {
-  display: inline-block;
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -.03em;
-  line-height: 1;
-  border-bottom: 2px solid var(--pri);
-  padding-bottom: 2px;
+.site-foot {
+  margin: 0;
+  padding: 4px clamp(16px, 3vw, 32px) 22px;
+  color: var(--mut);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
 }
-.brand small { color: var(--mut); font-size: 12px; font-weight: 500; }
+.site-foot strong { color: var(--ink); font-weight: 650; }
 .topbar select {
   background: #fff !important;
   color: var(--ink) !important;
@@ -259,7 +252,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 760px) {
   .topbar { min-height: auto; padding: 10px 14px 12px; gap: 8px; }
   .brand { flex: 1 0 100%; }
-  .brand small { font-size: 11px; }
+  .brand-mark { height: 64px; }
   .topbar select, .topbar .pill { flex: 1 1 auto; min-width: 0; font-size: 13px; }
   .layout { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 14px 12px 32px; }
   .nav {
@@ -301,6 +294,27 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+.portal-kicker{margin:4px 0 10px;color:var(--mut);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.board{background:#0e1218;color:#fff;border-radius:2px;padding:22px 20px}
+.board-kicker{color:rgba(255,255,255,.72);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.board-title{margin:8px 0 10px;color:#fff;font-family:var(--display);font-size:clamp(26px,4vw,36px);font-weight:500;letter-spacing:-.03em;line-height:1.15}
+.board p{margin:0;color:rgba(255,255,255,.88);font-size:16px;line-height:1.45}
+.seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+button.seat{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:76px;padding:8px;background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:500}
+button.seat b{font-family:var(--display);font-size:20px;font-weight:500;line-height:1}
+button.seat span{margin-top:4px;font-size:12px}
+button.seat.on{background:#f3faf8;color:var(--ink);border-color:#0f6e64}
+button.seat:hover:not(:disabled){background:#eef1ef;color:var(--ink)}
+button.seat:disabled{opacity:1;background:#fff;color:var(--ink)}
+.checks{display:flex;flex-wrap:wrap;gap:4px 12px}
+.chk{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-size:13px}
+.msg{padding:8px 0;border-bottom:1px solid var(--line)}
+.msg .who{font-size:13px;font-weight:600}
+@media (max-width:760px){
+  .board{padding:16px}
+  .board-title{font-size:24px}
+  .seats{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media print {
   .topbar, .nav, .mnav, .toolbar, .toast, .modal, .noprint { display: none !important; }
