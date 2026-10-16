@@ -509,6 +509,14 @@ function startSession(db, req, ctx, user) {
   });
 }
 
+function clientIp(req, trustProxy) {
+  if (trustProxy) {
+    const xff = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (xff.length) return xff[xff.length - 1];
+  }
+  return req.socket.remoteAddress || 'inconnue';
+}
+
 function createServer(db, options = {}) {
   const ctx = {
     notifier: options.notifier || createNotifier(options.env || process.env),
@@ -517,6 +525,9 @@ function createServer(db, options = {}) {
     demo: !!options.demo,
     publicUrl: options.publicUrl || process.env.NORIA_PUBLIC_URL || null,
     secureCookie: !!options.secureCookie,
+    // Derrière Caddy (ou un autre mandataire de confiance) : l'adresse du client est la dernière entrée de
+    // X-Forwarded-For, ajoutée par le mandataire. Sans trustProxy, l'en-tête est ignoré (il serait falsifiable).
+    trustProxy: !!options.trustProxy,
   };
   const serveStatic = options.staticRoot === false ? null : createStatic(options.staticRoot || path.join(__dirname, '..', '..'));
   return http.createServer(async (req, res) => {
@@ -539,6 +550,13 @@ function createServer(db, options = {}) {
     try {
       const url = new URL(req.url, 'http://localhost');
       req.query = url.searchParams;
+      // Sonde de santé (Docker, Caddy, hébergeur) : la base répond-elle ? Aucune donnée, aucun journal.
+      if (url.pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
+        let ok = true;
+        try { await db.get('SELECT 1 AS ok'); } catch { ok = false; }
+        res.writeHead(ok ? 200 : 503, { ...SECURITY_HEADERS, 'content-type': 'application/json; charset=utf-8' });
+        return res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ ok, db: db.kind }));
+      }
       if (!url.pathname.startsWith('/api/') && (req.method === 'GET' || req.method === 'HEAD') && serveStatic) {
         if (serveStatic(req, res, SECURITY_HEADERS)) return;
       }
@@ -556,7 +574,7 @@ function createServer(db, options = {}) {
           if (!['GET', 'HEAD'].includes(req.method) && req.headers['x-noria'] !== '1') throw new HttpError(403, 'en-tête x-noria manquant');
         }
       }
-      req.ip = req.socket.remoteAddress || 'inconnue';
+      req.ip = clientIp(req, ctx.trustProxy);
       for (const [method, re, handler, opts = {}] of routes) {
         const m = url.pathname.match(re);
         if (!m || method !== req.method) continue;
@@ -580,4 +598,4 @@ function createServer(db, options = {}) {
   });
 }
 
-module.exports = { createServer, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier };
+module.exports = { createServer, clientIp, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier };

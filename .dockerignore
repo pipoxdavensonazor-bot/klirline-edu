@@ -1,0 +1,12 @@
+.git
+.github
+**/node_modules
+**/*.sqlite
+**/*.sqlite-*
+.env
+.env.*
+deploy
+docs
+scripts
+server/test
+*.md

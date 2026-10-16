@@ -42,6 +42,10 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 - **Deux bases, une interface** (`src/store.js`) : **PostgreSQL** (production, `pg`) ou **SQLite** (`better-sqlite3`, développement et tests rapides). Le SQL s'écrit une fois avec des `?` ; la couche les convertit pour PostgreSQL.
 - Jetons opaques en base plutôt que JWT : révocables immédiatement à la déconnexion ou à la désactivation d'un compte.
 
+## Mise en production
+
+Voir [`DEPLOIEMENT.md`](../DEPLOIEMENT.md) : image Docker, docker-compose (application, PostgreSQL 16, Caddy en HTTPS), sauvegardes `pg_dump` chiffrées hors site avec rotation (`deploy/sauvegarde/`), sonde `GET /healthz` (200 si la base répond, 503 sinon).
+
 ## Lancer et tester
 
 ```bash
