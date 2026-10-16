@@ -32,21 +32,21 @@
   <header class="topbar">
     <div class="brand"><img class="brand-mark" src="src/noria-logo.png" alt="NORIA — Une école, une famille et un avenir"></div>
     <label class="sr-only" for="roleSel">Profil de démonstration</label>
-    <select id="roleSel" onchange="KL.role(this.value)" aria-label="Profil de démonstration" title="Profil de démonstration. Ce menu ne protège pas les dossiers.">
+    <select id="roleSel" data-action-change="KL.role" data-a0="v" aria-label="Profil de démonstration" title="Profil de démonstration. Ce menu ne protège pas les dossiers.">
       <option value="direction">Direction</option><option value="secretariat">Secrétariat</option>
       <option value="enseignant">Enseignant</option><option value="comptable">Comptabilité</option>
       <option value="bibliothecaire">Bibliothèque</option><option value="parent">Parent</option>
       <option value="eleve">Élève</option>
     </select>
     <label class="sr-only" for="langSel">Langue</label>
-    <select id="langSel" class="lang-compact" onchange="KL.lang(this.value)" aria-label="Langue / Lang (FR : français, HT : kreyòl)" title="Langue : FR français, HT kreyòl"><option value="fr" title="Français">FR</option><option value="ht" title="Kreyòl">HT</option></select>
-    <button id="connBtn" class="pill demo-badge" onclick="KL.conn()" aria-label="Simuler une file d'attente sur cet appareil">Démo locale</button>
-    <button id="syncBtn" class="pill" onclick="KL.sync()" aria-label="Vider la file de démonstration sur cet appareil">Vider la file<span id="syncBadge"></span></button>
+    <select id="langSel" class="lang-compact" data-action-change="KL.lang" data-a0="v" aria-label="Langue / Lang (FR : français, HT : kreyòl)" title="Langue : FR français, HT kreyòl"><option value="fr" title="Français">FR</option><option value="ht" title="Kreyòl">HT</option></select>
+    <button id="connBtn" class="pill demo-badge" data-action="KL.conn" aria-label="Simuler une file d'attente sur cet appareil">Démo locale</button>
+    <button id="syncBtn" class="pill" data-action="KL.sync" aria-label="Vider la file de démonstration sur cet appareil">Vider la file<span id="syncBadge"></span></button>
   </header>
   <div class="layout">
     <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
     <main class="main" id="view" tabindex="-1">
-      <p class="small mut" style="margin-top:16px">NORIA est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
+      <p class="u1 small mut">NORIA est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
     </main>
   </div>
   <nav class="mnav" id="mnav" aria-label="Navigation mobile"></nav>

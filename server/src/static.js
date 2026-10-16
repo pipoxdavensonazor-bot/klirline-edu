@@ -15,10 +15,10 @@ const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest
 // Fichiers servis à la racine (application installable) en plus de index.html et src/.
 const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest']);
 
-// CSP de la page : les gestionnaires onclick en ligne de la maquette imposent encore 'unsafe-inline' pour les scripts
-// (dette connue, à retirer avec la migration vers data-* + écouteurs).
+// CSP de la page : aucun script ni style en ligne (gestionnaires par délégation data-action, styles en classes).
+// Le test test/csp.test.js échoue si un attribut on* ou style="" réapparaît dans le HTML ou les gabarits JS.
 const HTML_CSP = [
-  "default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'",
+  "default-src 'self'", "script-src 'self'", "style-src 'self'",
   "img-src 'self' data:", "connect-src 'self'", "frame-src https://meet.systemli.org", "object-src 'none'",
   "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');

@@ -1,6 +1,6 @@
 // Vérifie la navigation sur 8 appareils émulés (téléphones, tablettes, ordinateur) : chaque section de chaque rôle
 // doit être atteignable, cibles ≥ 44 px, fermeture Échap/fond/retour, pas de défilement horizontal, 0 erreur console.
-// Usage : npm i puppeteer-core ; python3 -m http.server 8811 ; node scripts/verif-menu-appareils.js
+// Usage : npm i puppeteer-core ; python3 -m http.server 8811 ; node scripts/verif-menu-appareils.js [http://127.0.0.1:8811/index.html]
 const puppeteer=require('puppeteer-core');
 const D=[["iphone-se",375,667,2,true],["iphone-14-pro",393,852,3,true],["pixel-7",412,915,2.625,true],["galaxy-s20",360,800,3,true],
  ["ipad-mini-portrait",768,1024,2,true],["ipad-mini-paysage",1024,768,2,true],["ipad-pro",1024,1366,2,true],["desktop",1280,800,1,false]];
@@ -12,7 +12,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const p=await b.newPage(); const errs=[];
   p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text())}); p.on('response',r=>{if(r.status()>=400)errs.push(r.status()+' '+r.url())});
   await p.setViewport({width:w,height:h,deviceScaleFactor:dpr,isMobile:mob,hasTouch:mob});
-  await p.goto('http://127.0.0.1:8811/index.html',{waitUntil:'networkidle0'}); await p.evaluate(()=>localStorage.clear()); await p.reload({waitUntil:'networkidle0'});
+  await p.goto(process.argv[2]||'http://127.0.0.1:8811/index.html',{waitUntil:'networkidle0'}); await p.evaluate(()=>localStorage.clear()); await p.reload({waitUntil:'networkidle0'});
   const modeName=await p.evaluate(()=>document.documentElement.dataset.navMode);
   const roles=await p.$$eval('#roleSel option',o=>o.map(x=>x.value)); const r={mode:modeName,roles:{},issues:[]};
   for(const role of roles){

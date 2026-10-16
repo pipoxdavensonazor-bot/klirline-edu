@@ -70,3 +70,18 @@ Une revue du ZIP de suivi a renforcé les vérifications de consentement des rap
 ## Direction visuelle — interface v1
 
 La feuille `src/design-refresh.css` modernise l'enveloppe visuelle sans modifier les parcours métier : navigation latérale sur ordinateur (à partir de 1100 px), navigation horizontale sur tablette et téléphone, contrastes renforcés, composants plus lisibles et palette inspirée des couleurs haïtiennes (bleu profond, rouge, or et turquoise). Les références culturelles restent subtiles afin de garder une interface scolaire sobre et accueillante. Les téléphones gardent une barre compacte (logo, profil, langue, connexion) et des zones tactiles d'au moins 44 px, y compris avec l'encoche iPhone.
+
+## CSP stricte : pas de JS ni de style en ligne
+
+La page est servie avec `script-src 'self'; style-src 'self'` (sans `unsafe-inline`), plus `object-src 'none'`,
+`base-uri 'none'`, `frame-ancestors 'none'` et `form-action 'self'`. Dans le HTML et les gabarits JS :
+
+- pas d'attribut `onclick`, `onchange`… : `data-action="KL.go"` (clic), `data-action-change`, `data-action-input`,
+  `data-action-submit` (le `preventDefault` est automatique) ; arguments `data-a0`, `data-a1`… préfixés
+  `s:` texte (échappé avec `esc`), `n:` nombre, `j:` null/true/false, ou `v` valeur, `c` coché, `k` coché en 1/0,
+  `t` l'élément, `e` l'événement. Seuls `KL`, `KLX`, `NORIA_SCO` et `print`, `vider`, `retirer` sont appelables (src/util.js) ;
+- pas d'attribut `style` : classes (`.u1`… dans styles.css pour les anciens styles ponctuels). Les propriétés
+  posées par le DOM (`el.style.setProperty`) restent permises par la CSP.
+
+`server/test/csp.test.js` échoue si un attribut `on*` ou `style` réapparaît ; `scripts/verif-csp.js` vérifie dans Chrome
+qu'aucune violation n'est signalée.

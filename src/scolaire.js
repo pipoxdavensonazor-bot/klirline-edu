@@ -45,7 +45,7 @@ const patch=(p,b)=>api(p,{method:"PATCH",body:JSON.stringify(b||{})});
 // Barème : 100 par défaut, 200 et 300 proposés, ou valeur personnalisée positive (1000 au plus, comme le serveur).
 const PRESETS=[100,200,300];
 function maxPicker(cur,id){ const c=Number(cur)||100; const custom=!PRESETS.includes(c);
-  return `<span class="sco-max"><select name="maxSel" id="${id}Sel" aria-label="${esc(t("max"))}" onchange="NORIA_SCO.maxSel(this)">${PRESETS.map(v=>`<option value="${v}"${v===c?" selected":""}>/${v}</option>`).join("")}<option value="autre"${custom?" selected":""}>${esc(t("custom"))}</option></select>
+  return `<span class="sco-max"><select name="maxSel" id="${id}Sel" aria-label="${esc(t("max"))}" data-action-change="NORIA_SCO.maxSel" data-a0="t">${PRESETS.map(v=>`<option value="${v}"${v===c?" selected":""}>/${v}</option>`).join("")}<option value="autre"${custom?" selected":""}>${esc(t("custom"))}</option></select>
   <input name="max" id="${id}" type="number" inputmode="decimal" min="0.01" max="1000" step="0.01" value="${c}" aria-label="${esc(t("customMax"))}" required${custom?"":" hidden"}></span>`; }
 function maxSel(sel){ const i=sel.parentNode.querySelector("input[name=max]"); if(sel.value==="autre"){ i.hidden=false; i.focus(); } else { i.hidden=true; i.value=sel.value; } }
 function readMax(i){ const v=Number(String(i.value).replace(",",".")); return Number.isFinite(v)&&v>0&&v<=1000?Math.round(v*100)/100:null; }
@@ -65,7 +65,7 @@ function get(path){
 function invalidate(prefix){ Object.keys(C).forEach(k=>{ if(k.startsWith(prefix)) delete C[k]; }); }
 const ok=v=>v!==undefined&&v!==null&&!v.__err;
 const wait=`<p class="mut small">${"…"}</p>`;
-function sel(id,items,cur,onch){ return `<select id="${id}" onchange="${onch}">${items.map(([v,l])=>`<option value="${esc(v)}"${String(v)===String(cur)?" selected":""}>${esc(l)}</option>`).join("")}</select>`; }
+function sel(id,items,cur,onch){ return `<select id="${id}" data-action-change="${onch}" data-a0="v">${items.map(([v,l])=>`<option value="${esc(v)}"${String(v)===String(cur)?" selected":""}>${esc(l)}</option>`).join("")}</select>`; }
 function failMsg(r){ return t("err")+((r&&r.body&&r.body.error)||(r?r.status:t("net"))); }
 async function act(fn){ if(!navigator.onLine){ toast(t("needNet")); return null; } try{ return await fn(); }catch(e){ toast(t("net")); return null; } }
 
@@ -77,12 +77,12 @@ function acad(state){
   const tm=terms(); if(!tm) return `<h2>${t("grades")}</h2>${wait}`;
   const classes=S.classes; if(!ST.cls&&classes[0]) ST.cls=classes[0].serverId;
   const evs=get(`/api/evaluations?class_id=${ST.cls}&term_id=${ST.term}`);
-  let h=`<div class="row sp"><h2 style="margin:0">${esc(t("grades"))}</h2></div>
-  <div class="toolbar sco-bar"><label class="small">${esc(t("cls"))} ${sel("scoCls",classes.map(c=>[c.serverId,c.name]),ST.cls,"NORIA_SCO.setCls(this.value)")}</label>
-  <label class="small">${esc(t("term"))} ${sel("scoTerm",tm.map(x=>[x.id,x.name]),ST.term,"NORIA_SCO.setTerm(this.value)")}</label></div>`;
+  let h=`<div class="row sp"><h2 class="u6">${esc(t("grades"))}</h2></div>
+  <div class="toolbar sco-bar"><label class="small">${esc(t("cls"))} ${sel("scoCls",classes.map(c=>[c.serverId,c.name]),ST.cls,"NORIA_SCO.setCls")}</label>
+  <label class="small">${esc(t("term"))} ${sel("scoTerm",tm.map(x=>[x.id,x.name]),ST.term,"NORIA_SCO.setTerm")}</label></div>`;
   if(!ok(evs)) return h+wait;
   if(evs.__stale) h+=`<p class="small mut">${esc(t("off"))}</p>`;
-  h+=`<div class="grid g2" style="margin-top:10px"><div class="card"><h3>${esc(t("grades"))}</h3>${evs.length?evs.map(e=>`<button class="sco-ev${ST.ev===e.id?" on":""}" onclick="NORIA_SCO.openEv(${e.id})"><b>${esc(e.subject)}</b> — ${esc(e.title)}<br><span class="small mut">${esc(e.day)} · /${e.max_score} · coef ${e.coefficient} · ${e.grades} </span><span class="badge st-${e.status}">${esc(t("st")[e.status])}</span></button>`).join(""):`<p class="mut small">${esc(t("none"))}</p>`}
+  h+=`<div class="u8 grid g2"><div class="card"><h3>${esc(t("grades"))}</h3>${evs.length?evs.map(e=>`<button class="sco-ev${ST.ev===e.id?" on":""}" data-action="NORIA_SCO.openEv" data-a0="n:${e.id}"><b>${esc(e.subject)}</b> — ${esc(e.title)}<br><span class="small mut">${esc(e.day)} · /${e.max_score} · coef ${e.coefficient} · ${e.grades} </span><span class="badge st-${e.status}">${esc(t("st")[e.status])}</span></button>`).join(""):`<p class="mut small">${esc(t("none"))}</p>`}
   ${has("enseignant","direction")?newEvForm():""}</div><div>${ST.ev&&evs.some(e=>e.id===ST.ev)?sheet():""}${has("direction","secretariat")?cards():""}</div></div>`;
   return h;
 }
@@ -90,7 +90,7 @@ function newEvForm(){
   const subj=get("/api/subjects"); if(!ok(subj)) return "";
   const mine=subj.filter(s=>s.class_id==null||s.class_id===Number(ST.cls));
   if(!mine.length) return "";
-  return `<details class="sco-new"><summary>${esc(t("newEv"))}</summary><form onsubmit="event.preventDefault();NORIA_SCO.createEv(this)">
+  return `<details class="sco-new"><summary>${esc(t("newEv"))}</summary><form data-action-submit="NORIA_SCO.createEv" data-a0="t">
     <label class="fld">${esc(t("subject"))}<select name="subject">${mine.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></label>
     <label class="fld">${esc(t("title"))}<input name="title" required maxlength="120"></label>
     <div class="row"><label class="fld">${esc(t("day"))}<input name="day" type="date" required value="${new Date().toLocaleDateString("en-CA")}"></label>
@@ -106,24 +106,24 @@ function sheet(){
   const rows=ev.students.map(s=>{ const d=ST.draft[s.id]||pend[s.id]||g[s.id]||{}; const p=!!pend[s.id];
     const v=d.mention?"":(d.score??"");
     return `<tr><td>${esc(s.first_name)} ${esc(s.last_name)}${p?` <span class="badge b-pend" title="${esc(t("pend"))}">⏳</span>`:""}</td>
-    <td><input class="sco-in" inputmode="decimal" placeholder="/${ev.max_score}" aria-label="${esc(s.first_name)}" data-sid="${s.id}" value="${esc(v)}" ${canEdit?"":"disabled"} oninput="NORIA_SCO.edit(${s.id},this.value,null)"></td>
-    <td><select data-msid="${s.id}" ${canEdit?"":"disabled"} onchange="NORIA_SCO.edit(${s.id},null,this.value)"><option value="">—</option><option value="absent"${d.mention==="absent"?" selected":""}>${esc(t("absent"))}</option><option value="dispense"${d.mention==="dispense"?" selected":""}>${esc(t("dispense"))}</option></select></td></tr>`; }).join("");
+    <td><input class="sco-in" inputmode="decimal" placeholder="/${ev.max_score}" aria-label="${esc(s.first_name)}" data-sid="${s.id}" value="${esc(v)}" ${canEdit?"":"disabled"} data-action-input="NORIA_SCO.edit" data-a0="n:${s.id}" data-a1="v" data-a2="j:null"></td>
+    <td><select data-msid="${s.id}" ${canEdit?"":"disabled"} data-action-change="NORIA_SCO.edit" data-a0="n:${s.id}" data-a1="j:null" data-a2="v"><option value="">—</option><option value="absent"${d.mention==="absent"?" selected":""}>${esc(t("absent"))}</option><option value="dispense"${d.mention==="dispense"?" selected":""}>${esc(t("dispense"))}</option></select></td></tr>`; }).join("");
   const btn=[];
-  if(canEdit) btn.push(`<button id="scoSave" onclick="NORIA_SCO.saveGrades()">${esc(t("save"))}</button>`);
-  if(ev.status==="brouillon"&&has("enseignant","direction")) btn.push(`<button class="ghost" id="scoSubmit" onclick="NORIA_SCO.move('soumettre')">${esc(t("submit"))}</button>`);
-  if(ev.status==="soumise"&&has("direction")) btn.push(`<button class="ghost" id="scoPublish" onclick="NORIA_SCO.move('publier')">${esc(t("publish"))}</button>`);
-  if(ev.status!=="brouillon"&&has("direction")) btn.push(`<button class="ghost" onclick="NORIA_SCO.move('rouvrir')">${esc(t("reopen"))}</button>`);
+  if(canEdit) btn.push(`<button id="scoSave" data-action="NORIA_SCO.saveGrades">${esc(t("save"))}</button>`);
+  if(ev.status==="brouillon"&&has("enseignant","direction")) btn.push(`<button class="ghost" id="scoSubmit" data-action="NORIA_SCO.move" data-a0="s:soumettre">${esc(t("submit"))}</button>`);
+  if(ev.status==="soumise"&&has("direction")) btn.push(`<button class="ghost" id="scoPublish" data-action="NORIA_SCO.move" data-a0="s:publier">${esc(t("publish"))}</button>`);
+  if(ev.status!=="brouillon"&&has("direction")) btn.push(`<button class="ghost" data-action="NORIA_SCO.move" data-a0="s:rouvrir">${esc(t("reopen"))}</button>`);
   return `<div class="card"><h3>${esc(ev.title)} <span class="badge st-${ev.status}">${esc(t("st")[ev.status])}</span></h3><p class="small mut">${esc(ev.day)} · /${ev.max_score} · coef ${ev.coefficient}${canEdit?"":" · "+esc(t("readonly"))}</p>
-  ${ev.status==="brouillon"&&has("enseignant","direction")?`<form class="row sco-maxf" onsubmit="event.preventDefault();NORIA_SCO.setMax(this)"><label class="small">${esc(t("max"))} ${maxPicker(ev.max_score,"scoEvMax")}</label><button class="ghost" type="submit">${esc(t("applyMax"))}</button></form>`:`<p class="small mut">${esc(t("maxLocked"))}</p>`}
+  ${ev.status==="brouillon"&&has("enseignant","direction")?`<form class="row sco-maxf" data-action-submit="NORIA_SCO.setMax" data-a0="t"><label class="small">${esc(t("max"))} ${maxPicker(ev.max_score,"scoEvMax")}</label><button class="ghost" type="submit">${esc(t("applyMax"))}</button></form>`:`<p class="small mut">${esc(t("maxLocked"))}</p>`}
   <table class="sco-tab"><tbody>${rows}</tbody></table>${ST.msg?`<p class="small" role="status">${esc(ST.msg)}</p>`:""}<div class="toolbar">${btn.join("")}</div></div>`;
 }
 function cards(){
   const kids=S.students.filter(s=>s.classId==="c"+ST.cls);
-  return `<div class="card" style="margin-top:10px"><h3>${esc(t("rc"))}</h3>${kids.map(k=>{ const list=get(`/api/report-cards?student_id=${k.serverId}`);
+  return `<div class="u8 card"><h3>${esc(t("rc"))}</h3>${kids.map(k=>{ const list=get(`/api/report-cards?student_id=${k.serverId}`);
     const cur=ok(list)?list.find(r=>!r.revoked_at&&r.term_id===Number(ST.term)):null;
     return `<div class="row sp sco-rc"><span>${esc(k.firstName)} ${esc(k.lastName)}${cur?` <span class="small mut">${cur.average==null?"":esc(String(cur.average))+"/"+(cur.scale||100)}</span>`:""}</span><span class="row">
-    ${cur?`<button class="soft" onclick="NORIA_SCO.pdf(${cur.id})">${esc(t("pdf"))}</button>`:""}<button class="ghost" data-issue="${k.serverId}" onclick="NORIA_SCO.issue(${k.serverId})">${esc(t("issue"))}</button></span></div>`; }).join("")}
-  ${ST.issued?`<div class="sco-link"><p class="small">${esc(t("code"))} : <b>${esc(ST.issued.code)}</b></p><input readonly value="${esc(ST.issued.verifyUrl)}" id="scoVerify"><button class="ghost" onclick="NORIA_SCO.copy('scoVerify')">${esc(t("copy"))}</button></div>`:""}</div>`;
+    ${cur?`<button class="soft" data-action="NORIA_SCO.pdf" data-a0="n:${cur.id}">${esc(t("pdf"))}</button>`:""}<button class="ghost" data-issue="${k.serverId}" data-action="NORIA_SCO.issue" data-a0="n:${k.serverId}">${esc(t("issue"))}</button></span></div>`; }).join("")}
+  ${ST.issued?`<div class="sco-link"><p class="small">${esc(t("code"))} : <b>${esc(ST.issued.code)}</b></p><input readonly value="${esc(ST.issued.verifyUrl)}" id="scoVerify"><button class="ghost" data-action="NORIA_SCO.copy" data-a0="s:scoVerify">${esc(t("copy"))}</button></div>`:""}</div>`;
 }
 async function openEv(id){ ST.ev=id; ST.draft={}; ST.msg=""; ST.pend=window.NORIA_OFF?await NORIA_OFF.pendingGrades(id):{}; rerender(); }
 function edit(sid,score,mention){ const d=ST.draft[sid]||{}; if(score!==null){ d.score=score; if(score!=="") d.mention=null; } if(mention!==null){ d.mention=mention||null; } ST.draft[sid]=d; }
@@ -180,15 +180,15 @@ function copy(id){ const el=document.getElementById(id); if(!el) return; el.sele
 /* ---------- familles ---------- */
 function family(){
   const tm=terms(); if(!tm) return `<h2>${t("grades")}</h2>${wait}`;
-  let h=`<div class="row sp"><h2 style="margin:0">${esc(t("grades"))}</h2><label class="small">${esc(t("term"))} ${sel("scoTerm",tm.map(x=>[x.id,x.name]),ST.term,"NORIA_SCO.setTerm(this.value)")}</label></div>`;
+  let h=`<div class="row sp"><h2 class="u6">${esc(t("grades"))}</h2><label class="small">${esc(t("term"))} ${sel("scoTerm",tm.map(x=>[x.id,x.name]),ST.term,"NORIA_SCO.setTerm")}</label></div>`;
   for(const k of S.students){
     const gr=get(`/api/students/${k.serverId}/grades?term_id=${ST.term}`), av=get(`/api/students/${k.serverId}/averages?term_id=${ST.term}`), rc=get(`/api/report-cards?student_id=${k.serverId}`);
-    h+=`<div class="card sco-kid" style="margin-top:10px"><h3>${esc(k.firstName)} ${esc(k.lastName)}</h3>`;
+    h+=`<div class="u8 card sco-kid"><h3>${esc(k.firstName)} ${esc(k.lastName)}</h3>`;
     if(!ok(gr)){ h+=wait+"</div>"; continue; }
     if(gr.__stale) h+=`<p class="small mut">${esc(t("off"))}</p>`;
     h+=gr.length?`<table class="sco-tab"><tbody>${gr.map(g=>`<tr><td>${esc(g.subject)}<br><span class="small mut">${esc(g.title)} · ${esc(g.day)}</span></td><td class="sco-note"><b>${g.mention?esc(t(g.mention)):esc(String(g.score))+"/"+g.max_score}</b></td></tr>`).join("")}</tbody></table>`:`<p class="mut small">${esc(t("noPub"))}</p>`;
     if(ok(av)&&av.general!=null) h+=`<p class="sco-avg">${esc(t("general"))} : <b>${esc(String(av.general))}/${av.scale}</b> <span class="small mut">${av.subjects.filter(s=>s.average!=null).map(s=>`${esc(s.name)} ${s.average}`).join(" · ")}</span></p>`;
-    if(ok(rc)&&rc.length) h+=`<div class="toolbar">${rc.filter(r=>!r.revoked_at).map(r=>`<button class="ghost" onclick="NORIA_SCO.pdf(${r.id})">${esc(t("rc1"))} ${esc(r.term)} · ${esc(t("pdf"))}</button>`).join("")}</div>`;
+    if(ok(rc)&&rc.length) h+=`<div class="toolbar">${rc.filter(r=>!r.revoked_at).map(r=>`<button class="ghost" data-action="NORIA_SCO.pdf" data-a0="n:${r.id}">${esc(t("rc1"))} ${esc(r.term)} · ${esc(t("pdf"))}</button>`).join("")}</div>`;
     h+="</div>";
   }
   return h;
@@ -202,13 +202,13 @@ function comms(state){
   const audSel=`<label class="fld">${esc(t("aud"))}<select name="aud">${auds.map(a=>`<option value="${a}">${esc(t("auds")[a])}</option>`).join("")}</select></label>
     <label class="fld">${esc(t("cls"))}<select name="cls">${S.classes.map(c=>`<option value="${c.serverId}">${esc(c.name)}</option>`).join("")}</select></label>`;
   const audLbl=x=>x.audience==="classe"?(x.class_name||t("auds").classe):t("auds")[x.audience];
-  return `<h2 style="margin:0">${esc(t("ann"))}</h2><div class="grid g2" style="margin-top:10px"><div>
-  ${auds.length?`<details class="card sco-new"><summary>${esc(t("newAnn"))}</summary><form onsubmit="event.preventDefault();NORIA_SCO.postAnn(this)">
+  return `<h2 class="u6">${esc(t("ann"))}</h2><div class="u8 grid g2"><div>
+  ${auds.length?`<details class="card sco-new"><summary>${esc(t("newAnn"))}</summary><form data-action-submit="NORIA_SCO.postAnn" data-a0="t">
     <label class="fld">${esc(t("title"))}<input name="title" required maxlength="120"></label><label class="fld">${esc(t("body"))}<textarea name="body" required maxlength="2000" rows="3"></textarea></label>
     ${audSel}<button type="submit">${esc(t("newAnn"))}</button></form></details>`:""}
-  ${!ok(an)?wait:an.length?an.map(a=>`<div class="card sco-ann" style="margin-bottom:10px"><h3>${esc(a.title)}</h3><div class="small mut">${esc(audLbl(a))} · ${esc(String(a.created_at).slice(0,10))} · ${esc(a.author)}</div><p>${esc(a.body)}</p></div>`).join(""):`<p class="mut small">${esc(t("noAnn"))}</p>`}
+  ${!ok(an)?wait:an.length?an.map(a=>`<div class="u14 card sco-ann"><h3>${esc(a.title)}</h3><div class="small mut">${esc(audLbl(a))} · ${esc(String(a.created_at).slice(0,10))} · ${esc(a.author)}</div><p>${esc(a.body)}</p></div>`).join(""):`<p class="mut small">${esc(t("noAnn"))}</p>`}
   </div><div><div class="card"><h3>${esc(t("cal"))}</h3>${!ok(evs)?wait:evs.length?evs.map(e=>`<div class="small sco-evt"><b>${esc(e.title)}</b><br>${esc(e.starts_on)}${e.ends_on?" → "+esc(e.ends_on):""} · ${esc(audLbl(e))}</div>`).join(""):`<p class="mut small">${esc(t("noEv"))}</p>`}
-  ${auds.length?`<details class="sco-new"><summary>${esc(t("add"))}</summary><form onsubmit="event.preventDefault();NORIA_SCO.postEvt(this)">
+  ${auds.length?`<details class="sco-new"><summary>${esc(t("add"))}</summary><form data-action-submit="NORIA_SCO.postEvt" data-a0="t">
     <label class="fld">${esc(t("title"))}<input name="title" required maxlength="120"></label><div class="row"><label class="fld">${esc(t("start"))}<input name="start" type="date" required></label><label class="fld">${esc(t("end"))}<input name="end" type="date"></label></div>
     ${audSel}<button type="submit">${esc(t("add"))}</button></form></details>`:""}</div></div></div>`;
 }
@@ -222,17 +222,17 @@ function accounts(state){
   const list=get("/api/invitations");
   const roles=has("direction")?["parent","eleve","enseignant","secretariat","comptabilite","bibliotheque","direction"]:["parent","eleve"];
   const R=t("roles");
-  return `<h2 style="margin:0">${esc(t("acc"))}</h2><div class="grid g2" style="margin-top:10px"><div class="card"><h3>${esc(t("invite"))}</h3>
-  <form id="invForm" onsubmit="event.preventDefault();NORIA_SCO.invite(this)">
+  return `<h2 class="u6">${esc(t("acc"))}</h2><div class="u8 grid g2"><div class="card"><h3>${esc(t("invite"))}</h3>
+  <form id="invForm" data-action-submit="NORIA_SCO.invite" data-a0="t">
    <label class="fld">${esc(t("name"))}<input name="name" required maxlength="80"></label>
    <label class="fld">${esc(t("phone"))}<input name="phone" inputmode="tel" placeholder="+509 …"></label>
    <label class="fld">${esc(t("email"))}<input name="email" type="email" autocapitalize="none"></label>
    <label class="fld">${esc(t("role"))}<select name="role">${roles.map(r=>`<option value="${r}">${esc(R[r]||r)}</option>`).join("")}</select></label>
    <label class="fld">${esc(t("student"))}<select name="student"><option value="">—</option>${S.students.map(s=>`<option value="${s.serverId}">${esc(s.firstName)} ${esc(s.lastName)}</option>`).join("")}</select></label>
    <button type="submit">${esc(t("send"))}</button></form>
-  ${ST.inv?`<div class="sco-link" id="invLinkBox"><p class="small"><b>${esc(t("link"))}</b></p><input readonly id="invLink" value="${esc(ST.inv)}"><button class="ghost" onclick="NORIA_SCO.copy('invLink')">${esc(t("copy"))}</button><p class="small mut">${esc(ST.invSent==="envoyé"?t("sentOk")(ST.invCh):ST.invSent==="échec"?t("sentKo"):t("simul"))}</p></div>`:""}</div>
+  ${ST.inv?`<div class="sco-link" id="invLinkBox"><p class="small"><b>${esc(t("link"))}</b></p><input readonly id="invLink" value="${esc(ST.inv)}"><button class="ghost" data-action="NORIA_SCO.copy" data-a0="s:invLink">${esc(t("copy"))}</button><p class="small mut">${esc(ST.invSent==="envoyé"?t("sentOk")(ST.invCh):ST.invSent==="échec"?t("sentKo"):t("simul"))}</p></div>`:""}</div>
   <div class="card"><h3>${esc(t("invs"))}</h3>${!ok(list)?wait:list.map(i=>{ const exp=Date.parse(/[TZ]/.test(i.expires_at)?i.expires_at:i.expires_at.replace(" ","T")+"Z"); const st=i.used_at?"used":exp<Date.now()?"expired":"waiting";
-    return `<div class="row sp sco-inv"><span><b>${esc(i.display_name)}</b> <span class="small mut">${esc(R[i.role]||i.role)} · ${esc(i.phone||i.email||"")}</span></span><span class="row"><span class="badge inv-${st}">${esc(t(st))}</span>${st==="waiting"?`<button class="ghost" onclick="NORIA_SCO.cancelInv(${i.id})">${esc(t("cancel"))}</button>`:""}</span></div>`; }).join("")}</div></div>`;
+    return `<div class="row sp sco-inv"><span><b>${esc(i.display_name)}</b> <span class="small mut">${esc(R[i.role]||i.role)} · ${esc(i.phone||i.email||"")}</span></span><span class="row"><span class="badge inv-${st}">${esc(t(st))}</span>${st==="waiting"?`<button class="ghost" data-action="NORIA_SCO.cancelInv" data-a0="n:${i.id}">${esc(t("cancel"))}</button>`:""}</span></div>`; }).join("")}</div></div>`;
 }
 async function invite(f){
   const body={display_name:f.name.value,role:f.role.value,lang:lang()};

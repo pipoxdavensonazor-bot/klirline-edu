@@ -334,7 +334,7 @@ button, select, .pill { touch-action: manipulation; }
   #langSel { grid-column: 3; grid-row: 1; }
   #connBtn { grid-column: 2 / -1; grid-row: 2; }
   #syncBtn { grid-column: 3; grid-row: 2; }
-  .topbar:has(#syncBtn:not([style*="none"])) #connBtn { grid-column: 2; }
+  .topbar:has(#syncBtn:not([hidden])) #connBtn { grid-column: 2; }
   .layout { padding: 10px 12px 28px; }
   #view > h2, #view .row > h2 { font-size: 26px; }
   #view .row.sp { flex-direction: column; align-items: stretch; }
@@ -366,7 +366,7 @@ button, select, .pill { touch-action: manipulation; }
   #langSel { grid-column: 2; grid-row: 2; }
   #connBtn { grid-column: 1 / -1; grid-row: 3; }
   #syncBtn { grid-column: 2; grid-row: 3; }
-  .topbar:has(#syncBtn:not([style*="none"])) #connBtn { grid-column: 1; }
+  .topbar:has(#syncBtn:not([hidden])) #connBtn { grid-column: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
