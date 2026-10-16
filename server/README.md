@@ -140,6 +140,18 @@ DATABASE_URL=postgres://… node scripts/sauvegarde.js restaurer noria-2026-10-1
 
 Sauvegarde logique (JSON compressé, fichier en droits 600) de toutes les tables métier, avec **empreinte SHA-256 vérifiée** à la restauration ; fonctionne entre SQLite et PostgreSQL dans les deux sens. Exclus : sessions (reconnexion obligatoire), tentatives de connexion, boîte d'envoi simulée. La restauration refuse une base non vide ou une base trop ancienne, puis recale les compteurs d'identifiants. Le test restaure dans une base neuve, compare tout le contenu et se reconnecte. En production, ajouter `pg_dump -Fc` quotidien hors de la machine, chiffré, et un essai de restauration régulier.
 
+## Cœur scolaire (phase 3, `test/scolaire.test.js`)
+
+- **Évaluations et notes** : un enseignant crée une évaluation pour ses classes **et** matières attribuées, dans les dates de la période ; il saisit et corrige tant qu'elle est en brouillon, puis la **soumet**. Seule la **direction publie** (depuis « soumise ») et **rouvre** (motif obligatoire) ; elle peut corriger une note publiée avec motif. Historique en ajout seul (`grade_history`), publication journalisée.
+- **Familles** : parents et élèves ne voient que les notes **publiées** de leurs enfants (ou d'eux-mêmes) ; tout autre élève → 404.
+- **Saisie hors ligne** : `POST /api/grades/sync`, même file IndexedDB que l'appel (kind « grade »), clé d'idempotence `op_id`, version de base ; en conflit, **la valeur du serveur est conservée** et journalisée (`grade_conflict` + audit).
+- **Moyennes** : notes publiées seulement, ramenées sur `NORIA_GRADE_SCALE` (10 par défaut), pondérées par le coefficient de l'évaluation puis de la matière ; absent / dispensé non comptés ; une matière sans note ne pèse pas.
+- **Bulletins** : émis par la direction ou le secrétariat (instantané figé) ; PDF imprimable d'environ 3 Ko (Helvetica, sans image) avec **QR** vers `NORIA_PUBLIC_URL/#verifier=CODE` (code de 60 bits, alphabet sans 0/O/1/I). Un nouveau bulletin pour la même période **annule** le précédent (PDF → 410).
+- **Vérification publique** `GET /api/verifier/:code` : confirme seulement l'école, l'élève (prénom + initiale), la période, la date et le statut (valide / annulé) ; jamais de note ni de moyenne. Échecs limités (429).
+- **Annonces et calendrier** : audiences `ecole`, `classe`, `parents`, `enseignants`. Direction/secrétariat : toute audience ; enseignant : ses classes seulement. Chacun ne lit que ce qui le concerne (filtrage SQL + RLS par école).
+- **Comptes** : `GET /api/invitations`, `POST /api/invitations/:id/annuler` ; la création renvoie un **lien copiable** (`/#invitation=…`), l'envoi SMS / e-mail reste **simulé**. Secrétariat limité aux comptes parent et élève.
+- Vérification dans le navigateur : `node scripts/verif-coeur.js http://127.0.0.1:3100` (puppeteer-core, jsqr, pngjs, pdftoppm).
+
 ## Reste à faire avant toute donnée réelle
 
-Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), écrans d'invitation dans l'interface, notes et annonces côté serveur (les autres modules restent locaux), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).
+Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), finances, bibliothèque et rapports côté serveur (encore locaux), validation par Philippe des règles de notes (barème /10, publication par la direction seule, annulation du bulletin précédent), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).
