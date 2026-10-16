@@ -31,33 +31,32 @@ async function getDummyHash() {
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
-// Jeton opaque ; seule son empreinte est stockée en base.
-function createSession(db, user, ttlHours = 8) {
+// Jeton opaque ; seule son empreinte est stockée en base. Ces fonctions utilisent la connexion système
+// (hors RLS) : la session n'est pas encore connue quand on la cherche.
+async function createSession(db, user, ttlHours = 8) {
   const token = crypto.randomBytes(32).toString('base64url');
   const expires = new Date(Date.now() + ttlHours * 3600e3).toISOString();
-  db.prepare('INSERT INTO session (token_hash, user_id, school_id, expires_at) VALUES (?,?,?,?)')
-    .run(sha256(token), user.id, user.school_id, expires);
+  await db.run('INSERT INTO session (token_hash, user_id, school_id, expires_at) VALUES (?,?,?,?)', sha256(token), user.id, user.school_id, expires);
   return token;
 }
 
-function loadSession(db, token) {
+async function loadSession(db, token) {
   if (!token) return null;
-  const row = db.prepare(`SELECT u.id, u.school_id, u.display_name, u.state, s.expires_at
+  const row = await db.get(`SELECT u.id, u.school_id, u.display_name, u.state, s.expires_at
     FROM session s JOIN app_user u ON u.id = s.user_id AND u.school_id = s.school_id
-    WHERE s.token_hash = ?`).get(sha256(token));
+    WHERE s.token_hash = ?`, sha256(token));
   if (!row || row.state !== 'actif' || row.expires_at < new Date().toISOString()) return null;
-  row.roles = db.prepare('SELECT role FROM user_role WHERE user_id = ? AND school_id = ?')
-    .all(row.id, row.school_id).map((r) => r.role);
+  row.roles = (await db.all('SELECT role FROM user_role WHERE user_id = ? AND school_id = ?', row.id, row.school_id)).map((r) => r.role);
   return row;
 }
 
 // Révoque toutes les sessions d'un compte (récupération, désactivation).
-function destroyUserSessions(db, userId) {
-  db.prepare('DELETE FROM session WHERE user_id = ?').run(userId);
+async function destroyUserSessions(db, userId) {
+  await db.run('DELETE FROM session WHERE user_id = ?', userId);
 }
 
-function destroySession(db, token) {
-  db.prepare('DELETE FROM session WHERE token_hash = ?').run(sha256(token));
+async function destroySession(db, token) {
+  await db.run('DELETE FROM session WHERE token_hash = ?', sha256(String(token || '')));
 }
 
 module.exports = { sha256, hashPassword, verifyPassword, getDummyHash, createSession, loadSession, destroySession, destroyUserSessions };

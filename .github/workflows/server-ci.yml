@@ -11,6 +11,15 @@ permissions:
 jobs:
   serveur:
     runs-on: ubuntu-latest
+    # PostgreSQL : les mêmes tests tournent contre une vraie base (RLS, migrations, sauvegarde).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-local-fictif
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: server
@@ -22,5 +31,10 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
-      - run: npm test
+      - name: Tests (SQLite)
+        run: npm test
+      - name: Tests (PostgreSQL 16)
+        run: npm test
+        env:
+          NORIA_TEST_PG: postgres://postgres:ci-local-fictif@127.0.0.1:5432/postgres
       - run: npm audit --audit-level=moderate

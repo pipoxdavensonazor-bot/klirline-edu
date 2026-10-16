@@ -5,7 +5,8 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
-const { openDb } = require('../src/db');
+const { openTestDb } = require('./helpers');
+const { openStore } = require('../src/store');
 const { createServer, createLimiter, csv } = require('../src/app');
 const auth = require('../src/auth');
 const { seed, DEMO_PASSWORD } = require('../src/seed');
@@ -15,14 +16,14 @@ const post = (p, body) => fetch(base + p, { method: 'POST', headers: { 'content-
 const login = (email, password, school = 'ecole-a') => post('/api/login', { school, email, password });
 
 before(async () => {
-  db = openDb(':memory:');
+  db = await openTestDb();
   await seed(db);
   clock = { t: Date.now() };
   server = createServer(db, { rateLimit: { max: 5, windowMs: 60_000, now: () => clock.t } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
-after(() => server.close());
+after(async () => { server.close(); await db.cleanup(); });
 
 test('limitation : 5 échecs bloquent le compte (429 + Retry-After), même avec le bon mot de passe ; levée après la fenêtre', async () => {
   const email = 'secretariat@a.exemple.invalid';
@@ -32,18 +33,35 @@ test('limitation : 5 échecs bloquent le compte (429 + Retry-After), même avec 
   assert.ok(Number(blocked.headers.get('retry-after')) > 0);
   clock.t += 61_000;
   assert.equal((await login(email, DEMO_PASSWORD)).status, 200);
-  const refus = db.prepare(`SELECT COUNT(*) n FROM audit_log WHERE action = 'login' AND outcome = 'refuse'`).get().n;
+  const refus = (await db.get(`SELECT COUNT(*) n FROM audit_log WHERE action = 'login' AND outcome = 'refuse'`)).n;
   assert.ok(refus >= 5, 'échecs de connexion journalisés');
 });
 
-test('limitation : le limiteur bloque aussi par IP, toutes adresses confondues', () => {
-  let t = 0;
-  const l = createLimiter({ max: 3, windowMs: 1000, now: () => t });
-  for (const e of ['a', 'b', 'c']) l.fail(['ip:1', `compte:${e}`]);
-  assert.ok(l.blocked(['ip:1', 'compte:d']) > 0, 'IP bloquée même pour un nouveau compte');
-  assert.equal(l.blocked(['ip:2', 'compte:d']), 0);
-  t = 1001;
-  assert.equal(l.blocked(['ip:1', 'compte:d']), 0);
+test('limitation : le limiteur bloque aussi par IP, toutes adresses confondues (mémoire et base)', async () => {
+  for (const withDb of [false, true]) {
+    let t = 0;
+    const l = createLimiter({ db: withDb ? db : null, max: 3, windowMs: 1000, now: () => t });
+    for (const e of ['a', 'b', 'c']) await l.fail(['ip:1', `compte:${e}`]);
+    assert.ok((await l.blocked(['ip:1', 'compte:d'])) > 0, 'IP bloquée même pour un nouveau compte');
+    assert.equal(await l.blocked(['ip:2', 'compte:d']), 0);
+    t = 1001;
+    assert.equal(await l.blocked(['ip:1', 'compte:d']), 0);
+  }
+});
+
+test('limiteur persistant : le blocage survit à un redémarrage du serveur, clés hachées en base', async () => {
+  const email = 'biblio@a.exemple.invalid';
+  for (let i = 0; i < 5; i++) assert.equal((await login(email, 'mauvais')).status, 401);
+  // Nouveau serveur, même base : le compte reste bloqué.
+  const s2 = createServer(db, { rateLimit: { max: 5, windowMs: 60_000, now: () => clock.t } });
+  await new Promise((r) => s2.listen(0, '127.0.0.1', r));
+  try {
+    const r = await fetch(`http://127.0.0.1:${s2.address().port}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ school: 'ecole-a', email, password: DEMO_PASSWORD }) });
+    assert.equal(r.status, 429);
+  } finally { s2.close(); }
+  const keys = await db.all('SELECT key FROM login_attempt');
+  assert.ok(keys.length > 0 && keys.every((k) => /^[0-9a-f]{64}$/.test(k.key)), 'aucun e-mail ni IP en clair');
+  clock.t += 61_000;
 });
 
 test('e-mail inconnu : vérification contre un hachage factice (pas de raccourci révélateur)', async () => {
@@ -92,7 +110,7 @@ test('CSV : les cellules commençant par = + - @ sont neutralisées, y compris d
   assert.equal(line, `"'=HYPERLINK(""http://x"")",'+1,'-2,'@SUM(A1),Ana`);
   clock.t += 120_000;
   const tok = (await (await login('direction@a.exemple.invalid', DEMO_PASSWORD)).json()).token;
-  const st = db.prepare(`SELECT id FROM student WHERE code = 'A-002'`).get().id;
+  const st = (await db.get(`SELECT id FROM student WHERE code = 'A-002'`)).id;
   const r = await fetch(`${base}/api/students/${st}`, { method: 'PATCH', headers: { authorization: `Bearer ${tok}`, 'content-type': 'application/json' }, body: JSON.stringify({ last_name: '=cmd|calc', reason: 'test formule (fictif)' }) });
   assert.equal(r.status, 200);
   const text = await (await fetch(`${base}/api/export/students`, { headers: { authorization: `Bearer ${tok}` } })).text();
@@ -107,8 +125,8 @@ function runIndex(env) {
       env: { PATH: process.env.PATH, NORIA_DB: dbFile, PORT: '0', ...env },
     });
     let out = '';
-    const done = (code) => { const d = openDb(dbFile); const n = d.prepare('SELECT COUNT(*) n FROM school').get().n; d.close(); resolve({ out, n, code }); };
-    child.stdout.on('data', (b) => { out += b; if (/API NORIA/.test(out)) child.kill(); });
+    const done = async (code) => { const d = await openStore(dbFile); const n = (await d.get('SELECT COUNT(*) AS n FROM school')).n; await d.close(); resolve({ out, n, code }); };
+    child.stdout.on('data', (b) => { out += b; if (/NORIA \(/.test(out)) child.kill(); });
     child.stderr.on('data', (b) => { out += b; });
     child.on('exit', done);
   });

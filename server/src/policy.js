@@ -1,6 +1,8 @@
 'use strict';
 // Périmètres imposés par le serveur, traduits en SQL. Chaque requête filtre d'abord school_id = école de la session.
 
+// Aucun accès : clause toujours fausse, valable en SQLite comme en PostgreSQL.
+const NONE = Object.freeze({ sql: '1 = 0', params: [] });
 const has = (u, ...roles) => roles.some((r) => u.roles.includes(r));
 
 // Renvoie une clause SQL (et ses paramètres) limitant les élèves visibles pour un « dossier ».
@@ -20,7 +22,7 @@ function studentScope(u, alias = 'st') {
     params.push(u.id, u.school_id);
   }
   if (has(u, 'eleve')) { parts.push(`${alias}.user_id = ?`); params.push(u.id); }
-  if (!parts.length) return { sql: '0', params: [] };
+  if (!parts.length) return NONE;
   return { sql: `${base.sql} AND (${parts.join(' OR ')})`, params: [...base.params, ...params] };
 }
 
@@ -41,6 +43,7 @@ const can = {
   manageRoles: (u) => has(u, 'direction'),
   readAudit: (u) => has(u, 'direction'),
   readClass: (u) => has(u, 'direction', 'secretariat', 'enseignant', 'bibliotheque'),
+  recordAttendance: (u) => has(u, 'direction', 'secretariat', 'enseignant'),
 };
 
 // Périmètre financier : comptabilité et direction = toute l'école ; parent = ses enfants.
@@ -50,7 +53,7 @@ function financeScope(u, alias = 'st') {
     sql: `${alias}.school_id = ? AND ${alias}.id IN (SELECT student_id FROM parent_link WHERE parent_user_id = ? AND school_id = ?)`,
     params: [u.school_id, u.id, u.school_id],
   };
-  return { sql: '0', params: [] };
+  return NONE;
 }
 
 function classScope(u, alias = 'c') {
@@ -59,7 +62,7 @@ function classScope(u, alias = 'c') {
     sql: `${alias}.school_id = ? AND ${alias}.id IN (SELECT class_id FROM teacher_assignment WHERE teacher_user_id = ? AND school_id = ?)`,
     params: [u.school_id, u.id, u.school_id],
   };
-  return { sql: '0', params: [] };
+  return NONE;
 }
 
-module.exports = { has, can, studentScope, studentFields, financeScope, classScope };
+module.exports = { NONE, has, can, studentScope, studentFields, financeScope, classScope };

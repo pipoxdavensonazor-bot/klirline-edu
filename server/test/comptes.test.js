@@ -4,7 +4,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const zlib = require('node:zlib');
-const { openDb } = require('../src/db');
+const { openTestDb, FK } = require('./helpers');
 const { createServer, normalizePhone } = require('../src/app');
 const { seed, DEMO_PASSWORD } = require('../src/seed');
 
@@ -21,8 +21,8 @@ const login = async (handle, school = 'a') => {
   const r = await call(null, 'POST', '/api/login', { school: `ecole-${school}`, identifier: `${handle}@${school}.exemple.invalid`, password: DEMO_PASSWORD });
   assert.equal(r.status, 200, handle); return r.json.token;
 };
-const lastLink = (kind) => {
-  const row = db.prepare('SELECT body FROM outbox WHERE kind = ? ORDER BY id DESC LIMIT 1').get(kind);
+const lastLink = async (kind) => {
+  const row = await db.get('SELECT body FROM outbox WHERE kind = ? ORDER BY id DESC LIMIT 1', kind);
   return row.body.match(new RegExp(`#${kind}=([\\w-]+)`))[1];
 };
 const raw = (path, headers = {}) => new Promise((resolve, reject) => {
@@ -33,12 +33,12 @@ const raw = (path, headers = {}) => new Promise((resolve, reject) => {
 });
 
 before(async () => {
-  db = openDb(':memory:'); ids = await seed(db);
+  db = await openTestDb(); ids = await seed(db);
   server = createServer(db, { demo: true, rateLimit: { max: 1000 } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
-after(() => server.close());
+after(async () => { server.close(); await db.cleanup(); });
 
 test('config publique : méthodes, écoles en démo, session', async () => {
   const c = await call(null, 'GET', '/api/config');
@@ -84,8 +84,8 @@ test('invitations : droits par rôle, acceptation unique, compte créé et ratta
   assert.equal((await call(sec, 'POST', '/api/invitations', { ...parent, phone: '+50900000107' })).status, 409);
   const ok = await call(sec, 'POST', '/api/invitations', parent);
   assert.equal(ok.status, 200);
-  const token = lastLink('invitation');
-  assert.ok(!db.prepare('SELECT 1 FROM account_token WHERE token_hash = ?').get(token), 'jeton jamais stocké en clair');
+  const token = await lastLink('invitation');
+  assert.ok(!(await db.get('SELECT 1 AS x FROM account_token WHERE token_hash = ?', token)), 'jeton jamais stocké en clair');
   assert.equal((await call(null, 'POST', '/api/invitations/accept', { token, password: 'court' })).status, 400);
   assert.equal((await call(null, 'POST', '/api/invitations/accept', { token, password: 'nouveau-fictif-1' })).status, 200);
   assert.equal((await call(null, 'POST', '/api/invitations/accept', { token, password: 'nouveau-fictif-1' })).status, 400, 'usage unique');
@@ -101,20 +101,20 @@ test('invitations : droits par rôle, acceptation unique, compte créé et ratta
 test('invitation expirée refusée', async () => {
   const dir = await login('direction');
   await call(dir, 'POST', '/api/invitations', { display_name: 'Expiré fictif', email: 'exp@a.exemple.invalid', role: 'enseignant' });
-  const token = lastLink('invitation');
-  db.prepare("UPDATE account_token SET expires_at = '2000-01-01T00:00:00.000Z' WHERE used_at IS NULL").run();
+  const token = await lastLink('invitation');
+  (await db.run("UPDATE account_token SET expires_at = '2000-01-01T00:00:00.000Z' WHERE used_at IS NULL"));
   assert.equal((await call(null, 'POST', '/api/invitations/accept', { token, password: 'nouveau-fictif-2' })).status, 400);
   assert.equal((await call(null, 'POST', '/api/invitations/accept', { token: 'x'.repeat(43), password: 'nouveau-fictif-2' })).status, 400);
 });
 
 test('récupération : même réponse si le compte n\'existe pas, réinitialisation révoque les sessions', async () => {
-  const before = db.prepare('SELECT COUNT(*) n FROM outbox').get().n;
+  const before = (await db.get('SELECT COUNT(*) n FROM outbox')).n;
   const none = await call(null, 'POST', '/api/recovery/request', { school: 'ecole-a', identifier: 'personne@a.exemple.invalid' });
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM outbox').get().n, before);
+  assert.equal((await db.get('SELECT COUNT(*) n FROM outbox')).n, before);
   const old = await login('prof2');
   const yes = await call(null, 'POST', '/api/recovery/request', { school: 'ecole-a', identifier: 'prof2@a.exemple.invalid' });
   assert.equal(none.status, yes.status); assert.deepEqual(none.json, yes.json);
-  const token = lastLink('recuperation');
+  const token = await lastLink('recuperation');
   assert.equal((await call(null, 'POST', '/api/recovery/reset', { token, password: 'remplace-fictif-1' })).status, 200);
   assert.equal((await call(old, 'GET', '/api/me')).status, 401, 'ancienne session révoquée');
   assert.equal((await call(null, 'POST', '/api/recovery/reset', { token, password: 'remplace-fictif-2' })).status, 400);
