@@ -22,7 +22,7 @@
   <header class="topbar">
     <div class="brand"><img class="brand-mark" src="src/noria-logo.png" alt="NORIA — Une école, une famille et un avenir"></div>
     <label class="sr-only" for="roleSel">Profil de démonstration</label>
-    <select id="roleSel" onchange="KL.role(this.value)" aria-label="Profil de démonstration">
+    <select id="roleSel" onchange="KL.role(this.value)" aria-label="Profil de démonstration" title="Profil de démonstration. Ce menu ne protège pas les dossiers.">
       <option value="direction">Direction</option><option value="secretariat">Secrétariat</option>
       <option value="enseignant">Enseignant</option><option value="comptable">Comptabilité</option>
       <option value="bibliothecaire">Bibliothèque</option><option value="parent">Parent</option>
@@ -30,8 +30,8 @@
     </select>
     <label class="sr-only" for="langSel">Langue</label>
     <select id="langSel" onchange="KL.lang(this.value)" aria-label="Langue"><option value="fr">Français</option><option value="ht">Kreyòl</option></select>
-    <button id="connBtn" class="pill" onclick="KL.conn()" aria-label="Changer l'état de connexion">État de connexion</button>
-    <button id="syncBtn" class="pill" onclick="KL.sync()" aria-label="Synchroniser les données locales">Synchroniser<span id="syncBadge"></span></button>
+    <button id="connBtn" class="pill" onclick="KL.conn()" aria-label="Simuler une file d'attente sur cet appareil">Démo locale</button>
+    <button id="syncBtn" class="pill" onclick="KL.sync()" aria-label="Vider la file de démonstration sur cet appareil">Vider la file<span id="syncBadge"></span></button>
   </header>
   <div class="layout">
     <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
@@ -40,7 +40,7 @@
     </main>
   </div>
   <nav class="mnav" id="mnav" aria-label="Navigation mobile"></nav>
-  <footer class="site-foot">NORIA est un produit de <strong>Klirline Inc.</strong></footer>
+  <footer class="site-foot">NORIA est un produit de <strong>Klirline Inc.</strong><br>Démonstration : données fictives enregistrées sur cet appareil. Aucune synchronisation avec une école.</footer>
   <div class="toast" id="toasts" role="status" aria-live="polite"></div>
 </body>
 </html>

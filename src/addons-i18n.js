@@ -27,9 +27,9 @@ fr: {
   auditLog: "Journal d'audit", actor: "Acteur", action: "Action", detail: "Détail",
   newHw: "Nouveau devoir", newRes: "Nouvelle ressource", newList: "Nouvelle liste", newPack: "Nouveau paquet",
   totalWeight: "Poids total", shareLink: "Lien de partage", linkCopied: "Lien copié (sélectionnez-le).",
-  pendingX: "en attente de synchro", syncX: "Synchroniser les extensions", syncedX: "Extensions synchronisées.",
-  status: "Statut", active: "Actif", retired: "Retiré", toCheck: "À vérifier", verifiedSt: "Vérifié",
-  levelF: "Niveau", subjectF: "Matière", langF: "Langue", typeF: "Type", offlineOk: "Hors-ligne OK",
+  pendingX: "en attente sur cet appareil", syncX: "Vider la file de démo", syncedX: "File de démonstration vidée. Rien n'a été envoyé.",
+  status: "Statut", active: "Actif", retired: "Retiré", toCheck: "À vérifier", verifiedSt: "Licence confirmée (démo)",
+  levelF: "Niveau", subjectF: "Matière", langF: "Langue", typeF: "Type", offlineOk: "Fiche hors ligne",
   allF: "Tous", saveOk: "Enregistré.", emptyX: "Aucun élément pour ces filtres.",
 },
 ht: {
@@ -58,9 +58,9 @@ ht: {
   auditLog: "Jounal odit", actor: "Aktè", action: "Aksyon", detail: "Detay",
   newHw: "Nouvo devwa", newRes: "Nouvo resous", newList: "Nouvo lis", newPack: "Nouvo pakè",
   totalWeight: "Pwa total", shareLink: "Lyen pataj", linkCopied: "Lyen kopye (seleksyone li).",
-  pendingX: "annatant senkwo", syncX: "Senkwonize ekstansyon yo", syncedX: "Ekstansyon senkwonize.",
-  status: "Estati", active: "Aktif", retired: "Retire", toCheck: "Pou tcheke", verifiedSt: "Verifye",
-  levelF: "Nivo", subjectF: "Matyè", langF: "Lang", typeF: "Tip", offlineOk: "Deyò-liy OK",
+  pendingX: "annatant sou aparèy sa a", syncX: "Vide fil demo a", syncedX: "Fil demonstrasyon an vide. Anyen pa voye.",
+  status: "Estati", active: "Aktif", retired: "Retire", toCheck: "Pou tcheke", verifiedSt: "Lisans konfime (demo)",
+  levelF: "Nivo", subjectF: "Matyè", langF: "Lang", typeF: "Tip", offlineOk: "Fich deyò liy",
   allF: "Tout", saveOk: "Anrejistre.", emptyX: "Anyen pou filtè sa yo.",
 }
 };
