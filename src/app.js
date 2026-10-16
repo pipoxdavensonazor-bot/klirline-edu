@@ -15,7 +15,7 @@ let ROUTE="dashboard";
 function toast(m){ const c=$("#toasts"); const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3200); }
 function logExport(kind,detail){ S.exportLog.unshift({date:new Date().toLocaleString(),by:S.role,kind,detail}); S.exportLog=S.exportLog.slice(0,50); save(); }
 function dl(name,content,type){ const b=new Blob([content],{type:type||"text/plain"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
-function toCSV(rows){ return rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n"); }
+const toCSV=window.NORIA_U.toCSV;
 window.KL={};
 KL.t=t;
 

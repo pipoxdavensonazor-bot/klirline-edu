@@ -7,7 +7,10 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&
 // Le navigateur décode les entités HTML avant d'exécuter le JS : on échappe donc d'abord pour JS
 // (\xNN, qui survit au décodage HTML), puis pour HTML.
 function jsa(s){ return esc(String(s??"").replace(/[\\'"<>&\n\r\u2028\u2029]/g,c=>{ const n=c.charCodeAt(0); return n>255?"\\u"+n.toString(16):"\\x"+n.toString(16).padStart(2,"0"); })); }
+// Cellule CSV entre guillemets ; neutralise les formules de tableur (=, +, -, @, tabulation, retour chariot en tête).
+function csvCell(v){ let s=String(v??""); if(/^[=+\-@\t\r]/.test(s)) s="'"+s; return '"'+s.replace(/"/g,'""')+'"'; }
+function toCSV(rows){ return rows.map(r=>r.map(csvCell).join(",")).join("\n"); }
 // N'accepte que les URL https: absolues. Renvoie "" sinon.
 function safeUrl(u){ try{ const x=new URL(String(u??"").trim()); return x.protocol==="https:"?x.href:""; }catch(e){ return ""; } }
-window.NORIA_U = Object.freeze({ esc, jsa, safeUrl });
+window.NORIA_U = Object.freeze({ esc, jsa, safeUrl, csvCell, toCSV });
 })();
