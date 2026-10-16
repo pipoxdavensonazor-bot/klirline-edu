@@ -5,7 +5,7 @@
 "use strict";
 const T={
   fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",forgot:"Mot de passe oublié ?",
-      back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",soon:"Bientôt : connexion par code à 6 chiffres reçu par SMS.",
+      back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:"Recevoir un code par SMS ou e-mail",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:"Nous envoyons un code à 6 chiffres au téléphone ou à l'e-mail du compte.",enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
       demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
       logout:"Se déconnecter",invTitle:"Activer votre compte",resTitle:"Nouveau mot de passe",newPw:"Nouveau mot de passe (10 caractères minimum)",
@@ -15,7 +15,7 @@ const T={
       vTitle:"Vérification d'un bulletin",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce bulletin n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
-      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",soon:"Talè : koneksyon ak yon kòd 6 chif pa SMS.",
+      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Resevwa yon kòd pa SMS oswa imèl",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"N ap voye yon kòd 6 chif sou telefòn oswa imèl kont lan.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
       logout:"Dekonekte",invTitle:"Aktive kont ou",resTitle:"Nouvo modpas",newPw:"Nouvo modpas (10 karaktè minimòm)",
@@ -51,7 +51,7 @@ function screen(html){
     ${CONFIG&&CONFIG.demo?`<p class="login-demo">${esc(t("demo"))}</p>`:""}${html}
     <div class="login-lang"><button type="button" data-lang="fr" aria-pressed="${lang()==="fr"}">FR</button><button type="button" data-lang="ht" aria-pressed="${lang()==="ht"}">HT</button></div></div>`;
   el.hidden=false; document.body.classList.add("login-open"); background(true);
-  el.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{ window.KL&&KL.lang(b.dataset.lang); const cur=el.dataset.view; if(cur==="verify") views.verify(views.verify.code); else views[cur]&&views[cur](); }));
+  el.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{ window.KL&&KL.lang(b.dataset.lang); const cur=el.dataset.view; if(cur==="verify") views.verify(views.verify.code); else if(cur==="enterView") views.enter({...views.enter.st,note:null}); else views[cur]&&views[cur](); }));
   const first=el.querySelector("input,select"); if(first) setTimeout(()=>first.focus(),30);
   return el;
 }
@@ -72,11 +72,12 @@ const views={
         <p id="lgErr" class="login-err" role="alert"></p>
         <button type="submit" class="login-main">${esc(t("login"))}</button>
       </form>
+      ${(CONFIG.methods||[]).includes("code6")?`<button type="button" class="login-alt" id="lgCode">${esc(t("useCode"))}</button>`:""}
       <button type="button" class="login-link" id="lgForgot">${esc(t("forgot"))}</button>
-      <p class="login-soon">${esc(t("soon"))}</p>
       ${CONFIG.demo?`<details class="login-demo-acc"><summary>${esc(t("demoAcc"))}</summary><p class="small">${esc(t("demoPw"))} : <code>demo-fictif-2026</code></p><div class="login-acc">${["direction","secretariat","prof1","compta","biblio","parent1","eleve1"].map(h=>`<button type="button" data-acc="${h}">${h}</button>`).join("")}</div></details>`:""}`);
     el.dataset.view="login";
     el.querySelector("#lgForgot").addEventListener("click",views.forgot);
+    const lc=el.querySelector("#lgCode"); if(lc) lc.addEventListener("click",()=>views.code());
     el.querySelectorAll("[data-acc]").forEach(b=>b.addEventListener("click",()=>{ const sc=el.querySelector("#lgSchool").value; el.querySelector("#lgId").value=`${b.dataset.acc}@${sc.replace(/^ecole-/,"")}.exemple.invalid`; el.querySelector("#lgPw").focus(); }));
     el.querySelector("#lgForm").addEventListener("submit",async e=>{
       e.preventDefault(); const err=el.querySelector("#lgErr"); err.textContent="";
@@ -98,8 +99,58 @@ const views={
     el.dataset.view="forgot";
     el.querySelector("#rcBack").addEventListener("click",views.login);
     el.querySelector("#rcForm").addEventListener("submit",async e=>{ e.preventDefault();
-      const r=await post("/api/recovery/request",{school:el.querySelector("#lgSchool").value.trim(),identifier:el.querySelector("#rcId").value}).catch(()=>null);
+      const r=await post("/api/recovery/request",{school:el.querySelector("#lgSchool").value.trim(),identifier:el.querySelector("#rcId").value,lang:lang()}).catch(()=>null);
       el.querySelector("#rcMsg").textContent=!r?t("net"):r.status===429?t("many"):t("sent"); });
+  },
+  // Code à 6 chiffres : 1) école + identifiant → envoi ; 2) saisie du code (renvoi après le délai indiqué par le serveur).
+  code(pre){
+    const el=screen(`<h1 id="loginTitle">${esc(t("codeTitle"))}</h1><p class="small mut">${esc(t("codeHelp"))}</p><form id="cdForm" novalidate>${schoolField()}
+      <label class="fld">${esc(t("ident"))}<input id="cdId" required autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="tel" value="${esc(pre&&pre.identifier||"")}"></label>
+      <p id="cdErr" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("getCode"))}</button></form>
+      <button type="button" class="login-link" id="cdBack">${esc(t("usePw"))}</button>`);
+    el.dataset.view="code";
+    if(pre&&pre.school){ const s=el.querySelector("#lgSchool"); if(s) s.value=pre.school; }
+    el.querySelector("#cdBack").addEventListener("click",views.login);
+    el.querySelector("#cdForm").addEventListener("submit",async e=>{ e.preventDefault();
+      const school=el.querySelector("#lgSchool").value.trim(), identifier=el.querySelector("#cdId").value.trim(); const err=el.querySelector("#cdErr");
+      if(!identifier){ err.textContent=t("bad"); return; }
+      const btn=el.querySelector(".login-main"); btn.disabled=true;
+      const r=await post("/api/login/code",{school,identifier,lang:lang()}).catch(()=>null); btn.disabled=false;
+      if(!r){ err.textContent=t("net"); return; } if(r.status===429){ err.textContent=t("many"); return; }
+      views.enter({school,identifier,minutes:(r.body&&r.body.minutes)||10,resendIn:(r.body&&r.body.resendIn)||60});
+    });
+  },
+  enter(st){
+    views.enter.st=st;
+    const el=screen(`<h1 id="loginTitle">${esc(t("enterTitle"))}</h1>
+      <p class="login-ok" id="cdSent" role="status">${esc(st.note||t("codeSent")(st.minutes))}</p><p class="small mut">${esc(t("codeTo"))} : <b>${esc(st.identifier)}</b></p>
+      <form id="otpForm" novalidate><label class="fld">${esc(t("code"))}<input id="otpCode" class="otp-in" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="••••••" aria-describedby="cdSent"></label>
+      <p id="otpErr" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("verify"))}</button></form>
+      <button type="button" class="login-alt" id="otpResend" disabled></button>
+      <button type="button" class="login-link" id="otpChange">${esc(t("change"))}</button>`);
+    el.dataset.view="enterView";
+    const inp=el.querySelector("#otpCode"), rs=el.querySelector("#otpResend");
+    inp.addEventListener("input",()=>{ inp.value=inp.value.replace(/\D/g,"").slice(0,6); if(inp.value.length===6) el.querySelector("#otpForm").requestSubmit(); });
+    clearInterval(views.enter.tm); if(!st.until) st.until=Date.now()+st.resendIn*1000; const tick=()=>{ if(!document.body.contains(rs)){ clearInterval(views.enter.tm); return; } const left=Math.ceil((st.until-Date.now())/1000); rs.disabled=left>0; rs.textContent=left>0?t("resendIn")(left):t("resend"); };
+    tick(); views.enter.tm=setInterval(tick,1000);
+    rs.addEventListener("click",async()=>{ rs.disabled=true;
+      const r=await post("/api/login/code",{school:st.school,identifier:st.identifier,lang:lang()}).catch(()=>null);
+      if(!r){ el.querySelector("#otpErr").textContent=t("net"); rs.disabled=false; return; }
+      if(r.status===429){ el.querySelector("#otpErr").textContent=t("many"); return; }
+      views.enter({...st,note:t("resent"),until:0,resendIn:(r.body&&r.body.resendIn)||60}); });
+    el.querySelector("#otpChange").addEventListener("click",()=>{ clearInterval(views.enter.tm); views.code(st); });
+    let busy=false;
+    el.querySelector("#otpForm").addEventListener("submit",async e=>{ e.preventDefault(); if(busy) return;
+      const err=el.querySelector("#otpErr"); const code=inp.value;
+      if(!/^\d{6}$/.test(code)){ err.textContent=t("digits"); return; }
+      busy=true; const btn=el.querySelector(".login-main"); btn.disabled=true;
+      try{
+        const r=await post("/api/login",{school:st.school,identifier:st.identifier,method:"code",code});
+        if(r.status===200){ clearInterval(views.enter.tm); try{localStorage.setItem("noria_ecole",st.school);}catch(x){} closeScreen(); await start(); return; }
+        err.textContent=r.status===429?t("many"):t("badCode"); inp.value=""; inp.focus();
+      }catch(x){ err.textContent=t("net"); }
+      finally{ busy=false; btn.disabled=false; }
+    });
   },
   async verify(code){
     const el=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small">…</p>`); el.dataset.view="verify"; views.verify.code=code;

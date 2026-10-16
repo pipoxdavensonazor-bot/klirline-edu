@@ -43,15 +43,15 @@ after(async () => { server.close(); await db.cleanup(); });
 test('config publique : méthodes, écoles en démo, session', async () => {
   const c = await call(null, 'GET', '/api/config');
   assert.equal(c.status, 200);
-  assert.deepEqual(c.json.methods, ['password']);
-  assert.ok(c.json.prochainement.includes('code6'));
+  assert.deepEqual(c.json.methods, ['password', 'code6']);
+  assert.deepEqual(c.json.code, { digits: 6, minutes: 10, resendSeconds: 60 });
   assert.equal(c.json.session, false);
   assert.deepEqual(c.json.ecoles.map((e) => e.slug), ['ecole-a', 'ecole-b']);
   const t = await login('direction');
   assert.equal((await call(t, 'GET', '/api/config')).json.session, true);
 });
 
-test('connexion par téléphone, normalisation, code à 6 chiffres réservé', async () => {
+test('connexion par téléphone, normalisation, code à 6 chiffres sans demande', async () => {
   assert.equal(normalizePhone('509 0000-0107'), '+50900000107');
   assert.equal(normalizePhone('0000 0107'), '+50900000107');
   const r = await call(null, 'POST', '/api/login', { school: 'ecole-a', identifier: '+509 0000 0107', password: DEMO_PASSWORD });
@@ -59,7 +59,7 @@ test('connexion par téléphone, normalisation, code à 6 chiffres réservé', a
   assert.equal((await call(r.json.token, 'GET', '/api/me')).json.name, 'Parent fictif 1 A');
   // Le téléphone de l'école A ne vaut pas pour l'école B.
   assert.equal((await call(null, 'POST', '/api/login', { school: 'ecole-b', identifier: '+50900000107', password: DEMO_PASSWORD })).status, 401);
-  assert.equal((await call(null, 'POST', '/api/login', { school: 'ecole-a', identifier: '+50900000107', method: 'code' })).status, 501);
+  assert.equal((await call(null, 'POST', '/api/login', { school: 'ecole-a', identifier: '+50900000107', method: 'code' })).status, 401, 'code à 6 chiffres sans demande préalable');
 });
 
 test('cookie de session HttpOnly + en-tête x-noria obligatoire pour écrire', async () => {

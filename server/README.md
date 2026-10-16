@@ -91,7 +91,7 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
   valable 72 h, haché en base ; `POST /api/invitations/accept` crée le compte, le rôle et le lien parent/élève.
 - Récupération `POST /api/recovery/request` (même réponse si le compte n'existe pas, limitée en débit), jeton 60 min ;
   `POST /api/recovery/reset` change le mot de passe et révoque toutes les sessions du compte.
-- Envoi : aucun SMS ni e-mail réel ; les messages vont dans la table `outbox` (boîte d'envoi simulée).
+- Envoi : par les adaptateurs de `src/notify.js` (voir « Notifications et code de connexion ») ; chaque message laisse une trace dans `outbox`.
 - Fichiers statiques : seulement `/`, `/index.html`, `/src/*` (liste blanche d'extensions), gzip, ETag/304, CSP.
 - Premier chargement mesuré (cache vide, Chrome) : environ 118 Ko transférés en 19 requêtes.
 - Vérification navigateur : `node scripts/verif-connexion.js http://127.0.0.1:3100` (iPhone SE, Pixel 7, iPad Mini, ordinateur).
@@ -150,8 +150,30 @@ Sauvegarde logique (JSON compressé, fichier en droits 600) de toutes les tables
 - **Bulletins** : émis par la direction ou le secrétariat (instantané figé) ; PDF imprimable d'environ 3 Ko (Helvetica, sans image) avec **QR** vers `NORIA_PUBLIC_URL/#verifier=CODE` (code de 60 bits, alphabet sans 0/O/1/I). Un nouveau bulletin pour la même période **annule** le précédent (PDF → 410).
 - **Vérification publique** `GET /api/verifier/:code` : confirme seulement l'école, l'élève (prénom + initiale), la période, la date et le statut (valide / annulé) ; jamais de note ni de moyenne. Échecs limités (429).
 - **Annonces et calendrier** : audiences `ecole`, `classe`, `parents`, `enseignants`. Direction/secrétariat : toute audience ; enseignant : ses classes seulement. Chacun ne lit que ce qui le concerne (filtrage SQL + RLS par école).
-- **Comptes** : `GET /api/invitations`, `POST /api/invitations/:id/annuler` ; la création renvoie un **lien copiable** (`/#invitation=…`), l'envoi SMS / e-mail reste **simulé**. Secrétariat limité aux comptes parent et élève.
+- **Comptes** : `GET /api/invitations`, `POST /api/invitations/:id/annuler` ; la création envoie l'invitation par l'adaptateur configuré (e-mail si donné, sinon SMS) et renvoie aussi un **lien copiable** (`/#invitation=…`) avec l'état de l'envoi (`simulé`, `envoyé`, `échec`). Secrétariat limité aux comptes parent et élève.
 - Vérification dans le navigateur : `node scripts/verif-coeur.js http://127.0.0.1:3100` (puppeteer-core, jsqr, pngjs, pdftoppm).
+
+## Notifications et code de connexion (phase 4, `test/notify.test.js`, `test/otp.test.js`)
+
+- **Adaptateurs** (`src/notify.js`, sans dépendance) : interface `send({ to, subject, text })`. SMS : `console` (défaut), `twilio`, `http` (passerelle générique). E-mail : `console` (défaut), `smtp` (client intégré, STARTTLS ou TLS direct, AUTH PLAIN), `resend`. Une configuration incomplète arrête le démarrage ; `console` en production affiche un avertissement.
+- **Trace** : `outbox` garde destinataire, langue, adaptateur, état (`simule`, `en_attente`, `envoye`, `echec`), identifiant fournisseur et erreur (migration 007). Hors mode simulé, lien et code sont **masqués** dans la trace. Un échec d'envoi n'interrompt pas la requête.
+- **Messages** (`src/messages.js`) en français et en kreyòl (`lang` de la requête, sinon `school.default_lang`) ; SMS d'un segment (code : ~70 caractères ; invitation et récupération : < 100 caractères hors lien). Les liens sont absolus (`NORIA_PUBLIC_URL`, sinon l'hôte de la requête).
+- **Code à 6 chiffres** (`src/otp.js`) : `POST /api/login/code { school, identifier, lang }` puis `POST /api/login { method: 'code', school, identifier, code }`. Code tiré par `crypto.randomInt`, valable **10 min**, **usage unique**, stocké en **HMAC-SHA256 salé** (poivre `NORIA_OTP_SECRET` conseillé), **5 essais** comptés atomiquement avant la comparaison (**temps constant**, `timingSafeEqual`), puis brûlé. **Renvoi** : 60 s minimum entre deux codes, 5 codes par heure et par compte, un nouveau code annule le précédent, plus le limiteur persistant (IP + compte). Réponse identique que le compte existe ou non. SMS si l'identifiant est un téléphone, e-mail sinon.
+
+| Variable | Rôle |
+|---|---|
+| `NORIA_SMS_PROVIDER` | `console` (défaut), `twilio`, `http` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Twilio |
+| `TWILIO_FROM` ou `TWILIO_MESSAGING_SERVICE_SID` | expéditeur Twilio |
+| `NORIA_SMS_HTTP_URL` (https), `NORIA_SMS_HTTP_TOKEN` (facultatif), `NORIA_SMS_SENDER` (défaut `NORIA`) | passerelle HTTP : `POST { to, message, sender }`, `Authorization: Bearer` |
+| `NORIA_EMAIL_PROVIDER` | `console` (défaut), `smtp`, `resend` |
+| `NORIA_EMAIL_FROM` | expéditeur (`NORIA <noria@ecole.ht>`) — obligatoire pour smtp et resend |
+| `NORIA_SMTP_HOST`, `NORIA_SMTP_PORT` (587), `NORIA_SMTP_USER`, `NORIA_SMTP_PASS`, `NORIA_SMTP_SECURE=1` (TLS direct, auto sur 465), `NORIA_SMTP_STARTTLS=0` (désactiver) | SMTP |
+| `RESEND_API_KEY` | Resend |
+| `NORIA_OTP_SECRET` | poivre du hachage des codes (recommandé en production) |
+| `NORIA_PUBLIC_URL` | adresse publique pour les liens d'invitation / récupération et le QR |
+
+Vérification navigateur : `scripts/verif-otp.js` (captures `otp-<sujet>-<appareil>.png`) et `scripts/verif-bareme.js` (`bareme-<appareil>.png`).
 
 ## Reste à faire avant toute donnée réelle
 

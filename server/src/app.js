@@ -8,6 +8,9 @@ const path = require('node:path');
 const { createStatic } = require('./static');
 const { HttpError, forbid, notFound, audit, refuse, isUnique } = require('./common');
 const scolaire = require('./scolaire');
+const { createNotifier } = require('./notify');
+const messages = require('./messages');
+const otp = require('./otp');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -36,10 +39,33 @@ function newToken() { return crypto.randomBytes(32).toString('base64url'); }
 function checkPassword(pw) {
   if (typeof pw !== 'string' || pw.length < MIN_PASSWORD) throw new HttpError(400, `mot de passe trop court (${MIN_PASSWORD} caractères minimum)`);
 }
-function outbox(db, schoolId, recipient, kind, body) {
+// Envoi d'un message (SMS si le destinataire est un numéro, e-mail sinon) par l'adaptateur configuré.
+// La boîte d'envoi garde une trace ; le corps n'y est conservé en clair qu'en mode simulé (développement).
+// secrets : valeurs à masquer dans la trace (lien, code). Un échec d'envoi est journalisé, jamais levé.
+async function outbox(db, ctx, schoolId, recipient, kind, lang, vars, secrets = []) {
   const channel = String(recipient).includes('@') ? 'email' : 'sms';
-  return db.run('INSERT INTO outbox (school_id, channel, recipient, kind, body) VALUES (?,?,?,?,?)', schoolId, channel, recipient, kind, body);
+  const msg = messages.render(kind, lang, vars);
+  const text = channel === 'sms' ? msg.sms : msg.text;
+  const adapter = ctx.notifier.adapter(channel);
+  const stored = adapter.simulated ? text : secrets.reduce((acc, x) => (x ? acc.split(String(x)).join('[masqué]') : acc), text);
+  const id = await db.insert('INSERT INTO outbox (school_id, channel, recipient, kind, body, lang, status, provider) VALUES (?,?,?,?,?,?,?,?)',
+    schoolId, channel, recipient, kind, stored, messages.pick(lang), adapter.simulated ? 'simule' : 'en_attente', adapter.name);
+  try {
+    const r = await adapter.send({ to: recipient, subject: msg.subject, text });
+    if (!adapter.simulated) await db.run("UPDATE outbox SET status = 'envoye', provider_id = ?, sent_at = ? WHERE id = ?", r.id || null, new Date().toISOString(), id);
+    return { channel, envoi: adapter.simulated ? 'simulé' : 'envoyé' };
+  } catch (e) {
+    console.error(`[envoi ${channel} ${adapter.name}] échec : ${e.message}`);
+    await db.run("UPDATE outbox SET status = 'echec', error = ? WHERE id = ?", String(e.message).slice(0, 300), id);
+    return { channel, envoi: 'échec' };
+  }
 }
+function linkBase(req, ctx) {
+  if (ctx.publicUrl) return ctx.publicUrl.replace(/\/$/, '');
+  if (/^[\w.:-]+$/.test(req.headers.host || '')) return `${ctx.secureCookie ? 'https' : 'http'}://${req.headers.host}`;
+  return '';
+}
+const reqLang = (req, fallback) => messages.pick(req.body && req.body.lang ? String(req.body.lang) : fallback);
 async function useToken(db, kind, token) {
   const row = await db.get('SELECT * FROM account_token WHERE token_hash = ? AND kind = ?', auth.sha256(String(token || '')), kind);
   if (!row || row.used_at || row.expires_at < new Date().toISOString()) throw new HttpError(400, 'lien invalide ou expiré');
@@ -66,12 +92,13 @@ function getStudent(db, u, id) {
 const routes = [
   ['GET', /^\/api\/config$/, async (db, req, u, _m, ctx) => ({
     // session : évite au navigateur un appel /api/me en 401 quand personne n'est connecté
-    demo: ctx.demo, session: Boolean(u), methods: ['password'], prochainement: ['code6'],
+    demo: ctx.demo, session: Boolean(u), methods: ['password', 'code6'], code: { digits: otp.DIGITS, minutes: otp.TTL_MIN, resendSeconds: otp.RESEND_SECONDS },
     ecoles: ctx.demo ? await db.all('SELECT slug, name FROM school ORDER BY id') : undefined,
   }), { public: true, optionalUser: true }],
   ['POST', /^\/api\/login$/, async (db, req, _u, _m, ctx) => {
     const { school, password, method = 'password' } = req.body || {};
-    if (method !== 'password') throw new HttpError(501, 'connexion par code pas encore disponible');
+    if (method === 'code') return otp.verifyLogin(db, req, ctx, { findUser, parseIdentifier, startSession });
+    if (method !== 'password') throw new HttpError(400, 'méthode de connexion inconnue');
     const ident = parseIdentifier(req.body.identifier ?? req.body.email);
     const keys = [`ip:${req.ip}`, `compte:${String(school || '')}|${ident.value}`];
     const wait = await ctx.limiter.blocked(keys);
@@ -86,10 +113,10 @@ const routes = [
     }
     await ctx.limiter.reset([keys[1]]);
     await audit(db, user, 'login', 'user', user.id, ident.field, 'ok');
-    const token = await createSession(db, user);
-    req.setCookie(`${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}${ctx.secureCookie ? '; Secure' : ''}`);
-    return { token };
+    return startSession(db, req, ctx, user);
   }, { public: true }],
+  // Code de connexion à 6 chiffres envoyé par SMS (téléphone) ou e-mail ; réponse identique que le compte existe ou non.
+  ['POST', /^\/api\/login\/code$/, async (db, req, _u, _m, ctx) => otp.request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLang }), { public: true }],
   ['POST', /^\/api\/logout$/, async (db, req) => {
     await destroySession(db, req.token);
     req.setCookie(`${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
@@ -121,10 +148,13 @@ const routes = [
     const expires = new Date(Date.now() + INVITE_HOURS * 3600e3).toISOString();
     const id = await db.insert(`INSERT INTO account_token (school_id, kind, token_hash, email, phone, display_name, role, student_id, created_by, expires_at)
       VALUES (?,?,?,?,?,?,?,?,?,?)`, u.school_id, 'invitation', auth.sha256(token), mail, tel, String(display_name), role, sid, u.id, expires);
-    await outbox(db, u.school_id, mail || tel, 'invitation', `NORIA : activez votre compte : /#invitation=${token} (valable ${INVITE_HOURS} h)`);
-    await audit(db, u, 'invitation.create', 'invitation', id, role);
-    // Le lien est rendu à la personne qui invite pour qu'elle puisse le copier : l'envoi réel (SMS, e-mail) est simulé.
-    return { id, expiresAt: expires, link: `/#invitation=${token}`, channel: mail ? 'email' : 'sms', envoi: 'simulé' };
+    const school = await db.get('SELECT name, default_lang FROM school WHERE id = ?', u.school_id);
+    const link = `${linkBase(req, ctx)}/#invitation=${token}`;
+    const sent = await outbox(db, ctx, u.school_id, mail || tel, 'invitation', reqLang(req, school.default_lang),
+      { school: school.name, name: String(display_name), hours: INVITE_HOURS, link }, [token]);
+    await audit(db, u, 'invitation.create', 'invitation', id, `${role} (${sent.channel} ${sent.envoi})`);
+    // Le lien reste rendu à la personne qui invite : elle peut le transmettre elle-même si l'envoi est simulé ou a échoué.
+    return { id, expiresAt: expires, link: `/#invitation=${token}`, channel: sent.channel, envoi: sent.envoi };
   }],
   ['GET', /^\/api\/invitations$/, async (db, req, u) => {
     if (!P.has(u, 'direction', 'secretariat')) forbid();
@@ -176,7 +206,9 @@ const routes = [
       const expires = new Date(Date.now() + RECOVERY_MINUTES * 60e3).toISOString();
       await db.run('INSERT INTO account_token (school_id, kind, token_hash, user_id, expires_at) VALUES (?,?,?,?,?)',
         user.school_id, 'recuperation', auth.sha256(token), user.id, expires);
-      await outbox(db, user.school_id, ident.field === 'phone' ? user.phone : user.email, 'recuperation', `NORIA : nouveau mot de passe : /#recuperation=${token} (valable ${RECOVERY_MINUTES} min)`);
+      const school = await db.get('SELECT default_lang FROM school WHERE id = ?', user.school_id);
+      await outbox(db, ctx, user.school_id, ident.field === 'phone' ? user.phone : user.email, 'recuperation', reqLang(req, school.default_lang),
+        { minutes: RECOVERY_MINUTES, link: `${linkBase(req, ctx)}/#recuperation=${token}` }, [token]);
       await audit(db, user, 'recovery.request', 'user', user.id, ident.field);
     }
     return { ok: true, message: 'Si ce compte existe, un message vient d’être envoyé.' };
@@ -470,8 +502,16 @@ function parseCookies(h) {
   return out;
 }
 
+function startSession(db, req, ctx, user) {
+  return createSession(db, user).then((token) => {
+    req.setCookie(`${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}${ctx.secureCookie ? '; Secure' : ''}`);
+    return { token };
+  });
+}
+
 function createServer(db, options = {}) {
   const ctx = {
+    notifier: options.notifier || createNotifier(options.env || process.env),
     db,
     limiter: options.limiter || createLimiter({ db, ...(options.rateLimit || {}) }),
     demo: !!options.demo,

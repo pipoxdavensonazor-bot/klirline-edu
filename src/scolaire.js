@@ -15,7 +15,7 @@ const T={
     ann:"Annonces",cal:"Calendrier",newAnn:"Publier une annonce",body:"Texte",aud:"Audience",start:"Début",end:"Fin (facultatif)",add:"Ajouter",
     auds:{ecole:"Toute l'école",classe:"Une classe",parents:"Parents",enseignants:"Enseignants"},noAnn:"Aucune annonce.",noEv:"Aucun événement.",
     acc:"Comptes",invite:"Inviter un compte",name:"Nom affiché",email:"E-mail",phone:"Téléphone",role:"Rôle",student:"Élève lié",send:"Créer l'invitation",
-    link:"Lien d'invitation à transmettre",simul:"Envoi SMS / e-mail simulé : copiez le lien et transmettez-le vous-même.",invs:"Invitations",
+    link:"Lien d'invitation à transmettre",simul:"Envoi SMS / e-mail simulé : copiez le lien et transmettez-le vous-même.",sentOk:c=>`Invitation envoyée par ${c==="sms"?"SMS":"e-mail"}. Le lien reste copiable ici.`,sentKo:"L'envoi a échoué : copiez le lien et transmettez-le vous-même.",invs:"Invitations",
     used:"Activée",roles:{parent:"Parent",eleve:"Élève",enseignant:"Enseignant",secretariat:"Secrétariat",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",direction:"Direction"},expired:"Expirée",waiting:"En attente",cancel:"Annuler",err:"Refusé : ",net:"Réseau indisponible.",needNet:"Réseau nécessaire pour cette action."},
   ht:{grades:"Nòt ak evalyasyon",cls:"Klas",term:"Peryòd",subject:"Matyè",newEv:"Nouvo evalyasyon",title:"Tit",day:"Dat",max:"Baremn",custom:"Lòt…",customMax:"Baremn pèsonalize",applyMax:"Chanje baremn nan",maxLocked:"Baremn nan bloke (evalyasyon an voye deja).",maxChanged:m=>`Baremn chanje : /${m}.`,onScale:m=>`nòt yo ramnen sou /${m}`,coef:"Koefisyan",
     create:"Kreye",save:"Anrejistre nòt yo",submit:"Voye bay direksyon",publish:"Pibliye pou fanmi yo",reopen:"Relouvri",reason:"Rezon (obligatwa) :",
@@ -26,7 +26,7 @@ const T={
     ann:"Anons",cal:"Kalandriye",newAnn:"Pibliye yon anons",body:"Tèks",aud:"Pou ki moun",start:"Kòmansman",end:"Fen (si genyen)",add:"Ajoute",
     auds:{ecole:"Tout lekòl la",classe:"Yon klas",parents:"Paran",enseignants:"Pwofesè"},noAnn:"Pa gen anons.",noEv:"Pa gen evènman.",
     acc:"Kont",invite:"Envite yon kont",name:"Non",email:"Imèl",phone:"Telefòn",role:"Wòl",student:"Elèv ki lye",send:"Kreye envitasyon an",
-    link:"Lyen envitasyon pou voye",simul:"SMS / imèl la se similasyon : kopye lyen an epi voye l ou menm.",invs:"Envitasyon",
+    link:"Lyen envitasyon pou voye",simul:"SMS / imèl la se similasyon : kopye lyen an epi voye l ou menm.",sentOk:c=>`Envitasyon an pati pa ${c==="sms"?"SMS":"imèl"}. Lyen an rete la pou kopye.`,sentKo:"Voye a pa mache : kopye lyen an epi voye l ou menm.",invs:"Envitasyon",
     used:"Aktive",roles:{parent:"Paran",eleve:"Elèv",enseignant:"Pwofesè",secretariat:"Sekretarya",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",direction:"Direksyon"},expired:"Ekspire",waiting:"Ap tann",cancel:"Anile",err:"Refize : ",net:"Rezo a pa disponib.",needNet:"Fò gen rezo pou aksyon sa a."},
 };
 const t=k=>T[lang()][k];
@@ -230,17 +230,17 @@ function accounts(state){
    <label class="fld">${esc(t("role"))}<select name="role">${roles.map(r=>`<option value="${r}">${esc(R[r]||r)}</option>`).join("")}</select></label>
    <label class="fld">${esc(t("student"))}<select name="student"><option value="">—</option>${S.students.map(s=>`<option value="${s.serverId}">${esc(s.firstName)} ${esc(s.lastName)}</option>`).join("")}</select></label>
    <button type="submit">${esc(t("send"))}</button></form>
-  ${ST.inv?`<div class="sco-link" id="invLinkBox"><p class="small"><b>${esc(t("link"))}</b></p><input readonly id="invLink" value="${esc(ST.inv)}"><button class="ghost" onclick="NORIA_SCO.copy('invLink')">${esc(t("copy"))}</button><p class="small mut">${esc(t("simul"))}</p></div>`:""}</div>
+  ${ST.inv?`<div class="sco-link" id="invLinkBox"><p class="small"><b>${esc(t("link"))}</b></p><input readonly id="invLink" value="${esc(ST.inv)}"><button class="ghost" onclick="NORIA_SCO.copy('invLink')">${esc(t("copy"))}</button><p class="small mut">${esc(ST.invSent==="envoyé"?t("sentOk")(ST.invCh):ST.invSent==="échec"?t("sentKo"):t("simul"))}</p></div>`:""}</div>
   <div class="card"><h3>${esc(t("invs"))}</h3>${!ok(list)?wait:list.map(i=>{ const exp=Date.parse(/[TZ]/.test(i.expires_at)?i.expires_at:i.expires_at.replace(" ","T")+"Z"); const st=i.used_at?"used":exp<Date.now()?"expired":"waiting";
     return `<div class="row sp sco-inv"><span><b>${esc(i.display_name)}</b> <span class="small mut">${esc(R[i.role]||i.role)} · ${esc(i.phone||i.email||"")}</span></span><span class="row"><span class="badge inv-${st}">${esc(t(st))}</span>${st==="waiting"?`<button class="ghost" onclick="NORIA_SCO.cancelInv(${i.id})">${esc(t("cancel"))}</button>`:""}</span></div>`; }).join("")}</div></div>`;
 }
 async function invite(f){
-  const body={display_name:f.name.value,role:f.role.value};
+  const body={display_name:f.name.value,role:f.role.value,lang:lang()};
   if(f.phone.value.trim()) body.phone=f.phone.value.trim(); if(f.email.value.trim()) body.email=f.email.value.trim();
   if(f.student.value) body.student_id=Number(f.student.value);
   const r=await act(()=>post("/api/invitations",body)); if(!r) return;
   if(r.status!==200){ toast(failMsg(r)); return; }
-  ST.inv=location.origin+r.body.link; invalidate("/api/invitations"); rerender();
+  ST.inv=location.origin+r.body.link; ST.invSent=r.body.envoi; ST.invCh=r.body.channel; invalidate("/api/invitations"); rerender();
 }
 async function cancelInv(id){ const r=await act(()=>post(`/api/invitations/${id}/annuler`)); if(!r) return; if(r.status!==200){ toast(failMsg(r)); return; } invalidate("/api/invitations"); rerender(); }
 
