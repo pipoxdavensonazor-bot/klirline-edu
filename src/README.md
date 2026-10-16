@@ -1,6 +1,8 @@
-# Klirline Édu — prototype de gestion scolaire
+# NORIA — prototype de gestion scolaire
 
-Version de démonstration destinée à illustrer des parcours scolaires et recueillir les commentaires d'écoles pilotes. Les données fournies sont fictives. Le nom et la disponibilité de la marque ne sont pas vérifiés.
+Produit de Klirline Inc. Version de démonstration destinée à illustrer des parcours scolaires et recueillir les commentaires d'écoles pilotes. Les données fournies sont fictives. Le nom et la disponibilité de la marque ne sont pas vérifiés.
+
+Le socle visé (plusieurs écoles, comptes, autorisations côté serveur, bibliothèque contrôlée, pilote) est décrit dans `docs/noria-socle.md`. Cette maquette ne réalise pas ce socle.
 
 ## Ouvrir la démonstration
 
@@ -20,7 +22,7 @@ L'enseignant planifie un cours (classe, matière, titre, date, consignes, ressou
 
 Le cours en direct utilise [Jitsi Meet](https://jitsi.org/jitsi-meet/) sur le serveur public gratuit [meet.systemli.org](https://meet.systemli.org/). Le serveur officiel `meet.jit.si` demande un compte pour ouvrir une salle, et cette connexion ne fonctionne pas dans une page intégrée. systemli laisse démarrer la salle sans compte. Aucune clé n'est demandée. La salle charge la vidéo seulement après un clic, micro et caméra coupés au départ, avec l'écran d'accueil Jitsi. Le nom affiché est le rôle (enseignant, élève), jamais le nom d'un élève. Le nom de la salle vient de l'identifiant du cours. Jitsi apporte la caméra, le micro, le partage d'écran et son tableau. La discussion scolaire et les devoirs restent dans le stockage local de NORIA ; le chat Jitsi n'y est pas copié.
 
-Ce serveur public convient à une démonstration. Il ne convient pas à de vrais dossiers d'enfants : les flux passent par un service tiers, et les données de la maquette restent dans le navigateur. Aucun secret n'est placé dans le JavaScript.
+Ce serveur public convient à une démonstration. Il ne convient pas à de vrais dossiers d'enfants : les flux passent par un service tiers, et les données de la maquette restent dans le navigateur. Aucun secret n'est placé dans le JavaScript. La visioconférence reste un module optionnel, à décider après le socle serveur. Tant que cette décision n'est pas prise, aucun élève réel ne doit être envoyé vers ce serveur public.
 
 La présence se marque à la main. Il n'y a pas d'enregistrement du cours, de salles de sous-groupes, de dépôt de fichier sécurisé ni de paiement.
 
@@ -49,7 +51,7 @@ Les résultats et limites des vérifications réalisées sont consignés dans `s
 
 ## Historique des portées appliquées et vérifiées (maquette)
 
-- **Accueils « Aujourd'hui » par rôle** : ce qui se passe, ce qui demande attention, la prochaine action, l'état de synchro et l'âge des données locales. Parent : pastilles par enfant (un dossier à la fois).
+- **Accueils « Aujourd'hui » par rôle** : ce qui se passe, ce qui demande attention, la prochaine action et l'âge des données locales. Le bandeau rappelle que les données fictives restent sur l'appareil. Parent : pastilles par enfant (un dossier à la fois).
 - **Données minimales par rôle** : bibliothèque = code/nom/classe ; comptable = + solde ; fiche/relevé/reçu refusés hors périmètre (enseignant = classes assignées, bibliothécaire = jamais, comptable = reçus seuls). Finances et exports CSV/MENFP réservés.
 - **Notes** : brouillon → soumis → publié ; professeur prépare/soumet, direction publie/corrige avec motif et historique ; saisie bornée au barème de chaque évaluation.
 - **Devoirs (§15 P0)** : éditeur texte simple (titre, gras/italique/listes/liens, aperçu, export .txt, impression) avec brouillon autosauvegardé et reprise ; remises versionnées (remis/en retard/retourné/noté), corbeille de correction avec retour commenté et note, modération par masquage ; nouvelles versions après correction sans écraser les précédentes.
