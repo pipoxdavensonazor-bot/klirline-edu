@@ -1072,11 +1072,20 @@ function injectNav(){
   });
   markNav();
 }
+function syncBar(){
+  const bar=document.querySelector(".topbar");
+  if(!bar) return;
+  const h=Math.ceil(bar.getBoundingClientRect().height)+"px";
+  if(document.documentElement.style.getPropertyValue("--bar-h")!==h) document.documentElement.style.setProperty("--bar-h", h);
+}
 function boot(){
   try{ ensurePortals(); }catch(e){}
   installWraps();
   if(window.KL.refreshNav) window.KL.refreshNav();
   injectNav();
+  try{ syncBar(); }catch(e){}
+  let barTimer=0;
+  window.addEventListener("resize", ()=>{ clearTimeout(barTimer); barTimer=setTimeout(syncBar, 60); });
   if(window.KL){ window.KL.remind=function(lid){ return KLX.loanRemind(lid); }; window.KL.loanExt=function(lid){ return KLX.loanExt(lid); }; window.KL.loanLost=function(lid){ return KLX.loanLost(lid); }; }
   try{ injectToday(); }catch(e){}
   audit("ext.boot","extensions chargées (ancien intact)");
@@ -1086,6 +1095,7 @@ function boot(){
     obs.disconnect();
     try{ injectNav(); }catch(e){}
     try{ injectToday(); }catch(e){}
+    try{ syncBar(); }catch(e){}
     const v=document.querySelector("#view");
     if(v && !v.querySelector("[data-xview]")){
       if(XROUTE){ XROUTE=null; try{ markNav(); }catch(e){} }
