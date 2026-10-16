@@ -48,10 +48,20 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 cd server
 npm install
 npm test          # tests d'isolation (node --test)
-npm start         # API sur http://127.0.0.1:3100, base noria-demo.sqlite, données fictives
+NORIA_DEMO=1 npm start   # API sur http://127.0.0.1:3100, base noria-demo.sqlite, données fictives
+npm start                # même chose, mais sans créer de comptes de démonstration
 ```
 
 Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.invalid`, `prof1@…`, `parent1@…`, `eleve1@…`, `compta@…`, `biblio@…`, `secretariat@…`, mot de passe de démonstration `demo-fictif-2026` (voir `src/seed.js`). Ne jamais réutiliser ces comptes hors démonstration.
+
+## Durcissement (`test/securite.test.js`)
+
+- **Limitation des connexions :** 5 échecs en 15 min bloquent le compte et l'adresse IP (réponse 429 + `Retry-After`). Les échecs sont journalisés. Le limiteur est en mémoire (un seul processus) : à déplacer en base ou dans Redis en production.
+- **scrypt asynchrone :** le hachage ne bloque plus le serveur.
+- **Hachage factice :** un e-mail inconnu déclenche le même calcul qu'un vrai compte, pour ne pas révéler par le temps de réponse quels comptes existent.
+- **En-têtes de sécurité :** CSP `default-src 'none'`, `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS, `Permissions-Policy`, `no-store`.
+- **Comptes de démonstration seulement avec `NORIA_DEMO=1`.** Le serveur refuse de démarrer avec `NORIA_DEMO=1` et `NODE_ENV=production`.
+- **CSV :** une cellule commençant par `=`, `+`, `-`, `@` (ou tabulation) est préfixée par `'` pour ne pas s'exécuter dans un tableur.
 
 ## Ce que prouvent les tests (`test/isolation.test.js`)
 
@@ -64,4 +74,4 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
 
 ## Reste à faire avant toute donnée réelle
 
-Invitation et récupération de compte, limitation des tentatives de connexion, passage PostgreSQL + RLS, sauvegarde et **restauration essayée**, procédure d'incident, HTTPS/déploiement, présence/notes/annonces (étape 3), branchement de la maquette avec le cache `noria_cache_v1`.
+Invitation et récupération de compte, limiteur partagé entre plusieurs processus, passage PostgreSQL + RLS, sauvegarde et **restauration essayée**, procédure d'incident, HTTPS/déploiement, présence/notes/annonces (étape 3), branchement de la maquette avec le cache `noria_cache_v1`.
