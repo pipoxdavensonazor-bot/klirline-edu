@@ -12,17 +12,17 @@ const T={
       save:"Enregistrer",done:"C'est fait. Connectez-vous.",invalid:"Lien invalide ou expiré.",short:"10 caractères minimum.",first:"Première connexion : un réseau est nécessaire.",
       pendingOut:n=>`${n} saisie(s) pas encore envoyée(s). Elles partiront à la prochaine connexion de ce compte. Se déconnecter quand même ?`,
       offOut:"Hors ligne : vous ne pourrez pas vous reconnecter avant le retour du réseau. Se déconnecter ?",
-      vTitle:"Vérification d'un bulletin",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce bulletin n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",
+      rOk:"Reçu authentique",rRev:"Reçu annulé",rNo:"Reçu n°",rAmt:"Montant",rNote:"Cette page confirme l'école, l'élève, le numéro et le montant du reçu. Aucune autre donnée n'est affichée.",vTitle:"Vérification d'un bulletin ou d'un reçu",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce document n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
-      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Resevwa yon kòd pa SMS oswa imèl",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"N ap voye yon kòd 6 chif sou telefòn oswa imèl kont lan.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
+      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Resevwa yon kòd pa SMS oswa imèl",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"N ap voye yon kòd 6 chif sou telefòn oswa imèl kont la.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
       logout:"Dekonekte",invTitle:"Aktive kont ou",resTitle:"Nouvo modpas",newPw:"Nouvo modpas (10 karaktè minimòm)",
       save:"Anrejistre",done:"Fini. Konekte kounye a.",invalid:"Lyen an pa bon oswa li ekspire.",short:"10 karaktè minimòm.",first:"Premye koneksyon : fò gen rezo.",
       pendingOut:n=>`${n} antre poko pati. Y ap pati lè kont sa a rekonekte. Dekonekte kanmenm ?`,
       offOut:"San entènèt : ou p ap ka rekonekte toutotan rezo a pa tounen. Dekonekte ?",
-      vTitle:"Verifikasyon yon bilten",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd enkoni : se pa NORIA ki bay bilten sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",
+      rOk:"Resi otantik",rRev:"Resi anile",rNo:"Resi nimewo",rAmt:"Montan",rNote:"Paj sa a konfime lekòl la, elèv la, nimewo ak montan resi a sèlman. Okenn lòt enfòmasyon pa parèt.",vTitle:"Verifikasyon bilten oswa resi",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd sa a enkoni : se pa NORIA ki bay dokiman sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",
       roles:{direction:"Direksyon",secretariat:"Sekretarya",enseignant:"Pwofesè",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",parent:"Paran",eleve:"Elèv"}},
 };
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
@@ -159,11 +159,11 @@ const views={
     if(!r) h=`<p class="login-err">${esc(t("net"))}</p>`;
     else if(r.status===429) h=`<p class="login-err">${esc(t("many"))}</p>`;
     else if(r.status!==200) h=`<p class="verif-bad" id="verifRes">✕ ${esc(t("vBad"))}</p>`;
-    else { const v=r.body; const okk=v.statut==="valide";
-      h=`<p class="${okk?"verif-ok":"verif-bad"}" id="verifRes">${okk?"✓ "+esc(t("vOk")):"✕ "+esc(t("vRev"))}</p><dl class="verif-dl">
-      <dt>${esc(t("vSchool"))}</dt><dd>${esc(v.ecole)}</dd><dt>${esc(t("vStudent"))}</dt><dd>${esc(v.eleve)}</dd><dt>${esc(t("vTerm"))}</dt><dd>${esc(v.periode)}</dd><dt>${esc(t("vDate"))}</dt><dd>${esc(String(v.emis_le).slice(0,10))}</dd>
+    else { const v=r.body; const okk=v.statut==="valide"; const rec=v.type==="recu";
+      h=`<p class="${okk?"verif-ok":"verif-bad"}" id="verifRes">${okk?"✓ "+esc(t(rec?"rOk":"vOk")):"✕ "+esc(t(rec?"rRev":"vRev"))}</p><dl class="verif-dl">
+      <dt>${esc(t("vSchool"))}</dt><dd>${esc(v.ecole)}</dd><dt>${esc(t("vStudent"))}</dt><dd>${esc(v.eleve)}</dd>${rec?`<dt>${esc(t("rNo"))}</dt><dd>${esc(v.numero)}</dd><dt>${esc(t("rAmt"))}</dt><dd>${esc(v.montant)}</dd>`:`<dt>${esc(t("vTerm"))}</dt><dd>${esc(v.periode)}</dd>`}<dt>${esc(t("vDate"))}</dt><dd>${esc(String(v.emis_le).slice(0,10))}</dd>
       ${v.motif?`<dt>${esc(t("vWhy"))}</dt><dd>${esc(v.motif)}</dd>`:""}</dl>`; }
-    const box=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small mut">${esc(code)}</p>${h}<p class="small">${esc(t("vNote"))}</p><button type="button" class="login-main" id="vBack">${esc(t("back"))}</button>`);
+    const box=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small mut">${esc(code)}</p>${h}<p class="small">${esc(t(r&&r.body&&r.body.type==="recu"?"rNote":"vNote"))}</p><button type="button" class="login-main" id="vBack">${esc(t("back"))}</button>`);
     box.dataset.view="verify";
     box.querySelector("#vBack").addEventListener("click",()=>{ history.replaceState(null,"",location.pathname); location.reload(); });
   },
@@ -199,7 +199,9 @@ function userChip(me){
 async function start(){
   const me=await api("/api/me");
   if(me.status!==200) return views.login();
-  const [st,cl]=await Promise.all([api("/api/students"),api("/api/classes")]);
+  // Seulement les listes que le rôle peut lire (évite des refus 403 inutiles, par ex. pour la comptabilité).
+  const R=me.body.roles||[], any=(...x)=>x.some(r=>R.includes(r)), none={status:204,body:[]};
+  const [st,cl]=await Promise.all([any("direction","secretariat","enseignant","parent","eleve")?api("/api/students"):none,any("direction","secretariat","enseignant","bibliotheque")?api("/api/classes"):none]);
   const data={me:me.body,students:st.status===200?st.body:[],classes:cl.status===200?cl.body:[],demo:!!CONFIG.demo};
   window.KL.applyServer(data);
   userChip(me.body);

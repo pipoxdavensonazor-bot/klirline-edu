@@ -405,12 +405,17 @@ const publicRoutes = [
       JOIN student st ON st.id = r.student_id AND st.school_id = r.school_id
       JOIN term t ON t.id = r.term_id AND t.school_id = r.school_id
       JOIN school_year y ON y.id = t.school_year_id AND y.school_id = t.school_id WHERE r.code = ?`, code) : null;
-    if (!r) { await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun bulletin ne correspond à ce code'); }
+    if (!r) {
+      // Même code, même page : un reçu de paiement se vérifie comme un bulletin.
+      const rec = /^[A-Z2-9]{12}$/.test(code) ? await require('./gestion').verifyReceipt(db, code) : null;
+      if (rec) return rec;
+      await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun bulletin ni reçu ne correspond à ce code');
+    }
     return {
-      authentique: true, statut: r.revoked_at ? 'annule' : 'valide', motif: r.revoked_at ? r.revoked_reason : undefined,
+      authentique: true, type: 'bulletin', statut: r.revoked_at ? 'annule' : 'valide', motif: r.revoked_at ? r.revoked_reason : undefined,
       ecole: r.school, eleve: `${r.first_name} ${r.last_name.slice(0, 1)}.`, periode: `${r.term} ${r.year}`, emis_le: String(r.issued_at).slice(0, 10),
     };
   }, { public: true }],
 ];
 
-module.exports = { routes, publicRoutes, computeAverages, maxScore, DEFAULT_SCALE, audienceScope, verifyCode, fmtCode };
+module.exports = { routes, publicRoutes, computeAverages, maxScore, DEFAULT_SCALE, audienceScope, verifyCode, fmtCode, publicUrl };

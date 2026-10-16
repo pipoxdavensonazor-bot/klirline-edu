@@ -179,6 +179,22 @@ Sauvegarde logique (JSON compressé, fichier en droits 600) de toutes les tables
 
 Vérification navigateur : `scripts/verif-otp.js` (captures `otp-<sujet>-<appareil>.png`) et `scripts/verif-bareme.js` (`bareme-<appareil>.png`).
 
+## Bibliothèque et paiements (phase 5, `test/gestion.test.js`)
+
+- Migration `008_biblio_paiements` : tables `book`, `loan` et `payment`, avec RLS par école en PostgreSQL. `finance_entry` reçoit `due_on` et devient la table des frais.
+- Bibliothèque : catalogue (titre, auteur, ISBN facultatif avec clé de contrôle, exemplaires), prêts (14 jours par défaut, 3 prêts en cours au plus par élève) et retours, retards calculés au jour d'Haïti.
+  - Gestion : direction, secrétariat et bibliothèque. Lecture des prêts : l'élève voit les siens, le parent ceux de ses enfants.
+  - Routes : `GET/POST /api/books`, `PATCH /api/books/:id`, `GET /api/library/borrowers`, `GET/POST /api/loans`, `POST /api/loans/:id/retour`.
+- Paiements : montant en HTG (stocké en centimes) et mode `especes`, `moncash`, `natcash` ou `virement`.
+  - La référence est obligatoire hors espèces et unique par école et par mode.
+  - Chaque paiement reçoit un numéro de reçu séquentiel par école (`R-000001`) et un code de vérification.
+  - Gestion : direction et comptabilité. Annulation : direction seulement, avec motif.
+  - Un reçu n'est jamais supprimé : des déclencheurs SQLite et PostgreSQL refusent `DELETE` et toute modification hors annulation.
+- Reçu PDF (environ 3 Ko) avec QR. Il renvoie vers la même page publique que les bulletins (`/#verifier=CODE`), qui montre l'école, le numéro, l'élève (prénom et initiale), le montant, la date et l'état.
+- Le parent voit les frais, le solde et les reçus de ses enfants : `GET /api/students/:id/account`, `GET /api/payments/:id/pdf`. La comptabilité dispose d'une vue d'ensemble : `GET /api/finance/overview`.
+- MonCash et NatCash : pas d'appel d'API, la référence est saisie à la main. `src/paiement-adaptateurs.js` définit l'interface `verify()` d'un futur adaptateur, choisi par `NORIA_PAIEMENT_ADAPTATEUR`.
+- Vérification navigateur : `node scripts/verif-biblio-recus.js http://127.0.0.1:3100`.
+
 ## Reste à faire avant toute donnée réelle
 
 Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), finances, bibliothèque et rapports côté serveur (encore locaux), validation par Philippe des règles de notes (barème /10, publication par la direction seule, annulation du bulletin précédent), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).

@@ -378,7 +378,7 @@ const routes = [
 
 // Jour civil de l'école (Haïti par défaut) : sert à la règle « correction le jour même ».
 const localDay = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.NORIA_TZ || 'America/Port-au-Prince' });
-routes.push(...scolaire.routes, ...scolaire.publicRoutes);
+routes.push(...scolaire.routes, ...scolaire.publicRoutes, ...require('./gestion').routes);
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];

@@ -112,3 +112,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .kl-prog{display:block;width:100%;height:12px;border:0;border-radius:99px;background:var(--line);overflow:hidden;appearance:none;-webkit-appearance:none;color:var(--pri2)}
 .kl-prog::-webkit-progress-bar{background:var(--line);border-radius:99px}.kl-prog::-webkit-progress-value{background:var(--pri2);border-radius:99px}.kl-prog::-moz-progress-bar{background:var(--pri2);border-radius:99px}
 #syncBtn[hidden]{display:none!important}
+/* Bibliothèque et finances (mode serveur) */
+.ges-list{list-style:none;margin:0;padding:0}
+.ges-list li{padding:8px 0;border-bottom:1px solid var(--line,#e5e7eb);gap:8px;flex-wrap:wrap}
+.ges-grow{flex:1;min-width:0}
+.ges-new{margin-top:12px}
+.ges-cancel>span:first-child{text-decoration:line-through;opacity:.7}
+.ges-due{color:var(--bad,#b42318)}

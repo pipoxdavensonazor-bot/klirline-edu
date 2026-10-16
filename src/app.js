@@ -27,7 +27,7 @@ const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk",
 function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
 const ROLE_MODULES={
   direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","settings"],
-  secretariat:["dashboard","students","classes","attendance","academic","comms","reports","accounts"],
+  secretariat:["dashboard","students","classes","attendance","academic","comms","library","reports","accounts"],
   enseignant:["dashboard","classes","attendance","academic","comms"],
   comptable:["dashboard","students","finance","reports"],
   bibliothecaire:["dashboard","students","library","reports"],
@@ -38,7 +38,7 @@ function can(m){
   if(m==="accounts"&&!SERVER) return false; // invitations : seulement avec le serveur
   if(m==="academic"&&S.role==="secretariat"&&!SERVER) return false;
   const base=(ROLE_MODULES[S.role]||[]).includes(m);
-  if(SERVER&&(m==="accounts"||m==="academic")) return base; // modules serveur : droits vérifiés par l'API, pas par la config locale des portails
+  if(SERVER&&(m==="accounts"||m==="academic"||m==="finance"||m==="library")) return base; // modules serveur : droits vérifiés par l'API, pas par la config locale des portails
   if(window.KL_PORTAL&&typeof window.KL_PORTAL.allow==="function") return window.KL_PORTAL.allow(S.role,m,base);
   return base;
 }
@@ -125,7 +125,7 @@ function vStudents(){
   return head+`
   <div class="card"><div class="u7"><table><tr><th>Code</th><th>${t("firstName")} / ${t("lastName")}</th><th>${t("class")}</th></tr>
   ${f.map(s=>{const c=classById(s.classId);return `<tr><td class="small">${esc(s.code)}</td><td><b>${esc(s.firstName)} ${esc(s.lastName)}</b></td><td>${esc(c?.name||"")} <span class="mut small">${esc(s.level)}</span></td></tr>`;}).join("")||`<tr><td colspan="3">${t("empty")}</td></tr>`}</table></div></div>
-  <p class="small mut">${S.lang==="ht"?"Idantite minimòm pou pre : non, kòd, klas. Pa gen dat nesans, kontak fanmi, nòt oswa finans. Kat la sèvi pou jwenn kont pre a, pa pou ouvri pòtal.":"Identité minimale de prêt : nom, code, classe. Ni naissance, ni contacts familiaux, ni notes, ni finances. La carte sert à retrouver le compte de prêt, pas à ouvrir le portail."}</p><div id="stuModal"></div>`;
+  <p class="small mut">${S.lang==="ht"?"Idantite minimòm pou prete liv : non, kòd, klas. Pa gen dat nesans, kontak fanmi, nòt oswa finans. Kat la sèvi pou jwenn kont pre a, pa pou ouvri pòtal.":"Identité minimale de prêt : nom, code, classe. Ni naissance, ni contacts familiaux, ni notes, ni finances. La carte sert à retrouver le compte de prêt, pas à ouvrir le portail."}</p><div id="stuModal"></div>`;
 }
 function bStu(){ const f=$("#csvIn"); if(f) f.onchange=e=>{ const fl=e.target.files[0]; if(!fl)return; const r=new FileReader(); r.onload=()=>{ const lines=String(r.result).split("\n").slice(1).filter(Boolean); let add=0; lines.forEach((ln,i)=>{ const p=ln.split(",").map(x=>x.replace(/^"|"$/g,"")); if(p.length<3)return; const fn=p[0]||"Prénom"+i,ln2=p[1]||"Nom",cl=p[2]||"c7a"; S.students.push({id:"e"+Date.now()+i,code:"KL-2025-"+String(S.students.length+1).padStart(3,"0"),firstName:fn,lastName:ln2,sex:"M",birth:"2012-01-01",level:classById(cl)?.level||"7e AF",classId:cl,campus:"Delmas",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}); add++; }); save(); render(); toast(add+" importés"); }; r.readAsText(fl); }; }
 KL.stuQ=v=>{stuQ=v; const i=$("#stuQ"); render(); const n=$("#stuQ"); if(n){n.focus(); n.setSelectionRange(n.value.length,n.value.length);}};
@@ -287,12 +287,12 @@ function vAcad(){
   if(!ev) return `<div class="badbox">${esc(t("empty"))}</div>`;
   const pupils=S.students.filter(s=>s.classId===ev.classId);
   const isDir = S.role==="direction";
-  const stBadge = ev.status==="published"?`<span class="badge b-published">${t("published")}</span>`:ev.status==="submitted"?`<span class="badge b-pending">✓ ${S.lang==="ht"?"Soumèt":"Soumis"} — ${S.lang==="ht"?"ap tann direksyon":"en vérification"}</span>`:`<span class="badge b-draft">${t("draft")}</span>`;
+  const stBadge = ev.status==="published"?`<span class="badge b-published">${t("published")}</span>`:ev.status==="submitted"?`<span class="badge b-pending">✓ ${S.lang==="ht"?"Voye":"Soumis"} — ${S.lang==="ht"?"ap tann direksyon":"en vérification"}</span>`:`<span class="badge b-draft">${t("draft")}</span>`;
   const editable = ev.status==="draft"&&(S.role==="enseignant"||isDir);
   const hist = (S.gradeHist||[]).filter(h=>h.ev===ev.id);
   return `<div class="row sp"><h2 class="u6">${t("academic")}</h2><span class="row"><select data-action-change="KL.acEv" data-a0="v">${scopeEvs.map(e=>`<option value="${e.id}" ${e.id===acEv?"selected":""}>${esc(e.title)} — ${esc(e.subject)} (${e.status})</option>`).join("")}</select><button class="ghost" data-action="KL.evModal">${t("newEval")}</button></span></div>
   <div class="card"><div class="row sp"><span><b>${esc(ev.title)}</b> <span class="mut small">${esc(ev.subject)} • /${ev.max} • ${esc(ev.date)} • </span>${stBadge}</span>
-  <span class="row">${ev.status==="draft"?`${(S.role==="enseignant"||isDir)?`<button class="soft" data-action="KL.evSubmit" data-a0="s:${esc(ev.id)}">${S.lang==="ht"?"Soumèt bay direksyon":"Soumettre à la direction"}</button>`:""}${isDir?`<button data-action="KL.evPub" data-a0="s:${esc(ev.id)}">${t("publish")}</button>`:""}`:ev.status==="submitted"?`${isDir?`<button data-action="KL.evPub" data-a0="s:${esc(ev.id)}">${t("publish")}</button><button class="ghost" data-action="KL.evReturn" data-a0="s:${esc(ev.id)}">${S.lang==="ht"?"Retounen bouyon":"Renvoyer en brouillon"}</button>`:`<span class="mut small">${S.lang==="ht"?"Ap tann direksyon":"En attente de la direction"}</span>`}`:`<span class="badge b-lock"> ${t("lock")}</span>`}<button class="ghost" data-action="KL.bulletinClass" data-a0="s:${esc(ev.classId)}">Aperçu relevés</button></span></div>
+  <span class="row">${ev.status==="draft"?`${(S.role==="enseignant"||isDir)?`<button class="soft" data-action="KL.evSubmit" data-a0="s:${esc(ev.id)}">${S.lang==="ht"?"Voye bay direksyon":"Soumettre à la direction"}</button>`:""}${isDir?`<button data-action="KL.evPub" data-a0="s:${esc(ev.id)}">${t("publish")}</button>`:""}`:ev.status==="submitted"?`${isDir?`<button data-action="KL.evPub" data-a0="s:${esc(ev.id)}">${t("publish")}</button><button class="ghost" data-action="KL.evReturn" data-a0="s:${esc(ev.id)}">${S.lang==="ht"?"Remete l an bouyon":"Renvoyer en brouillon"}</button>`:`<span class="mut small">${S.lang==="ht"?"Ap tann direksyon":"En attente de la direction"}</span>`}`:`<span class="badge b-lock"> ${t("lock")}</span>`}<button class="ghost" data-action="KL.bulletinClass" data-a0="s:${esc(ev.classId)}">Aperçu relevés</button></span></div>
   <div class="u12"><table><tr><th>Élève</th><th>${t("score")} / ${ev.max}</th><th>Appréciation</th>${isDir&&ev.status==="published"?`<th></th>`:""}</tr>
   ${pupils.map(s=>{const g=S.grades[ev.id]?.[s.id]??"";const dis=editable?"":"disabled";return `<tr><td>${esc(s.firstName)} ${esc(s.lastName)}</td><td><input type="number" min="0" max="${ev.max}" value="${g}" ${dis} class="u13" data-action-change="KL.grade" data-a0="s:${esc(ev.id)}" data-a1="s:${esc(s.id)}" data-a2="v"></td><td class="small mut">${g===""?"—":g>=ev.max/2?"Bien":"À encourager"}</td>${isDir&&ev.status==="published"?`<td><button class="ghost" data-action="KL.corrModal" data-a0="s:${esc(ev.id)}" data-a1="s:${esc(s.id)}">${S.lang==="ht"?"Korije":"Corriger"}</button></td>`:""}</tr>`;}).join("")}</table></div>
   <p class="small mut">Préparé par le professeur, vérifié puis publié par la direction. Après publication, seule la direction corrige (motif + historique). Arrondi ${esc(S.scale.round)}.</p>
@@ -355,6 +355,7 @@ KL.req=()=>toast(t("requestSent"));
 
 /* ---------- FINANCES ---------- */
 function vFin(){
+  if(SERVER&&window.NORIA_GES) return NORIA_GES.fin(S);
   if(S.role==="parent"){ const kids=kidStudents();
     return `<h2 class="u6">${t("finance")}</h2>${kids.map(k=>{const d=feeDue(k);const ps=S.payments.filter(p=>p.studentId===k.id);return `<div class="u8 card"><h3>${esc(k.firstName)} ${esc(k.lastName)} — ${t("balance")}: <b>${money(d.rest)}</b></h3><div class="small mut">${t("paid")}: ${money(d.paid)} / ${money(d.due)}</div>${ps.map(p=>`<div class="small"> ${esc(p.date)} — ${money(p.amount)} (${esc(p.method)}, ${esc(p.ref)}) <button class="ghost" data-action="KL.receipt" data-a0="s:${esc(p.id)}">PDF</button></div>`).join("")}</div>`;}).join("")}<p class="small mut"> ${esc(t("noCard"))}</p>`; }
   if(!["direction","comptable"].includes(S.role)) return `<div class="badbox">${esc(t("noAccess"))}</div>`;
@@ -375,6 +376,7 @@ KL.receipt=id=>{ const p=S.payments.find(x=>x.id===id); if(!p) return; if(denyLe
 
 /* ---------- BIBLIO ---------- */
 function vLib(){
+  if(SERVER&&window.NORIA_GES) return NORIA_GES.lib(S);
   const loanScope = (S.role==="parent"||S.role==="eleve") ? kidStudents().map(s=>s.id) : null;
   const loans = loanScope ? S.loans.filter(l=>loanScope.includes(l.studentId)) : S.loans;
   return `<div class="row sp"><h2 class="u6">${t("library")}</h2>${["direction","bibliothecaire"].includes(S.role)?`<button data-action="KL.bkModal">${t("newBook")}</button>`:""}</div>
@@ -391,7 +393,7 @@ KL.bkSave=()=>{ if(!["direction","bibliothecaire"].includes(S.role)){toast(t("no
 KL.loanFor=(bid,sid)=>{ if(!["direction","bibliothecaire"].includes(S.role)){ toast(t("noAccess")); return false; }
   const b=S.books.find(x=>x.id===bid); if(!b||b.available<=0) return false;
   const lim = S.bibLimit||1;
-  if(S.loans.filter(l=>l.studentId===sid&&!l.back).length>=lim){ toast((S.lang==="ht"?"Limit : ":"Limite : ")+lim+(S.lang==="ht"?" liv (reglabl)":" livre(s) — réglable par l'école")); return false; }
+  if(S.loans.filter(l=>l.studentId===sid&&!l.back).length>=lim){ toast((S.lang==="ht"?"Limit : ":"Limite : ")+lim+(S.lang==="ht"?" liv (lekòl la ka chanje sa)":" livre(s) — réglable par l'école")); return false; }
   b.available--; const dd=new Date(); dd.setDate(dd.getDate()+(S.loanDays||14)); S.loans.push({id:"l"+Date.now(),bookId:bid,studentId:sid,out:today(),due:dd.toISOString().slice(0,10),back:null,reminded:null}); if(!S.online)S.queue.push({kind:"loan",key:bid+Date.now(),at:Date.now()}); save(); render(); toast(t("loanOk")); return true; };
 KL.loan=bid=>{ const who = S.role==="parent" ? S.currentUser.parentKids[0] : S.role==="eleve" ? S.currentUser.studentId : S.students[0].id; return KL.loanFor(bid, who); };
 KL.back=lid=>{ if(!["direction","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} const l=S.loans.find(x=>x.id===lid); l.back=today(); const b=S.books.find(x=>x.id===l.bookId); b.available=Math.min(b.copies,b.available+1); save(); render(); toast(t("returnOk")); };
@@ -449,7 +451,7 @@ KL.applyServer=d=>{
   const byId=Object.fromEntries(cls.map(c=>[c.serverId,c]));
   const stu=d.students.map(x=>{ const c=byId[x.class_id]; return {id:"s"+x.id,serverId:x.id,code:x.code,firstName:x.first_name,lastName:x.last_name,sex:"",birth:x.birth_date||"",level:c?c.level:"",classId:c?c.id:"",campus:c?c.campus:"",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}; });
   const role=ROLE_ORDER.find(r=>d.me.roles.includes(r))||"eleve";
-  SERVER={me:d.me}; if(window.NORIA_SCO) NORIA_SCO.reset();
+  SERVER={me:d.me}; if(window.NORIA_SCO) NORIA_SCO.reset(); if(window.NORIA_GES) NORIA_GES.reset();
   S.role=ROLE_MAP[role]; S.students=stu; S.classes=cls;
   S.currentUser=Object.assign({},S.currentUser,{name:d.me.name,parentKids:stu.map(x=>x.id),studentId:stu[0]?.id||null});
   ROUTE="dashboard"; render();
@@ -460,7 +462,7 @@ if(window.NORIA_OFF) NORIA_OFF.onChange(onOfflineChange);
 KL.serverState=()=>SERVER?S:null;
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};
 KL.sync=()=>{ if(!S.online){toast(t("offline"));return;} const n=S.queue.length; S.queue=[]; Object.values(S.attendance).forEach(a=>{if(a.sync==="pending")a.sync="synced";}); save(); render(); toast(t("syncedOk")+(n?` (${n})`:"")); };
-function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); try{ load(); render(); }catch(e){ console.error(e); } }
+function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); if(window.NORIA_GES) NORIA_GES.bind(()=>{ if(SERVER) render(); }); try{ load(); render(); }catch(e){ console.error(e); } }
 if(document.readyState!=="loading") boot(); else document.addEventListener("DOMContentLoaded",boot);
 window.KL=KL;
 })();

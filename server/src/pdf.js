@@ -118,3 +118,50 @@ function reportCardPdf(snap, verifyUrl) {
 }
 
 module.exports = { reportCardPdf, pdfString };
+
+// Reçu de paiement : une demi-page A4 utile, numéro séquentiel de l'école, montant en HTG, mode et référence,
+// solde après paiement, QR vers la page publique de vérification (la même que les bulletins).
+const METHOD_LBL = { especes: 'Espèces / Kach', moncash: 'MonCash', natcash: 'NatCash', virement: 'Virement bancaire / Transfè labank' };
+const money = (v) => `${Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} HTG`;
+function receiptPdf(r, verifyUrl) {
+  const p = new Page();
+  const L = 50, R = 545;
+  p.rect(0, 800, 595, 42, 0.07);
+  p.text(L, 815, 'NORIA', { size: 16, bold: true, gray: 1 });
+  p.text(130, 816, r.school, { size: 11, gray: 1 });
+  p.text(L, 770, 'Reçu de paiement / Resi peman', { size: 18, bold: true });
+  p.text(L, 750, `N° ${r.number}`, { size: 12, bold: true, gray: 0.2 });
+  if (r.cancelledAt) {
+    p.rect(330, 740, 215, 40, 0.15);
+    p.text(345, 756, 'ANNULÉ / ANILE', { size: 16, bold: true, gray: 1 });
+  }
+  const rows = [
+    ['Élève / Elèv', `${r.student} (${r.studentCode})`],
+    ['Montant / Montan', money(r.amount)],
+    ['Mode / Mòd peman', METHOD_LBL[r.method] || r.method],
+    ['Référence / Referans', r.reference || '-'],
+    ['Date du paiement / Dat peman', r.paidOn],
+    ['Objet / Pou kisa', r.label || 'Frais scolaires / Frè lekòl'],
+  ];
+  let y = 712;
+  for (const [k, v] of rows) { p.text(L, y, k, { size: 10, gray: 0.35 }); p.text(230, y, v, { size: 11, bold: k.startsWith('Montant') }); p.line(L, y - 7, R, y - 7, 0.4, 0.88); y -= 24; }
+  y -= 8;
+  p.rect(L, y - 30, R - L, 46, 0.93);
+  p.text(L + 8, y, `Total dû / Total pou peye : ${money(r.due)}`, { size: 10 });
+  p.text(L + 8, y - 14, `Total payé / Total peye : ${money(r.paidTotal)}`, { size: 10 });
+  p.text(330, y - 7, `Solde / Sa ki rete : ${money(r.balance)}`, { size: 11, bold: true });
+  y -= 56;
+  if (r.method !== 'especes' && r.providerStatus !== 'confirme') p.text(L, y, 'Référence saisie par l\'école, non vérifiée en ligne / Referans lekòl la antre, li pa verifye sou entènèt.', { size: 8, gray: 0.35 });
+  if (r.cancelledAt) p.text(L, y - 14, `Annulé le ${String(r.cancelledAt).slice(0, 10)} : ${r.cancelReason}`, { size: 9, bold: true });
+  p.qr(R - 120, 70, 120, verifyUrl);
+  p.text(L, 168, 'Vérifier ce reçu / Verifye resi sa a', { bold: true, size: 10 });
+  p.text(L, 152, 'Scannez le QR code ou ouvrez :', { size: 9, gray: 0.3 });
+  p.text(L, 139, verifyUrl.length > 70 ? verifyUrl.slice(0, 70) + '...' : verifyUrl, { size: 8 });
+  p.text(L, 124, `Code de vérification : ${r.code}`, { size: 10, bold: true });
+  p.text(L, 106, `Enregistré le ${r.issuedAt.slice(0, 10)} par ${r.issuer}`, { size: 9, gray: 0.3 });
+  p.line(L, 60, R, 60, 0.4, 0.8);
+  p.text(L, 46, 'Document de démonstration - données fictives. NORIA est un produit de Klirline Inc.', { size: 8, gray: 0.4 });
+  return build(p, { title: `Reçu ${r.number} - ${r.student}` });
+}
+
+module.exports.receiptPdf = receiptPdf;

@@ -117,7 +117,7 @@ test('bulletin : émis par le secrétariat, PDF léger, QR vérifiable publiquem
   // Vérification publique : école, élève (prénom + initiale), période, date ; ni notes, ni moyenne, ni code élève.
   const v = await call(null, 'GET', `/api/verifier/${r.json.code}`);
   assert.equal(v.status, 200);
-  assert.deepEqual(Object.keys(v.json).filter((k) => v.json[k] !== undefined).sort(), ['authentique', 'ecole', 'eleve', 'emis_le', 'periode', 'statut']);
+  assert.deepEqual(Object.keys(v.json).filter((k) => v.json[k] !== undefined).sort(), ['authentique', 'ecole', 'eleve', 'emis_le', 'periode', 'statut', 'type']);
   assert.deepEqual([v.json.ecole, v.json.eleve, v.json.periode, v.json.statut], ['École fictive A', 'Ana F.', 'Trimestre 1 2026-2027', 'valide']);
   // Nouveau bulletin pour la même période : l'ancien code devient « annulé ».
   const r2 = await call('direction', 'POST', '/api/report-cards', { student_id: s1, term_id: T1 });

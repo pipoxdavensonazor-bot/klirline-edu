@@ -59,7 +59,11 @@ async function seed(db) {
       const st2 = await stu(`${key}-002`, 'Bèl', null, c2);
       await link('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', s, u.parent1, st1, 'Lien de démonstration');
       await link('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', s, u.parent2, st2, 'Lien de démonstration');
-      ids[key] = { school: s, classes: [c1, c2], students: [st1, st2], users: u, terms, subjects: { maths: subj, francais: subjFr, sciences: subjSc } };
+      // Catalogue fictif de la bibliothèque (titres inventés).
+      const books = [];
+      for (const [ti, au, isbn, n] of [['Contes du lakou (fictif)', 'Auteur fictif 1', null, 3], ['Kreyòl pou timoun (fictif)', 'Otè fiktif 2', '9780306406157', 2], ['Atlas scolaire (fictif)', 'Auteur fictif 3', null, 1]])
+        books.push(await ins('INSERT INTO book (school_id, title, author, isbn, copies, created_by) VALUES (?,?,?,?,?,?)', s, ti, au, isbn, n, u.direction));
+      ids[key] = { books, school: s, classes: [c1, c2], students: [st1, st2], users: u, terms, subjects: { maths: subj, francais: subjFr, sciences: subjSc } };
     }
   });
   return ids;
