@@ -1,0 +1,40 @@
+/* NORIA — écran de connexion et puce utilisateur (mode serveur). */
+[data-backend="server"] #roleSel, [data-backend="server"] #connBtn, [data-backend="server"] #syncBtn { display: none !important; }
+.login-screen {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; overflow-y: auto;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  background: #f2f3f1; min-height: 100dvh;
+}
+.login-screen[hidden] { display: none; }
+body.login-open { overflow: hidden; }
+.login-card {
+  width: min(420px, 100%); background: #fff; border: 1px solid var(--line, #d9dcda); border-radius: 18px;
+  padding: 22px 20px; box-shadow: 0 10px 30px rgba(14,18,24,.08);
+}
+.login-logo { display: block; height: 60px; width: auto; margin: 0 auto 8px; }
+.login-card h1 { font-size: 20px; margin: 6px 0 12px; text-align: center; }
+.login-card .fld { display: block; margin: 10px 0; font-size: 14px; font-weight: 600; }
+.login-card input, .login-card select { display: block; width: 100%; min-height: 48px; margin-top: 4px; font-size: 16px; padding: 10px 12px; border-radius: 10px; }
+.login-main { width: 100%; min-height: 50px; margin-top: 6px; font-size: 16px; font-weight: 700; border-radius: 12px; background: #0e1218 !important; color: #fff !important; }
+.login-main:disabled { opacity: .6; }
+.login-link { display: block; width: 100%; min-height: 44px; margin-top: 8px; background: transparent !important; color: #0e5a4f !important; border: 0; text-decoration: underline; box-shadow: none; }
+.login-err { min-height: 1.2em; margin: 6px 0 0; color: #b42318; font-size: 14px; }
+.login-ok { min-height: 1.2em; margin: 6px 0 0; color: #0e5a4f; font-size: 14px; }
+.login-soon { margin: 10px 0 0; font-size: 13px; color: var(--mut, #5b6560); text-align: center; }
+.login-demo { margin: 0 0 6px; padding: 8px 10px; border-radius: 10px; background: #fef6e8; font-size: 13px; text-align: center; }
+.login-demo-acc { margin-top: 12px; font-size: 14px; }
+.login-demo-acc summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.login-acc { display: flex; flex-wrap: wrap; gap: 6px; }
+.login-acc button { min-height: 44px; padding: 6px 12px; background: #f5f7f6 !important; color: #0e1218 !important; border: 1px solid var(--line, #d9dcda); border-radius: 10px; }
+.login-lang { display: flex; justify-content: center; gap: 6px; margin-top: 14px; }
+.login-lang button { min-width: 48px; min-height: 44px; background: #f5f7f6 !important; color: #0e1218 !important; border: 1px solid var(--line, #d9dcda); border-radius: 10px; }
+.login-lang button[aria-pressed="true"] { background: #0e1218 !important; color: #fff !important; }
+.user-chip { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.user-name { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; font-size: 14px; }
+.user-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-role { font-size: 12px; color: var(--mut, #5b6560); }
+.user-out { min-height: 44px; padding: 6px 12px; background: #f5f7f6 !important; color: #0e1218 !important; border: 1px solid var(--line, #d9dcda); border-radius: 10px; white-space: nowrap; font-size: 13px; }
+@media (max-width: 699px) {
+  [data-backend="server"] .topbar #userChip { grid-column: 2 / -1; grid-row: 1; justify-content: space-between; }
+}
+@media print { .login-screen, .user-chip { display: none !important; } }

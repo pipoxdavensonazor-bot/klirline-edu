@@ -3,9 +3,11 @@
 const $=s=>document.querySelector(s);
 const LS="klirline_school_v1";
 let S=null;
+// Mode serveur : élèves, classes et rôle viennent de l'API ; rien de ce qui vient du serveur n'est écrit dans localStorage.
+let SERVER=null;
 function load(){ try{const r=localStorage.getItem(LS); if(r){const o=JSON.parse(r); if(o&&o.v===1&&o.students&&o.school){S=o; ensureCards(); return;}}}catch(e){} S=window.KL_SEED(); ensureCards(); save(); }
 function ensureCards(){ const seen=new Set(S.students.map(s=>s.cardRef).filter(Boolean)); let mk=false; S.students.forEach(s=>{ if(!s.cardRef){ let c; do{ c="KLC-"+Math.random().toString(36).slice(2,8).toUpperCase(); }while(seen.has(c)); seen.add(c); s.cardRef=c; mk=true; } }); if(mk) save(); }
-function save(){ try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){} }
+function save(){ if(SERVER) return; try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){} }
 function t(k){ const d=window.KL_I18N[S.lang]||window.KL_I18N.fr; return d[k]||window.KL_I18N.fr[k]||k; }
 function syncWord(s){ if(s==="synced") return t("synced"); if(s==="pending") return t("pending"); if(s==="conflict") return t("conflict"); return t("local"); }
 const {esc,jsa,safeUrl}=window.NORIA_U;
@@ -37,7 +39,7 @@ function can(m){
   if(window.KL_PORTAL&&typeof window.KL_PORTAL.allow==="function") return window.KL_PORTAL.allow(S.role,m,base);
   return base;
 }
-function teacherClasses(){ if(S.role==="enseignant"){ return ["c7a","c8a"]; } return S.classes.map(c=>c.id); }
+function teacherClasses(){ if(SERVER) return S.classes.map(c=>c.id); if(S.role==="enseignant"){ return ["c7a","c8a"]; } return S.classes.map(c=>c.id); }
 function kidStudents(){ if(S.role==="parent") return S.students.filter(s=>S.currentUser.parentKids.includes(s.id)); if(S.role==="eleve") return S.students.filter(s=>s.id===S.currentUser.studentId); return S.students; }
 function classById(id){ return S.classes.find(c=>c.id===id); }
 function stuById(id){ return S.students.find(s=>s.id===id); }
@@ -80,7 +82,7 @@ function vDash(){
   const collected=S.payments.reduce((a,p)=>a+ +p.amount,0);
   const loaned=S.loans.filter(l=>!l.back).length;
   if(S.role==="parent"){ const kids=kidStudents();
-    return `<div class="grid g3">${kids.map(k=>{const d=feeDue(k);const c=classById(k.classId);return `<div class="card"><h3>${esc(k.firstName)} ${esc(k.lastName)} <span class="mut small">${esc(k.code)}</span></h3><div class="small mut">${esc(c?.name||"")} • ${esc(k.level)}</div><div class="row" style="margin-top:8px"><span class="badge ${d.rest<=0?"b-paid":"b-unpaid"}">${d.rest<=0?t("paid"):money(d.rest)+" • "+t("remaining")}</span></div><div class="toolbar"><button class="ghost" onclick="KL.go('attendance')">${t("attendance")}</button><button class="ghost" onclick="KL.go('academic')">${t("reportCard")}</button><button class="ghost" onclick="KL.go('finance')">${t("receipts")}</button></div></div>`;}).join("")}</div><p class="mut small">${esc(t("onlyLinked"))}</p>`+commsPreview();
+    return `<div class="grid g3">${kids.map(k=>{const d=feeDue(k);const c=classById(k.classId);return `<div class="card"><h3>${esc(k.firstName)} ${esc(k.lastName)} <span class="mut small">${esc(k.code)}</span></h3><div class="small mut">${esc(c?.name||"")} • ${esc(k.level)}</div>${SERVER?"":`<div class="row" style="margin-top:8px"><span class="badge ${d.rest<=0?"b-paid":"b-unpaid"}">${d.rest<=0?t("paid"):money(d.rest)+" • "+t("remaining")}</span></div>`}<div class="toolbar"><button class="ghost" onclick="KL.go('attendance')">${t("attendance")}</button><button class="ghost" onclick="KL.go('academic')">${t("reportCard")}</button><button class="ghost" onclick="KL.go('finance')">${t("receipts")}</button></div></div>`;}).join("")}</div><p class="mut small">${esc(t("onlyLinked"))}</p>`+commsPreview();
   }
   if(S.role==="eleve"){ const me=kidStudents()[0]; const c=classById(me?.classId);
     return `<div class="card"><h3>${esc(me.firstName)} ${esc(me.lastName)} — ${esc(c?.name)}</h3><p class="mut">${t("mySchedule")} • ${t("homework")} • ${t("reportCard")}</p><div class="toolbar"><button onclick="KL.go('academic')">${t("reportCard")}</button><button class="ghost" onclick="KL.go('library')">${t("catalog")}</button></div></div>`+commsPreview();
@@ -354,7 +356,24 @@ function openPrint(title,html){ const w=document.createElement("div"); w.innerHT
 KL.go=m=>{ROUTE=m;render();};
 KL.refreshNav=function(){ renderShell(); };
 KL.lang=l=>{S.lang=l;save();render();};
-KL.role=r=>{S.role=r;ROUTE="dashboard";save();render();};
+KL.role=r=>{ if(SERVER){ toast(S.lang==="ht"?"Wòl la soti nan sèvè a.":"Le rôle vient du serveur."); return; } S.role=r;ROUTE="dashboard";save();render();};
+const ROLE_MAP={direction:"direction",secretariat:"secretariat",enseignant:"enseignant",comptabilite:"comptable",bibliotheque:"bibliothecaire",parent:"parent",eleve:"eleve"};
+const ROLE_ORDER=["direction","secretariat","enseignant","comptabilite","bibliotheque","parent","eleve"];
+// Reçoit les données du serveur et les met en mémoire (jamais dans localStorage).
+KL.applyServer=d=>{
+  if(!S) load();
+  const cls=d.classes.map(c=>({id:"c"+c.id,serverId:c.id,name:c.name,level:c.level,campus:c.campus,teacherId:null,room:"—"}));
+  const byId=Object.fromEntries(cls.map(c=>[c.serverId,c]));
+  const stu=d.students.map(x=>{ const c=byId[x.class_id]; return {id:"s"+x.id,serverId:x.id,code:x.code,firstName:x.first_name,lastName:x.last_name,sex:"",birth:x.birth_date||"",level:c?c.level:"",classId:c?c.id:"",campus:c?c.campus:"",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}; });
+  const role=ROLE_ORDER.find(r=>d.me.roles.includes(r))||"eleve";
+  SERVER={me:d.me};
+  S.role=ROLE_MAP[role]; S.students=stu; S.classes=cls;
+  S.currentUser=Object.assign({},S.currentUser,{name:d.me.name,parentKids:stu.map(x=>x.id),studentId:stu[0]?.id||null});
+  ROUTE="dashboard"; render();
+};
+KL.serverMode=()=>!!SERVER;
+// En mode serveur, les modules additionnels lisent l'état en mémoire (rôle et élèves du serveur) au lieu de localStorage.
+KL.serverState=()=>SERVER?S:null;
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};
 KL.sync=()=>{ if(!S.online){toast(t("offline"));return;} const n=S.queue.length; S.queue=[]; Object.values(S.attendance).forEach(a=>{if(a.sync==="pending")a.sync="synced";}); save(); render(); toast(t("syncedOk")+(n?` (${n})`:"")); };
 function boot(){ try{ load(); render(); }catch(e){ console.error(e); } }

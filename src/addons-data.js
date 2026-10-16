@@ -2,7 +2,7 @@
 (function(){
 const LSX = "klirline_ext_v1";
 const LSO = "klirline_school_v1";
-function readOld(){ try{ const o = JSON.parse(localStorage.getItem(LSO)); if(o && o.v===1 && o.students) return o; }catch(e){} return null; }
+function readOld(){ const sv=window.KL&&window.KL.serverState&&window.KL.serverState(); if(sv) return sv; try{ const o = JSON.parse(localStorage.getItem(LSO)); if(o && o.v===1 && o.students) return o; }catch(e){} return null; }
 function seedRes(){
   const R = (id,title,org,url,lang,levels,subjects,licence,access,type,fmt,off,note,costs,plus)=>({id,title,org,url,verified:"2026-10-01",lang,levels,subjects,licence,attrib:org,access,type,fmt,offline:off,size:"—",version:"web",status:"toCheck",note:note||"",costs:costs||null,...(plus||{}),hist:[{at:"2026-10-01",by:"seed",info:"fiche créée (source candidate PRD, à vérifier)"}]});
   return [

@@ -551,7 +551,8 @@ function todayHTML(){
   const o=O(); const ht=lang()==="ht"; const r=role(); const td=today();
   const pendX=X.queue.filter(q=>q.st==="pending").length;
   const pendO=o?(o.queue||[]).length:0;
-  const demoLn=ht?"Demonstrasyon : done fo anrejistre sou aparèy sa a. Pa gen senkwonizasyon ak yon lekòl.":"Démonstration : données fictives enregistrées sur cet appareil. Aucune synchronisation avec une école.";
+  const srv=document.documentElement.dataset.backend==="server";
+  const demoLn=srv?(ht?"Sèvè demonstrasyon : elèv ak klas soti nan sèvè a ; lòt modil yo rete lokal.":"Serveur de démonstration : élèves et classes viennent du serveur ; les autres modules restent locaux."):ht?"Demonstrasyon : done fo anrejistre sou aparèy sa a. Pa gen senkwonizasyon ak yon lekòl.":"Démonstration : données fictives enregistrées sur cet appareil. Aucune synchronisation avec une école.";
   const queueLn=pendO+pendX?` <b>${pendO+pendX}</b> ${ht?"nan fil lokal la":"dans la file locale"}.`:"";
   const ageL=(o&&o.attLog&&o.attLog[0])?o.attLog[0].date:(X.audit[0]?X.audit[0].at:"—");
   let body="";

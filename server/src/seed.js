@@ -17,9 +17,11 @@ async function seed(db) {
       const c1 = ins('INSERT INTO class (school_id, name, school_year_id, level_id, campus_id) VALUES (?,?,?,?,?)', s, '7e A', year, level, campus);
       const c2 = ins('INSERT INTO class (school_id, name, school_year_id, level_id, campus_id) VALUES (?,?,?,?,?)', s, '7e B', year, level, campus);
       const subj = ins('INSERT INTO subject (school_id, name, school_year_id, coefficient) VALUES (?,?,?,?)', s, 'Mathématiques', year, 2);
+      let tel = key === 'A' ? 50900000100 : 50900000200;
       const user = (handle, name, roles) => {
-        const id = ins('INSERT INTO app_user (school_id, email, display_name, password_hash) VALUES (?,?,?,?)',
-          s, `${handle}@${key.toLowerCase()}.exemple.invalid`, name, pw);
+        // Numéros fictifs (préfixe 00 inexistant en Haïti).
+        const id = ins('INSERT INTO app_user (school_id, email, phone, display_name, password_hash) VALUES (?,?,?,?,?)',
+          s, `${handle}@${key.toLowerCase()}.exemple.invalid`, `+${++tel}`, name, pw);
         for (const r of roles) ins('INSERT INTO user_role (school_id, user_id, role) VALUES (?,?,?)', s, id, r);
         return id;
       };

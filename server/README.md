@@ -72,6 +72,29 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
 - correction sensible : motif obligatoire, journalisée avec auteur, date, dossier ;
 - journal non modifiable ; jeton révoqué après déconnexion ; mots de passe hachés.
 
+## Connexion de la maquette (phase 1, `test/comptes.test.js`)
+
+`npm start` sert aussi la maquette : ouvrir http://127.0.0.1:3100/ (avec `NORIA_DEMO=1` pour les comptes fictifs).
+
+- Page de connexion : école, e-mail **ou** téléphone (numéro local à 8 chiffres complété en +509), mot de passe.
+  `method: 'code'` répond 501 : la table `login_code` est prête pour le code à 6 chiffres par SMS.
+- Session : cookie `noria_session` HttpOnly, SameSite=Strict (Secure si `NODE_ENV=production` ou `NORIA_SECURE_COOKIE=1`),
+  jeton stocké haché. Toute écriture par cookie exige l'en-tête `x-noria: 1` (anti-falsification de requête).
+  Le jeton Bearer reste accepté pour les scripts et les tests.
+- Rôle imposé par le serveur : le sélecteur de rôle n'existe que sans serveur (maquette statique). Élèves et classes
+  viennent de `/api/students` et `/api/classes`, gardés en mémoire, jamais écrits dans localStorage.
+- `GET /api/config` (public) : `{demo, session, methods, prochainement, ecoles}` ; la liste des écoles seulement en démo.
+- Invitations `POST /api/invitations` (direction : tous rôles ; secrétariat : parent et élève), jeton à usage unique
+  valable 72 h, haché en base ; `POST /api/invitations/accept` crée le compte, le rôle et le lien parent/élève.
+- Récupération `POST /api/recovery/request` (même réponse si le compte n'existe pas, limitée en débit), jeton 60 min ;
+  `POST /api/recovery/reset` change le mot de passe et révoque toutes les sessions du compte.
+- Envoi : aucun SMS ni e-mail réel ; les messages vont dans la table `outbox` (boîte d'envoi simulée).
+- Fichiers statiques : seulement `/`, `/index.html`, `/src/*` (liste blanche d'extensions), gzip, ETag/304, CSP.
+- Premier chargement mesuré (cache vide, Chrome) : environ 118 Ko transférés en 19 requêtes.
+- Vérification navigateur : `node scripts/verif-connexion.js http://127.0.0.1:3100` (iPhone SE, Pixel 7, iPad Mini, ordinateur).
+- Limite connue : les modules additionnels (`addons.js`) restent des démonstrations locales ; ils lisent le rôle et
+  les élèves du serveur mais leurs propres saisies restent sur l'appareil.
+
 ## Reste à faire avant toute donnée réelle
 
 Invitation et récupération de compte, limiteur partagé entre plusieurs processus, passage PostgreSQL + RLS, sauvegarde et **restauration essayée**, procédure d'incident, HTTPS/déploiement, présence/notes/annonces (étape 3), branchement de la maquette avec le cache `noria_cache_v1`.

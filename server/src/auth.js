@@ -51,8 +51,13 @@ function loadSession(db, token) {
   return row;
 }
 
+// Révoque toutes les sessions d'un compte (récupération, désactivation).
+function destroyUserSessions(db, userId) {
+  db.prepare('DELETE FROM session WHERE user_id = ?').run(userId);
+}
+
 function destroySession(db, token) {
   db.prepare('DELETE FROM session WHERE token_hash = ?').run(sha256(token));
 }
 
-module.exports = { hashPassword, verifyPassword, getDummyHash, createSession, loadSession, destroySession };
+module.exports = { sha256, hashPassword, verifyPassword, getDummyHash, createSession, loadSession, destroySession, destroyUserSessions };

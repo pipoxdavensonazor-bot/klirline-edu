@@ -15,7 +15,7 @@ async function main() {
   if (empty && demo) { await seed(db); console.log('Données fictives insérées (NORIA_DEMO=1).'); }
   else if (empty) console.log('Base vide : aucune donnée de démonstration (lancer avec NORIA_DEMO=1 pour en créer).');
   const port = Number(process.env.PORT || 3100);
-  createServer(db).listen(port, '127.0.0.1', () => console.log(`API NORIA (démo) : http://127.0.0.1:${port}`));
+  createServer(db, { demo, secureCookie: process.env.NODE_ENV === 'production' || process.env.NORIA_SECURE_COOKIE === '1' }).listen(port, '127.0.0.1', () => console.log(`API NORIA (démo) : http://127.0.0.1:${port}`));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
