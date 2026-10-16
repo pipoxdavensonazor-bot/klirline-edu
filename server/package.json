@@ -10,7 +10,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "better-sqlite3": "^11.10.0",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "qrcode-generator": "^1.5.2"
   },
   "private": true,
   "engines": {

@@ -7,9 +7,10 @@ const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
 // Ordre compatible avec les clés étrangères.
-const TABLES = ['school', 'campus', 'school_year', 'level', 'class', 'subject', 'app_user', 'user_role', 'student',
+const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'subject', 'app_user', 'user_role', 'student',
   'parent_link', 'teacher_assignment', 'enrollment', 'finance_entry', 'account_token', 'login_code', 'audit_log',
-  'attendance', 'attendance_history', 'sync_op', 'sync_conflict'];
+  'attendance', 'attendance_history', 'sync_op', 'sync_conflict',
+  'evaluation', 'grade', 'grade_history', 'grade_conflict', 'report_card', 'announcement', 'school_event'];
 const WITH_ID = new Set(TABLES.filter((t) => !['user_role', 'sync_op'].includes(t)));
 const digest = (tables) => crypto.createHash('sha256').update(JSON.stringify(tables)).digest('hex');
 

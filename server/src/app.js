@@ -6,6 +6,8 @@ const P = require('./policy');
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { createStatic } = require('./static');
+const { HttpError, forbid, notFound, audit, refuse, isUnique } = require('./common');
+const scolaire = require('./scolaire');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -43,21 +45,6 @@ async function useToken(db, kind, token) {
   if (!row || row.used_at || row.expires_at < new Date().toISOString()) throw new HttpError(400, 'lien invalide ou expiré');
   return row;
 }
-
-function audit(db, u, action, recordType, recordId, reason, outcome = 'ok') {
-  return db.run(`INSERT INTO audit_log (school_id, actor_user_id, action, record_type, record_id, reason, outcome)
-    VALUES (?,?,?,?,?,?,?)`, u.school_id, u.id, action, recordType, recordId == null ? null : String(recordId), reason || null, outcome);
-}
-// Refus journalisé hors de la transaction de la requête : il reste écrit même si la requête échoue ensuite.
-async function refuse(ctx, u, action, recordType, recordId, reason) {
-  await ctx.db.asSchool(u.school_id, (t) => audit(t, u, action, recordType, recordId, reason, 'refuse'));
-  forbid();
-}
-
-class HttpError extends Error { constructor(status, msg, headers) { super(msg); this.status = status; this.headers = headers || {}; } }
-const forbid = () => { throw new HttpError(403, 'accès refusé'); };
-// Hors périmètre : 404, pour ne pas révéler l'existence du dossier.
-const notFound = () => { throw new HttpError(404, 'introuvable'); };
 
 // Neutralise les formules de tableur (=, +, -, @, tabulation, retour chariot en tête de cellule).
 function cell(v) {
@@ -136,7 +123,25 @@ const routes = [
       VALUES (?,?,?,?,?,?,?,?,?,?)`, u.school_id, 'invitation', auth.sha256(token), mail, tel, String(display_name), role, sid, u.id, expires);
     await outbox(db, u.school_id, mail || tel, 'invitation', `NORIA : activez votre compte : /#invitation=${token} (valable ${INVITE_HOURS} h)`);
     await audit(db, u, 'invitation.create', 'invitation', id, role);
-    return { id, expiresAt: expires };
+    // Le lien est rendu à la personne qui invite pour qu'elle puisse le copier : l'envoi réel (SMS, e-mail) est simulé.
+    return { id, expiresAt: expires, link: `/#invitation=${token}`, channel: mail ? 'email' : 'sms', envoi: 'simulé' };
+  }],
+  ['GET', /^\/api\/invitations$/, async (db, req, u) => {
+    if (!P.has(u, 'direction', 'secretariat')) forbid();
+    const roles = P.has(u, 'direction') ? ROLES : ['parent', 'eleve'];
+    return db.all(`SELECT a.id, a.email, a.phone, a.display_name, a.role, a.student_id, a.expires_at, a.used_at, a.created_at, us.display_name AS invited_by
+      FROM account_token a JOIN app_user us ON us.id = a.created_by AND us.school_id = a.school_id
+      WHERE a.school_id = ? AND a.kind = 'invitation' AND a.role IN (${roles.map(() => '?').join(',')}) ORDER BY a.id DESC LIMIT 200`, u.school_id, ...roles);
+  }],
+  ['POST', /^\/api\/invitations\/(\d+)\/annuler$/, async (db, req, u, [id], ctx) => {
+    if (!P.has(u, 'direction', 'secretariat')) await refuse(ctx, u, 'invitation.revoke', 'invitation', id, null);
+    const roles = P.has(u, 'direction') ? ROLES : ['parent', 'eleve'];
+    // Annuler = rendre le jeton inutilisable (expiré maintenant) ; la ligne reste pour l'historique.
+    const r = await db.run(`UPDATE account_token SET expires_at = ? WHERE id = ? AND school_id = ? AND kind = 'invitation' AND used_at IS NULL
+      AND role IN (${roles.map(() => '?').join(',')})`, new Date(Date.now() - 1000).toISOString(), Number(id), u.school_id, ...roles);
+    if (!r.changes) notFound();
+    await audit(db, u, 'invitation.revoke', 'invitation', id, null);
+    return { ok: true };
   }],
   ['POST', /^\/api\/invitations\/accept$/, async (db, req) => {
     const { token, password } = req.body || {};
@@ -341,6 +346,8 @@ const routes = [
 
 // Jour civil de l'école (Haïti par défaut) : sert à la règle « correction le jour même ».
 const localDay = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.NORIA_TZ || 'America/Port-au-Prince' });
+routes.push(...scolaire.routes, ...scolaire.publicRoutes);
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
 const TEACHER_DAYS = 7; // un enseignant saisit ou corrige jusqu'à 7 jours en arrière ; direction et secrétariat sans limite
@@ -411,7 +418,6 @@ async function applyOp(t, u, op, opId) {
   return res;
 }
 
-const isUnique = (e) => e && (e.code === '23505' || /UNIQUE constraint/.test(e.message));
 
 // Limiteur de tentatives : N échecs par clé (IP, compte) dans une fenêtre glissante. Avec db, il est stocké en base
 // (table login_attempt, clés hachées) : il survit au redémarrage et vaut pour tous les processus. Sans db : en mémoire.
@@ -469,6 +475,7 @@ function createServer(db, options = {}) {
     db,
     limiter: options.limiter || createLimiter({ db, ...(options.rateLimit || {}) }),
     demo: !!options.demo,
+    publicUrl: options.publicUrl || process.env.NORIA_PUBLIC_URL || null,
     secureCookie: !!options.secureCookie,
   };
   const serveStatic = options.staticRoot === false ? null : createStatic(options.staticRoot || path.join(__dirname, '..', '..'));
@@ -478,6 +485,10 @@ function createServer(db, options = {}) {
     req.setCookie = (c) => cookies.push(c);
     const withCookies = (h) => (cookies.length ? { ...h, 'set-cookie': cookies } : h);
     const send = (status, body) => {
+      if (body && body.__pdf) {
+        res.writeHead(status, withCookies({ ...SECURITY_HEADERS, ...extra, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${body.filename || 'document.pdf'}"`, 'content-length': body.__pdf.length }));
+        return res.end(body.__pdf);
+      }
       if (body && body.__csv !== undefined) {
         res.writeHead(status, withCookies({ ...SECURITY_HEADERS, ...extra, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="export.csv"' }));
         return res.end(body.__csv);

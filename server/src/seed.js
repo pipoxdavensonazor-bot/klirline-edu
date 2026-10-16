@@ -19,6 +19,12 @@ async function seed(db) {
       const level = await ins('INSERT INTO level (school_id, name) VALUES (?,?)', s, '7e année fondamentale');
       const c1 = await ins('INSERT INTO class (school_id, name, school_year_id, level_id, campus_id) VALUES (?,?,?,?,?)', s, '7e A', year, level, campus);
       const c2 = await ins('INSERT INTO class (school_id, name, school_year_id, level_id, campus_id) VALUES (?,?,?,?,?)', s, '7e B', year, level, campus);
+      // Trois trimestres fictifs 2026-2027 (dates indicatives).
+      const terms = [];
+      for (const [i, n, a, b] of [[1, 'Trimestre 1', '2026-09-01', '2026-12-18'], [2, 'Trimestre 2', '2027-01-05', '2027-03-26'], [3, 'Trimestre 3', '2027-04-05', '2027-06-25']])
+        terms.push(await ins('INSERT INTO term (school_id, school_year_id, name, position, starts_on, ends_on) VALUES (?,?,?,?,?,?)', s, year, n, i, a, b));
+      const subjFr = await ins('INSERT INTO subject (school_id, name, school_year_id, coefficient) VALUES (?,?,?,?)', s, 'Français', year, 2);
+      const subjSc = await ins('INSERT INTO subject (school_id, name, school_year_id, coefficient) VALUES (?,?,?,?)', s, 'Sciences expérimentales', year, 1);
       const subj = await ins('INSERT INTO subject (school_id, name, school_year_id, coefficient) VALUES (?,?,?,?)', s, 'Mathématiques', year, 2);
       let tel = key === 'A' ? 50900000100 : 50900000200;
       const user = async (handle, name, roles) => {
@@ -40,6 +46,7 @@ async function seed(db) {
         eleve1: await user('eleve1', `Élève fictif 1 ${key}`, ['eleve']),
       };
       await ins('INSERT INTO teacher_assignment (school_id, teacher_user_id, class_id, subject_id) VALUES (?,?,?,?)', s, u.prof1, c1, subj);
+      await ins('INSERT INTO teacher_assignment (school_id, teacher_user_id, class_id, subject_id) VALUES (?,?,?,?)', s, u.prof1, c1, subjFr);
       await ins('INSERT INTO teacher_assignment (school_id, teacher_user_id, class_id, subject_id) VALUES (?,?,?,?)', s, u.prof2, c2, subj);
       const stu = async (code, fn, userId, cls) => {
         const id = await ins(`INSERT INTO student (school_id, user_id, code, first_name, last_name, birth_date, health_notes, family_notes)
@@ -52,7 +59,7 @@ async function seed(db) {
       const st2 = await stu(`${key}-002`, 'Bèl', null, c2);
       await link('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', s, u.parent1, st1, 'Lien de démonstration');
       await link('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', s, u.parent2, st2, 'Lien de démonstration');
-      ids[key] = { school: s, classes: [c1, c2], students: [st1, st2], users: u };
+      ids[key] = { school: s, classes: [c1, c2], students: [st1, st2], users: u, terms, subjects: { maths: subj, francais: subjFr, sciences: subjSc } };
     }
   });
   return ids;
