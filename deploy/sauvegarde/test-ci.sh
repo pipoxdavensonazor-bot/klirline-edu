@@ -80,7 +80,7 @@ for i in $(seq 0 399); do
   [ "$(date -u -d "$d" +%u)" = 7 ] && touch "$R/hebdomadaire/$n"
   [ "$(date -u -d "$d" +%d)" = 01 ] && touch "$R/mensuel/$n"
 done
-BACKUP_DIR="$R" NORIA_BACKUP_ENV=/dev/null S3_BUCKET= "$here/noria-sauvegarde.sh" elaguer 2>/dev/null
+BACKUP_DIR="$R" NORIA_BACKUP_ENV=/dev/null S3_BUCKET="" "$here/noria-sauvegarde.sh" elaguer 2>/dev/null
 c() { find "$R/$1" -type f | wc -l; }
 [ "$(c quotidien)" = 7 ] && [ "$(c hebdomadaire)" = 4 ] && [ "$(c mensuel)" = 12 ] || { echo "rotation incorrecte : $(c quotidien)/$(c hebdomadaire)/$(c mensuel)"; exit 1; }
 [ -e "$R/quotidien/noria-2026-02-04T030000Z.dump.enc" ] && [ ! -e "$R/quotidien/noria-2026-01-28T030000Z.dump.enc" ] || { echo "mauvais fichiers gardés"; exit 1; }

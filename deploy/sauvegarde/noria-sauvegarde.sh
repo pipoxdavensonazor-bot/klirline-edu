@@ -61,7 +61,7 @@ sauvegarder() {
 case "${1:-sauver}" in
   sauver) sauvegarder ;;
   elaguer) elaguer_local; if s3_actif; then s3_verifier; elaguer_s3; fi ;;
-  lister) for c in quotidien hebdomadaire mensuel; do echo "== local $c"; ls -1 "$BACKUP_DIR/$c" 2>/dev/null | grep -v sha256 || true; done
+  lister) for c in quotidien hebdomadaire mensuel; do echo "== local $c"; find "$BACKUP_DIR/$c" -maxdepth 1 -type f -name "noria-*" ! -name "*.sha256" -printf "%f\n" 2>/dev/null | sort || true; done
           if s3_actif; then s3_verifier; for c in quotidien hebdomadaire mensuel; do echo "== S3 $c"; s3_lister "$S3_PREFIX/$c/" | grep -v sha256 || true; done; fi ;;
   *) echo "Usage : $0 [sauver|elaguer|lister]" >&2; exit 2 ;;
 esac
