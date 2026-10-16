@@ -1,0 +1,99 @@
+/* NORIA — navigation téléphone et tablette (voir src/mobile-nav.js). Ordinateur (≥ 1100 px) : rien ne change. */
+:root { --mnv-h: 64px; }
+.mnv-bar, .mnv-menu-btn { display: none; }
+.mnv-drawer[hidden] { display: none !important; }
+html, body { max-width: 100%; overflow-x: clip; }
+
+@media (max-width: 1099px) {
+  /* Le menu horizontal défilant disparaît : tout passe par la barre du bas ou le tiroir. */
+  .layout > .nav { display: none !important; }
+  .layout { display: block; min-height: calc(100dvh - var(--bar-h)); }
+}
+
+/* ---------- Tablette : bouton Menu + tiroir latéral ---------- */
+@media (min-width: 700px) and (max-width: 1099px) {
+  .mnv-menu-btn {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; min-width: 44px;
+    padding: 8px 14px; margin-right: 8px; border-radius: 10px;
+    background: #0e1218; color: #fff; border: 0; font-weight: 700; flex: none;
+  }
+  .mnv-burger, .mnv-burger::before, .mnv-burger::after {
+    display: block; width: 18px; height: 2px; background: currentColor; border-radius: 2px; position: relative;
+  }
+  .mnv-burger::before, .mnv-burger::after { content: ""; position: absolute; left: 0; }
+  .mnv-burger::before { top: -6px; } .mnv-burger::after { top: 6px; }
+}
+
+/* ---------- Téléphone : barre du bas ---------- */
+@media (max-width: 699px) {
+  .mnv-bar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    background: #fff; border-top: 1px solid var(--line, #d9dcda);
+    padding: 4px max(4px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+    box-shadow: 0 -2px 10px rgba(14,18,24,.08);
+  }
+  .mnv-tab {
+    flex: 1 1 0; min-width: 0; min-height: 52px; padding: 6px 2px; margin: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: transparent; color: #36403b; border: 0; border-radius: 10px; box-shadow: none;
+    font-size: 12px; font-weight: 600; line-height: 1.15; text-align: center;
+  }
+  .mnv-tab .mnv-label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mnv-tab.on { background: #0e1218; color: #fff; }
+  .mnv-dots { font-size: 14px; letter-spacing: 1px; line-height: 1; }
+  body { padding-bottom: calc(var(--mnv-h) + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(var(--mnv-h) + 12px + env(safe-area-inset-bottom)); }
+  .live-dock { bottom: calc(var(--mnv-h) + 8px + env(safe-area-inset-bottom)) !important; }
+  .site-foot { padding-bottom: 16px; }
+  /* Clavier ouvert : on rend la place à la saisie. */
+  body.kb-open .mnv-bar { display: none; }
+  body.kb-open { padding-bottom: 0; }
+}
+
+/* ---------- Panneau / tiroir commun ---------- */
+.mnv-drawer { position: fixed; inset: 0; z-index: 70; }
+.mnv-backdrop { position: absolute; inset: 0; background: rgba(14,18,24,.5); }
+.mnv-panel {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: min(82dvh, calc(100dvh - 40px - env(safe-area-inset-top)));
+  display: flex; flex-direction: column; background: #fff; color: var(--ink, #0e1218);
+  border-radius: 18px 18px 0 0; box-shadow: 0 -8px 30px rgba(14,18,24,.25);
+  padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+  animation: mnv-up .18s ease-out;
+}
+.mnv-drawer.side .mnv-panel {
+  top: 0; bottom: 0; right: auto; width: min(360px, 86vw); max-height: none; height: 100dvh;
+  border-radius: 0 18px 18px 0; padding-top: env(safe-area-inset-top); animation-name: mnv-side;
+}
+.mnv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 8px 18px; border-bottom: 1px solid var(--line, #d9dcda); }
+.mnv-head h2 { margin: 0; font-size: 18px; }
+.mnv-close { min-width: 44px; min-height: 44px; padding: 0; border-radius: 50%; background: #eef1ef; color: #0e1218; border: 0; font-size: 26px; line-height: 1; }
+.mnv-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 6px 10px 16px; -webkit-overflow-scrolling: touch; }
+.mnv-group { margin: 14px 8px 4px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--mut, #5b6560); }
+.mnv-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 4px; }
+.mnv-drawer:not(.side) .mnv-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mnv-item {
+  width: 100%; min-height: 48px; padding: 10px 14px; margin: 0; text-align: left;
+  background: #f5f7f6; color: #0e1218; border: 1px solid transparent; border-radius: 12px; box-shadow: none;
+  font-size: 15px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere;
+}
+.mnv-item.on { background: #0e1218; color: #fff; }
+.mnv-item:focus-visible, .mnv-tab:focus-visible, .mnv-close:focus-visible, .mnv-menu-btn:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+body.mnv-open { overflow: hidden; }
+@keyframes mnv-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes mnv-side { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mnv-panel { animation: none; } }
+@media (min-width: 1100px) { .mnv-drawer { display: none !important; } }
+@media print { .mnv-bar, .mnv-drawer, .mnv-menu-btn { display: none !important; } }
+
+/* Les styles globaux des boutons (survol, focus) ne doivent pas rendre les libellés illisibles. */
+.mnv-bar .mnv-tab, .mnv-bar .mnv-tab:hover, .mnv-bar .mnv-tab:focus, .mnv-bar .mnv-tab:active { background: transparent !important; color: #36403b !important; transform: none; }
+.mnv-bar .mnv-tab:hover, .mnv-bar .mnv-tab:focus-visible { background: #eef1ef !important; }
+.mnv-bar .mnv-tab.on, .mnv-bar .mnv-tab.on:hover, .mnv-bar .mnv-tab.on:focus { background: #0e1218 !important; color: #fff !important; }
+.mnv-item:hover, .mnv-item:focus, .mnv-item:active { background: #e6eae8 !important; color: #0e1218 !important; transform: none; }
+.mnv-item.on, .mnv-item.on:hover, .mnv-item.on:focus { background: #0e1218 !important; color: #fff !important; }
+.mnv-close:hover, .mnv-close:focus { background: #dfe4e1; color: #0e1218; }
+.mnv-menu-btn, .mnv-menu-btn:hover, .mnv-menu-btn:focus { background: #0e1218 !important; color: #fff !important; }
+@media (max-width: 699px) {
+  /* Libellés sur deux lignes au besoin plutôt que tronqués. */
+  .mnv-tab .mnv-label { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; font-size: 11.5px; }
+}

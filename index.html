@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="src/styles.css">
   <link rel="stylesheet" href="src/addons.css">
   <link rel="stylesheet" href="src/design-refresh.css">
+  <link rel="stylesheet" href="src/mobile-nav.css">
   <script defer src="src/util.js"></script>
   <script defer src="src/i18n.js"></script>
   <script defer src="src/seed.js"></script>
@@ -18,7 +19,7 @@
   <script defer src="src/addons-data.js"></script>
   <script defer src="src/addons.js"></script>
   <script defer src="src/tours.js"></script>
-  <script defer src="src/nav-scroll.js"></script>
+  <script defer src="src/mobile-nav.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#view">Aller au contenu principal</a>
@@ -37,11 +38,7 @@
     <button id="syncBtn" class="pill" onclick="KL.sync()" aria-label="Vider la file de démonstration sur cet appareil">Vider la file<span id="syncBadge"></span></button>
   </header>
   <div class="layout">
-    <div class="nav-wrap" id="navWrap">
-      <button type="button" class="nav-arrow nav-prev" id="navPrev" aria-label="Onglets précédents" aria-controls="nav" hidden>‹</button>
-      <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
-      <button type="button" class="nav-arrow nav-next" id="navNext" aria-label="Onglets suivants" aria-controls="nav" hidden>›</button>
-    </div>
+    <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
     <main class="main" id="view" tabindex="-1">
       <p class="small mut" style="margin-top:16px">NORIA est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
     </main>
