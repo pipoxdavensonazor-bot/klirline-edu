@@ -15,7 +15,7 @@ src="${1:?Usage : $0 <fichier | s3:clé | dernier>}"
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 
 if [ "$src" = dernier ]; then
-  if s3_actif; then s3_verifier; src="s3:$(s3_lister "$S3_PREFIX/quotidien/" | grep -v sha256 | tail -n 1)"
+  if s3_actif; then s3_verifier; src="s3:$(s3_lister "$S3_PREFIX/quotidien/" | { grep -v sha256 || true; } | tail -n 1)"
   else src="$(find "$BACKUP_DIR/quotidien" -maxdepth 1 -name 'noria-*' ! -name '*.sha256' | sort | tail -n 1)"; fi
   [ "$src" = "s3:" ] || [ -z "$src" ] && die "aucune sauvegarde trouvée"
 fi

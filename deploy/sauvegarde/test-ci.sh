@@ -95,7 +95,8 @@ if [ -n "${S3_ENDPOINT:-}" ] && [ -n "${S3_BUCKET:-}" ]; then
     sleep 1
   done
   . "$here/lib.sh"; charger_config
-  q="$(s3_lister "$S3_PREFIX/quotidien/" | grep -vc sha256)"; h="$(s3_lister "$S3_PREFIX/hebdomadaire/" | grep -vc sha256)"; m="$(s3_lister "$S3_PREFIX/mensuel/" | grep -vc sha256)"
+  nb() { s3_lister "$S3_PREFIX/$1/" | { grep -vc sha256 || true; }; }
+  q="$(nb quotidien)"; h="$(nb hebdomadaire)"; m="$(nb mensuel)"
   [ "$q" = 7 ] && [ "$h" = 2 ] && [ "$m" = 1 ] || { echo "rotation S3 incorrecte : $q/$h/$m"; exit 1; }
   ok "S3 : 7 quotidiennes, 2 hebdomadaires (1er et 8 mars), 1 mensuelle"
   psql -X -q "$NORIA_TEST_PG" -c "DROP DATABASE IF EXISTS noria_sauv_dst WITH (FORCE)" -c "CREATE DATABASE noria_sauv_dst"

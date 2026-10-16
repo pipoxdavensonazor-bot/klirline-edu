@@ -74,7 +74,7 @@ elaguer_s3() {
   local d
   for d in quotidien:"$KEEP_DAILY" hebdomadaire:"$KEEP_WEEKLY" mensuel:"$KEEP_MONTHLY"; do
     local p="$S3_PREFIX/${d%%:*}/" keep="${d##*:}"
-    s3_lister "$p" | grep -v '\.sha256$' | a_supprimer "$keep" |
+    s3_lister "$p" | { grep -v '\.sha256$' || true; } | a_supprimer "$keep" |
       while read -r k; do s3_supprimer "$k"; s3_supprimer "$k.sha256" || true; log "S3 : supprimé $k"; done
   done
 }
