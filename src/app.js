@@ -12,7 +12,7 @@ function t(k){ const d=window.KL_I18N[S.lang]||window.KL_I18N.fr; return d[k]||w
 function syncWord(s){ if(s==="synced") return t("synced"); if(s==="pending") return t("pending"); if(s==="conflict") return t("conflict"); return t("local"); }
 const {esc,jsa,safeUrl}=window.NORIA_U;
 function money(n){ return Number(n||0).toLocaleString("fr-FR").replace(/,/g," ")+" G"; }
-function today(){ return new Date().toISOString().slice(0,10); }
+function today(){ return new Date().toLocaleDateString("en-CA"); } // jour civil de l'appareil (et non UTC)
 let ROUTE="dashboard";
 function toast(m){ const c=$("#toasts"); const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3200); }
 function logExport(kind,detail){ S.exportLog.unshift({date:new Date().toLocaleString(),by:S.role,kind,detail}); S.exportLog=S.exportLog.slice(0,50); save(); }
@@ -166,6 +166,7 @@ let attC="c7a", attD=today();
 function teacherOwns(classId){ return teacherClasses().includes(classId); }
 function clampAtt(){ if(S.role==="enseignant" && !teacherOwns(attC)) attC=teacherClasses()[0]||attC; }
 function vAtt(){
+  if(SERVER) return vAttServer();
   clampAtt();
   let list=S.classes; if(S.role==="enseignant") list=S.classes.filter(c=>teacherOwns(c.id));
   if(S.role==="parent"||S.role==="eleve"){ const kids=kidStudents();
@@ -181,11 +182,87 @@ function vAtt(){
   <div class="card" style="margin-top:12px"><h3>${t("history")}</h3>${S.attLog.slice(0,8).map(l=>`<div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(l.date)} — ${esc(l.by)} : ${esc(l.classId)} ${esc(l.day)} → ${esc(l.info)} <span class="badge b-pending">${esc(syncWord(l.sync))}</span></div>`).join("")||`<span class="mut small">${t("empty")}</span>`}</div>`;
 }
 function bAtt(){}
+/* ---------- PRESENCES, mode serveur : feuille du serveur + file hors ligne (src/offline.js) ---------- */
+const DAYRE=/^\d{4}-\d{2}-\d{2}$/;
+const ST2SV={P:"present",A:"absent",R:"retard",E:"excuse"}, SV2ST={present:"P",absent:"A",retard:"R",excuse:"E"};
+let SATT={key:null,sheet:{},pending:{},fresh:false,loading:false,draft:{}};
+const KIDATT={};
+async function loadSAtt(){
+  const c=classById(attC); const off=window.NORIA_OFF; if(!c||!off) return;
+  const key=attC+"|"+attD; SATT.loading=true;
+  const [r,pending]=await Promise.all([off.loadSheet(c.serverId,attD),off.pendingFor(c.serverId,attD)]);
+  if(key!==attC+"|"+attD){ SATT.loading=false; if(ROUTE==="attendance") render(); return; } // jour ou classe changés entre-temps
+  SATT={key,sheet:r.sheet,pending,fresh:r.fresh,loading:false,draft:SATT.key===key?SATT.draft:{}};
+  if(ROUTE==="attendance") render();
+}
+function srvStatus(s){ const sid=s.serverId; return SATT.draft[s.id]||(SATT.pending[sid]&&SV2ST[SATT.pending[sid]])||(SATT.sheet[sid]&&SV2ST[SATT.sheet[sid].status])||"P"; }
+function vAttServer(){
+  const ht=S.lang==="ht";
+  if(S.role==="parent"||S.role==="eleve"){
+    const kids=kidStudents();
+    kids.forEach(k=>{ if(!KIDATT[k.id]){ KIDATT[k.id]={rows:null}; fetch(`/api/students/${k.serverId}/attendance`,{credentials:"same-origin",cache:"no-store"})
+      .then(r=>r.ok?r.json():[]).then(rows=>{ KIDATT[k.id].rows=rows; window.NORIA_OFF&&NORIA_OFF.putCache("kid:"+k.id,rows); if(ROUTE==="attendance") render(); })
+      .catch(async()=>{ KIDATT[k.id].rows=(window.NORIA_OFF&&await NORIA_OFF.getCache("kid:"+k.id))||[]; if(ROUTE==="attendance") render(); }); } });
+    const lbl={present:t("present"),absent:t("absent"),retard:t("late"),excuse:t("excused")};
+    return `<h2 style="margin:0">${t("attendance")}</h2><p class="small mut">${esc(t("onlyLinked"))}</p>${kids.map(k=>{const c=classById(k.classId);const rows=KIDATT[k.id]&&KIDATT[k.id].rows;
+      return `<div class="card"><h3>${esc(k.firstName)} ${esc(k.lastName)} — ${esc(c?.name||"")}</h3>${rows==null?`<span class="mut small">…</span>`:rows.slice(0,10).map(r=>`<div class="small">${esc(r.day)} : <b>${esc(lbl[r.status]||r.status)}</b></div>`).join("")||`<span class="mut small">${t("empty")}</span>`}</div>`;}).join("")}`;
+  }
+  let list=S.classes; if(S.role==="enseignant") list=S.classes.filter(c=>teacherOwns(c.id));
+  if(!list.some(c=>c.id===attC)) attC=list[0]?.id||"";
+  const cls=classById(attC);
+  if(!cls) return `<h2 style="margin:0">${t("attendance")}</h2><p class="mut">${t("empty")}</p>`;
+  const key=attC+"|"+attD; if(SATT.key!==key&&!SATT.loading) loadSAtt();
+  const ready=SATT.key===key;
+  const pupils=S.students.filter(s=>s.classId===attC);
+  const states=["P","A","R","E"]; const lbl={P:t("present"),A:t("absent"),R:t("late"),E:t("excused")};
+  const off=window.NORIA_OFF; const online=off?off.online():navigator.onLine;
+  const nPend=Object.keys(SATT.pending).length, nDraft=Object.keys(SATT.draft).length;
+  const conflicts=off?off.takeConflicts().filter(c=>c.class_id===cls.serverId&&c.day===attD):[];
+  const rowState=s=>{ const sid=s.serverId; if(SATT.draft[s.id]) return ["draft",ht?"pa anrejistre":"non enregistré"]; if(SATT.pending[sid]) return ["wait",ht?"ap tann":"en attente d'envoi"];
+    if(SATT.sheet[sid]) return ["ok",(ht?"sou sèvè a":"sur le serveur")+" · v"+SATT.sheet[sid].version]; return ["none",ht?"poko antre":"pas encore saisi"]; };
+  const name=id=>{ const p=S.students.find(x=>x.serverId===id); return p?p.firstName+" "+p.lastName:"#"+id; };
+  return `<div class="row sp"><h2 style="margin:0">${t("attendance")}</h2><span class="badge ${nPend?"b-pending":"b-paid"}">${nPend?(ht?`${nPend} ap tann`:`${nPend} en attente`):(ready&&SATT.fresh?(ht?"Ajou":"À jour"):(ht?"Kopi sou aparèy la":"Copie de l'appareil"))}</span></div>
+  ${online?"":`<div class="badbox small" id="attOffline">${ht?"San entènèt : apèl la anrejistre sou aparèy sa a epi l ap pati otomatikman lè rezo a tounen.":"Hors ligne : l'appel est enregistré sur cet appareil et sera envoyé automatiquement au retour du réseau."}</div>`}
+  ${conflicts.length?`<div class="warnbox small" id="attConflicts"><b>${ht?"Konfli":"Conflit"}</b> — ${ht?"fich la te chanje sou sèvè a anvan antre ou a rive ; sèvè a kenbe valè li. Pou korije, chwazi ankò epi bay yon motif.":"la fiche avait changé sur le serveur avant l'arrivée de votre saisie ; le serveur garde sa valeur (conflit journalisé). Pour corriger, choisissez à nouveau et donnez un motif."}
+    <ul>${conflicts.map(c=>`<li>${esc(name(c.student_id))} : ${ht?"ou te mete":"vous aviez mis"} « ${esc(lbl[SV2ST[c.client_status]]||c.client_status)} », ${ht?"sèvè a kenbe":"le serveur garde"} « ${esc(lbl[SV2ST[c.status]]||c.status)} »</li>`).join("")}</ul>
+    <button class="ghost" onclick="KL.attConflictsSeen()">${ht?"Mwen konprann":"Compris"}</button></div>`:""}
+  <div class="toolbar"><select onchange="KL.attC(this.value)" aria-label="${t("classes")}">${list.map(c=>`<option value="${esc(c.id)}" ${c.id===attC?"selected":""}>${esc(c.name)} — ${esc(c.level)}</option>`).join("")}</select><input type="date" value="${esc(attD)}" onchange="KL.attD(this.value)" aria-label="Date"><button class="ghost" onclick="KL.attAll()">${t("markAllPresent")}</button></div>
+  <div class="card"><div style="overflow:auto"><table>${pupils.map(s=>{const v=srvStatus(s);const [k,txt]=rowState(s);return `<tr data-sid="${esc(s.serverId)}"><td><b>${esc(s.firstName)} ${esc(s.lastName)}</b><br><span class="mut small">${esc(s.code)}</span> <span class="att-st att-${k} small">${esc(txt)}</span></td><td class="row">${states.map(st=>`<button class="attbtn ${v===st?(st==="P"?"on-P":st==="A"?"on-A":st==="R"?"on-R":"on-E"):""}" aria-pressed="${v===st}" onclick="KL.attMark('${jsa(s.id)}','${jsa(st)}')">${st} <span class="small">${lbl[st]}</span></button>`).join("")}</td></tr>`;}).join("")}</table></div>
+  <div class="toolbar" style="margin-top:10px"><label class="small" style="flex:1 1 220px">${ht?"Motif (obligatwa pou korije antre yon lòt moun)":"Motif (obligatoire pour corriger la saisie d'une autre personne)"}<input id="attReason" maxlength="300" style="width:100%" autocomplete="off"></label><button id="attSaveBtn" onclick="KL.attSave()">${t("save")}${nDraft?` (${nDraft})`:""}</button></div></div>
+  <p class="small mut">${ht?"Règ konfli : si fich la chanje sou sèvè a depi dènye fwa aparèy la te wè l, valè sèvè a rete, epi konfli a anrejistre nan jounal la.":"Règle de conflit : si la fiche a changé sur le serveur depuis la dernière version vue par cet appareil, la valeur du serveur est conservée et le conflit est inscrit au journal."}</p>`;
+}
+function srvMark(sid,st){ if(!["direction","secretariat","enseignant"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} SATT.draft[sid]=st; render(); }
+function srvAll(){ if(!["direction","secretariat","enseignant"].includes(S.role)){toast(t("noAccess"));return;} S.students.filter(s=>s.classId===attC).forEach(s=>{ SATT.draft[s.id]="P"; }); render(); }
+async function srvSave(){
+  if(!["direction","secretariat","enseignant"].includes(S.role)){toast(t("noAccess"));return;}
+  const cls=classById(attC); const off=window.NORIA_OFF; if(!cls||!off) return;
+  const reasonEl=document.getElementById("attReason"); const reason=reasonEl?reasonEl.value.trim():"";
+  const ops=[];
+  S.students.filter(s=>s.classId===attC).forEach(s=>{
+    const want=ST2SV[srvStatus(s)]; const cur=SATT.sheet[s.serverId]; const pend=SATT.pending[s.serverId];
+    if(!SATT.draft[s.id]&&(pend||cur)) return; // rien de nouveau pour cet élève
+    if(cur&&cur.status===want&&!pend) return;
+    ops.push({class_id:cls.serverId,student_id:s.serverId,day:attD,status:want,base_version:cur?cur.version:0,reason:reason||undefined});
+  });
+  SATT.draft={};
+  if(!ops.length){ toast(S.lang==="ht"?"Anyen pou anrejistre.":"Rien à enregistrer."); render(); return; }
+  const wasOnline=off.online();
+  await off.enqueue(ops);
+  toast(wasOnline?(S.lang==="ht"?`${ops.length} antre ap voye…`:`${ops.length} saisie(s) en cours d'envoi…`):(S.lang==="ht"?`${ops.length} antre anrejistre sou aparèy la ; y ap pati lè rezo a tounen.`:`${ops.length} saisie(s) enregistrée(s) sur l'appareil ; envoi au retour du réseau.`));
+  SATT.key=null; render();
+}
+KL.attConflictsSeen=()=>{ window.NORIA_OFF&&NORIA_OFF.clearConflicts(); render(); };
+let attRefresh=null;
+function onOfflineChange(){
+  if(!SERVER) return;
+  const ref=window.NORIA_OFF.takeRefused(); if(ref.length) toast((S.lang==="ht"?"Refize pa sèvè a : ":"Refusé par le serveur : ")+ref.map(r=>r.error).filter(Boolean).slice(0,2).join(" ; "));
+  clearTimeout(attRefresh); attRefresh=setTimeout(()=>{ if(ROUTE==="attendance"){ SATT.key=null; render(); } },150);
+}
 KL.attGo=id=>{ if(S.role==="enseignant"&&!teacherOwns(id)){toast(t("noAccess"));return;} attC=id;ROUTE="attendance";render();};
-KL.attC=v=>{ if(S.role==="enseignant"&&!teacherOwns(v)){toast(t("noAccess"));return;} attC=v;render();}; KL.attD=v=>{attD=v;render();};
-KL.attMark=(sid,st)=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; S.attendance[key]=S.attendance[key]||{classId:attC,day:attD,records:{},sync:"local"}; S.attendance[key].records[sid]=st; save(); render(); };
-KL.attAll=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); S.attendance[key]={classId:attC,day:attD,records:rec,sync:S.online?"synced":"local"}; save(); render(); };
-KL.attSave=()=>{ if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; let sh=S.attendance[key];
+KL.attC=v=>{ if(S.role==="enseignant"&&!teacherOwns(v)){toast(t("noAccess"));return;} attC=v;render();}; KL.attD=v=>{ if(DAYRE.test(v)) attD=v; render();};
+KL.attMark=(sid,st)=>{ if(SERVER) return srvMark(sid,st); if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; S.attendance[key]=S.attendance[key]||{classId:attC,day:attD,records:{},sync:"local"}; S.attendance[key].records[sid]=st; save(); render(); };
+KL.attAll=()=>{ if(SERVER) return srvAll(); if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); S.attendance[key]={classId:attC,day:attD,records:rec,sync:S.online?"synced":"local"}; save(); render(); };
+KL.attSave=()=>{ if(SERVER) return srvSave(); if(["parent","eleve","comptable","bibliothecaire"].includes(S.role)){toast(t("noAccess"));return;} if(S.role==="enseignant"&&!teacherOwns(attC)){toast(t("noAccess"));return;} const key=attC+"|"+attD; let sh=S.attendance[key];
   if(!sh){ const rec={}; S.students.filter(s=>s.classId===attC).forEach(s=>rec[s.id]="P"); sh={classId:attC,day:attD,records:rec}; }
   if(!S.online){ if(sh.sync==="pending"){ sh.prev=Object.assign({},sh.records); sh.sync="conflict"; } else sh.sync="pending";
     S.attendance[key]=sh; S.queue.push({kind:"attendance",key,at:Date.now()});
@@ -372,6 +449,7 @@ KL.applyServer=d=>{
   ROUTE="dashboard"; render();
 };
 KL.serverMode=()=>!!SERVER;
+if(window.NORIA_OFF) NORIA_OFF.onChange(onOfflineChange);
 // En mode serveur, les modules additionnels lisent l'état en mémoire (rôle et élèves du serveur) au lieu de localStorage.
 KL.serverState=()=>SERVER?S:null;
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};

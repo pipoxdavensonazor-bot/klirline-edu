@@ -140,6 +140,16 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   const again = await raw('/', { 'if-none-match': home.headers.etag });
   assert.equal(again.status, 304);
   assert.equal((await raw('/src/app.js')).status, 200);
+  // Application installable : manifeste et service worker servis à la racine, version et liste remplies par le serveur.
+  const sw = await raw('/sw.js');
+  assert.equal(sw.status, 200); assert.equal(sw.headers['cache-control'], 'no-cache');
+  const swText = sw.body.toString();
+  assert.doesNotMatch(swText, /__NORIA_(VERSION|ASSETS)__/);
+  assert.match(swText, /"\/src\/app\.js"/); assert.match(swText, /"\/src\/offline\.js"/);
+  assert.match(swText, /startsWith\("\/api\/"\)/, 'les réponses API ne sont jamais mises en cache');
+  const mf = await raw('/manifest.webmanifest');
+  assert.equal(mf.status, 200); assert.match(mf.headers['content-type'], /manifest\+json/);
+  assert.equal(JSON.parse(mf.body.toString()).display, 'standalone');
   for (const p of ['/server/src/seed.js', '/src/../server/package.json', '/src/%2e%2e/server/package.json', '/.git/config', '/src/x.sqlite', '/package.json'])
     assert.equal((await raw(p)).status, 404, p);
 });

@@ -9,8 +9,11 @@ const crypto = require('node:crypto');
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
-const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json']);
+const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
+// Fichiers servis à la racine (application installable) en plus de index.html et src/.
+const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest']);
 
 // CSP de la page : les gestionnaires onclick en ligne de la maquette imposent encore 'unsafe-inline' pour les scripts
 // (dette connue, à retirer avec la migration vers data-* + écouteurs).
@@ -29,6 +32,7 @@ function createStatic(root) {
     let p;
     try { p = decodeURIComponent(pathname); } catch { return null; }
     if (p === '/' || p === '/index.html') return path.join(rootAbs, 'index.html');
+    if (ROOT_FILES.has(p)) return path.join(rootAbs, p.slice(1));
     if (!p.startsWith('/src/') || p.includes('\0')) return null;
     const abs = path.resolve(rootAbs, '.' + p);
     if (!abs.startsWith(srcAbs + path.sep)) return null;
@@ -36,16 +40,34 @@ function createStatic(root) {
     return abs;
   }
 
+  // Liste des fichiers de l'interface (lus dans index.html) et version = empreinte de leur contenu :
+  // toute modification d'un fichier change sw.js, donc le navigateur remplace le cache.
+  function precacheList() {
+    const html = fs.readFileSync(path.join(rootAbs, 'index.html'), 'utf8');
+    const found = [...html.matchAll(/(?:href|src)="(src\/[^"#?]+)"/g)].map((m) => '/' + m[1]);
+    return [...new Set([...found, '/manifest.webmanifest', '/src/icon-192.png', '/src/icon-512.png'])]
+      .filter((u) => { const a = resolve(u); return a && fs.existsSync(a); });
+  }
+  function swSource(src) {
+    const list = precacheList();
+    const h = crypto.createHash('sha256');
+    for (const u of list) h.update(u).update(fs.readFileSync(resolve(u)));
+    h.update(fs.readFileSync(path.join(rootAbs, 'index.html')));
+    return src.replace('__NORIA_VERSION__', h.digest('hex').slice(0, 12)).replace('__NORIA_ASSETS__', JSON.stringify(list));
+  }
+
   function load(abs) {
     const st = fs.statSync(abs, { throwIfNoEntry: false });
     if (!st || !st.isFile()) return null;
     const hit = cache.get(abs);
-    if (hit && hit.mtime === st.mtimeMs) return hit;
+    const isSw = abs === path.join(rootAbs, 'sw.js');
+    if (hit && hit.mtime === st.mtimeMs && !isSw) return hit;
     let raw = fs.readFileSync(abs);
     const ext = path.extname(abs);
     // Signale au navigateur qu'un serveur NORIA est présent : sans ce repère (fichiers statiques seuls),
     // la maquette reste en démonstration locale sans même interroger /api/config.
     if (ext === '.html') raw = Buffer.from(raw.toString('utf8').replace('<head>', '<head><meta name="noria-server" content="1">'));
+    if (abs === path.join(rootAbs, 'sw.js')) raw = Buffer.from(swSource(raw.toString('utf8')));
     const entry = {
       mtime: st.mtimeMs, raw, type: TYPES[ext], ext,
       gz: COMPRESS.has(ext) ? zlib.gzipSync(raw, { level: 9 }) : null,
@@ -63,7 +85,8 @@ function createStatic(root) {
     const headers = {
       ...baseHeaders,
       'content-type': f.type,
-      'cache-control': f.ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+      // HTML et sw.js : revalidés à chaque fois (mises à jour) ; le reste : cache court, le service worker fait le reste.
+      'cache-control': f.ext === '.html' || url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600',
       etag: f.etag, vary: 'Accept-Encoding',
     };
     if (f.ext === '.html') headers['content-security-policy'] = HTML_CSP;

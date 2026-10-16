@@ -1,10 +1,10 @@
 # Socle serveur NORIA (étape 2) — démonstration, données fictives
 
-Ce dossier contient un **premier socle serveur**. Il n'est relié à aucune école et la maquette (`index.html`, `src/`) ne l'utilise pas encore : elle reste une démonstration locale, sans synchronisation. Ce socle ne vaut pas mise en production ni conformité juridique.
+Ce dossier contient le **socle serveur** de NORIA. Il sert aussi la maquette (`index.html`, `src/`) : connexion, rôle imposé, élèves, classes et présences viennent du serveur. Il n'est relié à aucune école réelle (données fictives) et ne vaut ni mise en production ni conformité juridique.
 
 ## Contenu
 
-- **Modèle multi-école** (`src/db.js`) : école, campus, année scolaire (une seule courante par école), niveaux, classes, matières, utilisateurs (invité / actif / désactivé), rôles, lien parent-enfant (avec motif), affectations enseignant-classe, inscriptions (avec statut et motif), écritures financières, sessions, journal d'audit.
+- **Modèle multi-école** (`migrations/`) : école, campus, année scolaire (une seule courante par école), niveaux, classes, matières, utilisateurs (invité / actif / désactivé), rôles, lien parent-enfant (avec motif), affectations enseignant-classe, inscriptions (avec statut et motif), écritures financières, sessions, journal d'audit.
 - **Séparation par école dans la base** : chaque table métier porte `school_id`, et les clés étrangères composites `(school_id, id)` refusent qu'une inscription, un lien parent ou une affectation relie deux écoles.
 - **Journal d'audit en ajout seul** : auteur, date, école, dossier, action, motif, résultat (`ok` / `refuse`). Des déclencheurs SQL refusent toute modification ou suppression.
 - **Connexion** (`src/auth.js`) : mots de passe hachés avec scrypt (module natif de Node), jeton de session opaque (seule son empreinte SHA-256 est stockée), expiration 8 h, déconnexion.
@@ -39,7 +39,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 ## Choix techniques
 
 - **Node.js ≥ 20, sans framework** (`node:http`, `node:crypto`, `node:test`) : le dépôt est en JavaScript sans outillage ; on limite les dépendances à une seule.
-- **SQLite via `better-sqlite3`** : un fichier, rien à installer, tests en mémoire rapides. Le schéma reste du SQL standard (clés composites, `CHECK`, index partiel) transposable à **PostgreSQL**, où l'on ajoutera la sécurité au niveau des lignes (RLS) par `school_id` avant toute donnée réelle.
+- **Deux bases, une interface** (`src/store.js`) : **PostgreSQL** (production, `pg`) ou **SQLite** (`better-sqlite3`, développement et tests rapides). Le SQL s'écrit une fois avec des `?` ; la couche les convertit pour PostgreSQL.
 - Jetons opaques en base plutôt que JWT : révocables immédiatement à la déconnexion ou à la désactivation d'un compte.
 
 ## Lancer et tester
@@ -47,16 +47,19 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 ```bash
 cd server
 npm install
-npm test          # tests d'isolation (node --test)
-NORIA_DEMO=1 npm start   # API sur http://127.0.0.1:3100, base noria-demo.sqlite, données fictives
-npm start                # même chose, mais sans créer de comptes de démonstration
+npm test                                  # tous les tests, SQLite en mémoire
+NORIA_TEST_PG=postgres://admin:…@127.0.0.1/postgres npm test   # les mêmes contre PostgreSQL (+ tests RLS)
+NORIA_DEMO=1 npm start                    # http://127.0.0.1:3100, fichier noria-demo.sqlite, données fictives
+NORIA_DEMO=1 DATABASE_URL=postgres://noria_admin:…@127.0.0.1/noria npm start   # même chose sur PostgreSQL
 ```
+
+`NORIA_TEST_PG` doit désigner un compte autorisé à créer des bases et des rôles : chaque fichier de test crée sa base `noria_t_…` et la supprime à la fin. La CI fait tourner les tests sur SQLite puis sur un service PostgreSQL 16.
 
 Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.invalid`, `prof1@…`, `parent1@…`, `eleve1@…`, `compta@…`, `biblio@…`, `secretariat@…`, mot de passe de démonstration `demo-fictif-2026` (voir `src/seed.js`). Ne jamais réutiliser ces comptes hors démonstration.
 
 ## Durcissement (`test/securite.test.js`)
 
-- **Limitation des connexions :** 5 échecs en 15 min bloquent le compte et l'adresse IP (réponse 429 + `Retry-After`). Les échecs sont journalisés. Le limiteur est en mémoire (un seul processus) : à déplacer en base ou dans Redis en production.
+- **Limitation des connexions :** 5 échecs en 15 min bloquent le compte et l'adresse IP (réponse 429 + `Retry-After`). Les échecs sont journalisés. Le limiteur est **stocké en base** (table `login_attempt`, clés hachées en SHA-256) : il survit au redémarrage et vaut pour tous les processus qui partagent la base.
 - **scrypt asynchrone :** le hachage ne bloque plus le serveur.
 - **Hachage factice :** un e-mail inconnu déclenche le même calcul qu'un vrai compte, pour ne pas révéler par le temps de réponse quels comptes existent.
 - **En-têtes de sécurité :** CSP `default-src 'none'`, `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS, `Permissions-Policy`, `no-store`.
@@ -95,6 +98,48 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
 - Limite connue : les modules additionnels (`addons.js`) restent des démonstrations locales ; ils lisent le rôle et
   les élèves du serveur mais leurs propres saisies restent sur l'appareil.
 
+## PostgreSQL, migrations et cloisonnement (RLS)
+
+- **Migrations** : `migrations/NNN_nom.sql` (commun) + `NNN_nom.sqlite.sql` / `NNN_nom.pg.sql` (propre au dialecte), appliquées dans l'ordre au démarrage et notées dans `schema_migrations`, dans une transaction protégée par un verrou consultatif (deux processus ne migrent pas en même temps). `{{PK}}` devient la clé primaire adaptée.
+- **RLS** (`004_rls.pg.sql`) : toutes les tables ont une politique `school_id = noria_school()`, où `noria_school()` lit le réglage de transaction `app.school_id`. Chaque requête d'un utilisateur connecté s'exécute dans une transaction `SET LOCAL ROLE noria_app` + `set_config('app.school_id', …, true)` (`db.asSchool`). Même une requête sans filtre (`SELECT * FROM student`) ne voit que l'école de la session ; une écriture au nom d'une autre école est refusée ; sans réglage, rien n'est visible (`test/rls.test.js`).
+- Le compte propriétaire (celui de `DATABASE_URL`) n'est pas soumis aux politiques : il ne sert qu'aux migrations et à l'authentification (recherche du compte, session, jetons, limiteur), avant que l'école soit connue. Le rôle `noria_app` n'a accès ni au limiteur ni aux migrations.
+- Toute **nouvelle table** doit recevoir sa politique RLS dans sa migration (les droits, eux, sont accordés automatiquement).
+- En SQLite, pas de RLS : le cloisonnement repose sur les clauses de `policy.js` et les clés étrangères composites, toujours appliquées dans les deux cas.
+
+## Présences (`test/presence.test.js`)
+
+| Méthode | Chemin | Rôles |
+|---|---|---|
+| GET | `/api/attendance?class_id=&day=AAAA-MM-JJ` | direction, secrétariat, enseignant de la classe |
+| POST | `/api/attendance/sync` `{ops:[{op_id, class_id, student_id, day, status, base_version, reason?, recorded_at, offline}]}` | idem |
+| GET | `/api/students/:id/attendance` | selon le périmètre élève (parent : ses enfants) |
+| GET | `/api/students/:id/attendance/history` | direction, secrétariat, enseignant |
+| GET | `/api/attendance/conflicts` | direction et secrétariat (tous), enseignant (les siens) |
+
+- Statuts : `present`, `absent`, `retard`, `excuse`. Une ligne par élève et par jour, avec un numéro de **version**.
+- **Historique** `attendance_history` en ajout seul : ancien et nouveau statut, version, motif, auteur, source (`en_ligne` / `hors_ligne`), op_id, heure de saisie sur l'appareil.
+- **Corrections** : motif obligatoire, sauf si l'auteur corrige sa propre saisie le jour même (fuseau `NORIA_TZ`, Haïti par défaut). Un enseignant saisit ou corrige jusqu'à 7 jours en arrière ; la direction et le secrétariat sans limite.
+- **Idempotence** : chaque opération porte un `op_id` (UUID de l'appareil) ; rejouée, elle renvoie le même résultat (`deja: true`) sans rien écrire. Un `op_id` d'un autre compte est refusé.
+- **Règle de conflit** : l'appareil envoie la version qu'il a vue (`base_version`, 0 s'il n'a rien vu). Si la fiche a changé sur le serveur depuis, **la valeur du serveur est conservée** ; la saisie de l'appareil est inscrite dans `sync_conflict` (ajout seul) et dans l'audit (`attendance.conflict`), et l'interface l'affiche. Même statut des deux côtés : `identique`, pas de conflit.
+
+## Hors ligne (maquette)
+
+- **Application installable** : `manifest.webmanifest`, icônes, `sw.js`. Le service worker met l'interface en cache (liste lue dans `index.html`, version = empreinte des fichiers : toute modification remplace le cache). Les réponses `/api/` ne sont **jamais** mises en cache par le service worker. Page : réseau d'abord (3,5 s au plus), puis cache.
+- **File de saisie** (`src/offline.js`, IndexedDB `noria_offline`) : l'appel est enregistré sur l'appareil puis envoyé dès que le réseau revient (événement `online`, retour sur l'onglet, toutes les 30 s s'il reste des saisies). Les saisies restent attachées au compte qui les a faites.
+- **Cache de lecture `noria_cache_v1`** : profil, élèves, classes, feuilles d'appel déjà vues, pour rouvrir l'application sans réseau ; effacé à la déconnexion ou quand la session a expiré.
+- **Indicateur** : « Hors ligne · X en attente », « X en attente », « Synchronisé à HH:MM », « N conflit(s) », « Reconnectez-vous pour envoyer X saisies » (session expirée).
+- Vérification : `node scripts/verif-hors-ligne.js http://127.0.0.1:3100` (relais TCP qui coupe vraiment le réseau et compte les octets).
+- Mesures (Chrome, octets réels sur le réseau, en-têtes compris) : **premier chargement ≈ 145 Ko** (page + mise en cache par le service worker, revalidée par ETag) ; **rechargement avec l'interface en cache ≈ 3,5 Ko** reçus.
+
+## Sauvegarde et restauration (`test/sauvegarde.test.js`)
+
+```bash
+DATABASE_URL=postgres://… node scripts/sauvegarde.js sauver noria-2026-10-16.json.gz
+DATABASE_URL=postgres://… node scripts/sauvegarde.js restaurer noria-2026-10-16.json.gz   # base cible neuve et vide
+```
+
+Sauvegarde logique (JSON compressé, fichier en droits 600) de toutes les tables métier, avec **empreinte SHA-256 vérifiée** à la restauration ; fonctionne entre SQLite et PostgreSQL dans les deux sens. Exclus : sessions (reconnexion obligatoire), tentatives de connexion, boîte d'envoi simulée. La restauration refuse une base non vide ou une base trop ancienne, puis recale les compteurs d'identifiants. Le test restaure dans une base neuve, compare tout le contenu et se reconnecte. En production, ajouter `pg_dump -Fc` quotidien hors de la machine, chiffré, et un essai de restauration régulier.
+
 ## Reste à faire avant toute donnée réelle
 
-Invitation et récupération de compte, limiteur partagé entre plusieurs processus, passage PostgreSQL + RLS, sauvegarde et **restauration essayée**, procédure d'incident, HTTPS/déploiement, présence/notes/annonces (étape 3), branchement de la maquette avec le cache `noria_cache_v1`.
+Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), écrans d'invitation dans l'interface, notes et annonces côté serveur (les autres modules restent locaux), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).

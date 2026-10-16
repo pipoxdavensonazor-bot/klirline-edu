@@ -9,14 +9,18 @@ const T={
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
       demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
       logout:"Se déconnecter",invTitle:"Activer votre compte",resTitle:"Nouveau mot de passe",newPw:"Nouveau mot de passe (10 caractères minimum)",
-      save:"Enregistrer",done:"C'est fait. Connectez-vous.",invalid:"Lien invalide ou expiré.",short:"10 caractères minimum.",
+      save:"Enregistrer",done:"C'est fait. Connectez-vous.",invalid:"Lien invalide ou expiré.",short:"10 caractères minimum.",first:"Première connexion : un réseau est nécessaire.",
+      pendingOut:n=>`${n} saisie(s) pas encore envoyée(s). Elles partiront à la prochaine connexion de ce compte. Se déconnecter quand même ?`,
+      offOut:"Hors ligne : vous ne pourrez pas vous reconnecter avant le retour du réseau. Se déconnecter ?",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
       back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",soon:"Talè : koneksyon ak yon kòd 6 chif pa SMS.",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
       logout:"Dekonekte",invTitle:"Aktive kont ou",resTitle:"Nouvo modpas",newPw:"Nouvo modpas (10 karaktè minimòm)",
-      save:"Anrejistre",done:"Fini. Konekte kounye a.",invalid:"Lyen an pa bon oswa li ekspire.",short:"10 karaktè minimòm.",
+      save:"Anrejistre",done:"Fini. Konekte kounye a.",invalid:"Lyen an pa bon oswa li ekspire.",short:"10 karaktè minimòm.",first:"Premye koneksyon : fò gen rezo.",
+      pendingOut:n=>`${n} antre poko pati. Y ap pati lè kont sa a rekonekte. Dekonekte kanmenm ?`,
+      offOut:"San entènèt : ou p ap ka rekonekte toutotan rezo a pa tounen. Dekonekte ?",
       roles:{direction:"Direksyon",secretariat:"Sekretarya",enseignant:"Pwofesè",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",parent:"Paran",eleve:"Elèv"}},
 };
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
@@ -115,29 +119,60 @@ function userChip(me){
   if(!chip){ chip=document.createElement("div"); chip.id="userChip"; chip.className="user-chip"; const rs=document.getElementById("roleSel"); top.insertBefore(chip,rs||top.firstChild); }
   const role=["direction","secretariat","enseignant","comptabilite","bibliotheque","parent","eleve"].find(r=>me.roles.includes(r));
   chip.innerHTML=`<span class="user-name"><b>${esc(me.name)}</b><span class="user-role">${esc((t("roles")||{})[role]||role||"")}${CONFIG.demo?" · démo":""}</span></span><button type="button" id="lgOut" class="user-out">${esc(t("logout"))}</button>`;
-  chip.querySelector("#lgOut").addEventListener("click",async()=>{ await post("/api/logout",{}).catch(()=>null); location.reload(); });
+  chip.querySelector("#lgOut").addEventListener("click",async()=>{
+    const off=window.NORIA_OFF; const n=off?off.state().pending:0;
+    if(n&&!window.confirm(t("pendingOut")(n))) return;
+    if(!navigator.onLine&&!window.confirm(t("offOut"))) return;
+    await post("/api/logout",{}).catch(()=>null);
+    if(off) await off.clearCache();
+    location.reload(); });
 }
 
 async function start(){
   const me=await api("/api/me");
   if(me.status!==200) return views.login();
   const [st,cl]=await Promise.all([api("/api/students"),api("/api/classes")]);
-  window.KL.applyServer({me:me.body,students:st.status===200?st.body:[],classes:cl.status===200?cl.body:[]});
+  const data={me:me.body,students:st.status===200?st.body:[],classes:cl.status===200?cl.body:[],demo:!!CONFIG.demo};
+  window.KL.applyServer(data);
   userChip(me.body);
+  // Copie de lecture pour rouvrir sans réseau (noria_cache_v1) ; effacée à la déconnexion.
+  if(window.NORIA_OFF){ await NORIA_OFF.putCache("session",data); NORIA_OFF.init(me.body); }
+}
+
+// Sans réseau : on rouvre la dernière session connue (lecture seule côté serveur, saisies mises en file).
+async function startOffline(){
+  const data=window.NORIA_OFF?await NORIA_OFF.getCache("session"):null;
+  document.documentElement.dataset.backend="server";
+  if(!data){ CONFIG={demo:false,methods:["password"]}; views.login(); const e=document.getElementById("lgErr"); if(e) e.textContent=t("net")+" "+t("first"); return; }
+  CONFIG={demo:data.demo,methods:["password"],offline:true};
+  if(CONFIG.demo) document.documentElement.dataset.demo="1";
+  window.KL.applyServer(data);
+  userChip(data.me);
+  NORIA_OFF.init(data.me);
+}
+
+function serverFooter(){
+  const f=document.querySelector(".site-foot"); if(!f) return;
+  f.innerHTML=lang()==="ht"
+    ?"NORIA se yon pwodui <strong>Klirline Inc.</strong><br>Sèvè demonstrasyon : done fiktif. Elèv, klas ak prezans soti nan sèvè a ; lòt modil yo rete sou aparèy sa a."
+    :"NORIA est un produit de <strong>Klirline Inc.</strong><br>Serveur de démonstration : données fictives. Élèves, classes et présences viennent du serveur ; les autres modules restent sur cet appareil.";
 }
 
 async function init(){
   if(!document.querySelector('meta[name="noria-server"]')) return; // fichiers statiques seuls : démonstration locale
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+  if(!navigator.onLine){ serverFooter(); return startOffline(); } // pas de requête inutile sans réseau
   try{
     const r=await api("/api/config");
     if(r.status!==200||!r.body||!Array.isArray(r.body.methods)) return; // pas de serveur : démonstration locale
     CONFIG=r.body;
-  }catch(e){ return; }
+  }catch(e){ serverFooter(); return startOffline(); }
   document.documentElement.dataset.backend="server";
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
+  serverFooter();
   const m=location.hash.match(/^#(invitation|recuperation)=([\w-]{20,})$/);
   if(m) return views.token(m[1],m[2]);
-  if(!CONFIG.session) return views.login();
+  if(!CONFIG.session){ if(window.NORIA_OFF) await NORIA_OFF.clearCache(); return views.login(); }
   try{ await start(); }catch(e){ views.login(); }
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init); else init();
