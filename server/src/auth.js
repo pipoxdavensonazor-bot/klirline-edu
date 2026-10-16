@@ -1,19 +1,32 @@
 'use strict';
 const crypto = require('node:crypto');
 
-// scrypt (module natif de Node) : pas de dépendance cryptographique externe.
-function hashPassword(password) {
+// scrypt (module natif de Node), en version asynchrone : le calcul tourne hors de la boucle
+// d'événements et ne fige pas le serveur pendant une connexion.
+const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+const scrypt = (pw, salt, len) => new Promise((ok, ko) =>
+  crypto.scrypt(pw, salt, len, SCRYPT, (e, k) => (e ? ko(e) : ok(k))));
+
+async function hashPassword(password) {
   const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  const hash = await scrypt(password, salt, 64);
   return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
 }
 
-function verifyPassword(password, stored) {
+async function verifyPassword(password, stored) {
   if (!stored || !stored.startsWith('scrypt$')) return false;
   const [, saltHex, hashHex] = stored.split('$');
   const expected = Buffer.from(hashHex, 'hex');
-  const got = crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length, { N: 16384, r: 8, p: 1 });
+  const got = await scrypt(password, Buffer.from(saltHex, 'hex'), expected.length);
   return crypto.timingSafeEqual(expected, got);
+}
+
+// Hachage factice : pour un e-mail inconnu, on fait le même calcul que pour un vrai compte,
+// afin que le temps de réponse ne révèle pas l'existence du compte.
+let dummyHash = null;
+async function getDummyHash() {
+  if (!dummyHash) dummyHash = await hashPassword(crypto.randomBytes(16).toString('hex'));
+  return dummyHash;
 }
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -42,4 +55,4 @@ function destroySession(db, token) {
   db.prepare('DELETE FROM session WHERE token_hash = ?').run(sha256(token));
 }
 
-module.exports = { hashPassword, verifyPassword, createSession, loadSession, destroySession };
+module.exports = { hashPassword, verifyPassword, getDummyHash, createSession, loadSession, destroySession };

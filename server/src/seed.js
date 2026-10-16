@@ -4,8 +4,8 @@ const { hashPassword } = require('./auth');
 
 const DEMO_PASSWORD = 'demo-fictif-2026';
 
-function seed(db) {
-  const pw = hashPassword(DEMO_PASSWORD);
+async function seed(db) {
+  const pw = await hashPassword(DEMO_PASSWORD);
   const ids = {};
   const ins = (sql, ...p) => db.prepare(sql).run(...p).lastInsertRowid;
   db.transaction(() => {

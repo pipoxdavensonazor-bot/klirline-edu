@@ -26,7 +26,7 @@ const T = (school, handle) => tokens[`${school}.${handle}`];
 
 before(async () => {
   db = openDb(':memory:');
-  ids = seed(db);
+  ids = await seed(db);
   server = createServer(db);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;

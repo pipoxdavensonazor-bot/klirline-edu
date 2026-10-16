@@ -1,6 +1,7 @@
 'use strict';
 const http = require('node:http');
-const { verifyPassword, createSession, loadSession, destroySession } = require('./auth');
+const auth = require('./auth');
+const { createSession, loadSession, destroySession } = auth;
 const P = require('./policy');
 
 function audit(db, u, action, recordType, recordId, reason, outcome = 'ok') {
@@ -8,13 +9,19 @@ function audit(db, u, action, recordType, recordId, reason, outcome = 'ok') {
     VALUES (?,?,?,?,?,?,?)`).run(u.school_id, u.id, action, recordType, recordId == null ? null : String(recordId), reason || null, outcome);
 }
 
-class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+class HttpError extends Error { constructor(status, msg, headers) { super(msg); this.status = status; this.headers = headers || {}; } }
 const forbid = () => { throw new HttpError(403, 'accès refusé'); };
 // Hors périmètre : 404, pour ne pas révéler l'existence du dossier.
 const notFound = () => { throw new HttpError(404, 'introuvable'); };
 
+// Neutralise les formules de tableur (=, +, -, @, tabulation, retour chariot en tête de cellule).
+function cell(v) {
+  const s = v == null ? '' : String(v);
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 function csv(rows, cols) {
-  const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const esc = (v) => { const s = cell(v); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return [cols.join(','), ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n') + '\n';
 }
 
@@ -25,11 +32,22 @@ function getStudent(db, u, id) {
 }
 
 const routes = [
-  ['POST', /^\/api\/login$/, (db, req) => {
+  ['POST', /^\/api\/login$/, async (db, req, _u, _m, ctx) => {
     const { school, email, password } = req.body || {};
+    const accountKey = `${String(school || '')}|${String(email || '').toLowerCase()}`;
+    const wait = ctx.limiter.blocked([`ip:${req.ip}`, `compte:${accountKey}`]);
+    if (wait) throw new HttpError(429, 'trop de tentatives, réessayez plus tard', { 'retry-after': String(Math.ceil(wait / 1000)) });
     const user = db.prepare(`SELECT u.* FROM app_user u JOIN school s ON s.id = u.school_id
       WHERE s.slug = ? AND u.email = ? AND u.state = 'actif'`).get(String(school || ''), String(email || '').toLowerCase());
-    if (!user || !verifyPassword(String(password || ''), user.password_hash)) throw new HttpError(401, 'identifiants invalides');
+    const stored = user ? user.password_hash : await auth.getDummyHash();
+    const ok = await auth.verifyPassword(String(password || ''), stored);
+    if (!user || !ok) {
+      ctx.limiter.fail([`ip:${req.ip}`, `compte:${accountKey}`]);
+      if (user) audit(db, user, 'login', 'user', user.id, null, 'refuse');
+      throw new HttpError(401, 'identifiants invalides');
+    }
+    ctx.limiter.reset([`compte:${accountKey}`]);
+    audit(db, user, 'login', 'user', user.id, null, 'ok');
     return { token: createSession(db, user) };
   }, { public: true }],
   ['POST', /^\/api\/logout$/, (db, req) => { destroySession(db, req.token); return { ok: true }; }],
@@ -120,14 +138,43 @@ const routes = [
   }],
 ];
 
-function createServer(db) {
+// Limiteur en mémoire : N échecs par clé (IP, compte) dans une fenêtre glissante.
+// Un seul processus suffit pour la démo ; en production, le stocker en base ou dans Redis.
+function createLimiter({ max = 5, windowMs = 15 * 60 * 1000, now = () => Date.now() } = {}) {
+  const hits = new Map();
+  const recent = (k) => (hits.get(k) || []).filter((t) => now() - t < windowMs);
+  return {
+    blocked(keys) {
+      let wait = 0;
+      for (const k of keys) { const r = recent(k); hits.set(k, r); if (r.length >= max) wait = Math.max(wait, windowMs - (now() - r[0])); }
+      return wait;
+    },
+    fail(keys) { for (const k of keys) hits.set(k, [...recent(k), now()]); },
+    reset(keys) { for (const k of keys) hits.delete(k); },
+  };
+}
+
+const SECURITY_HEADERS = {
+  'cache-control': 'no-store',
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+  'x-frame-options': 'DENY',
+  'content-security-policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+  'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  'cross-origin-resource-policy': 'same-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+};
+
+function createServer(db, options = {}) {
+  const ctx = { limiter: options.limiter || createLimiter(options.rateLimit) };
   return http.createServer(async (req, res) => {
+    let extra = {};
     const send = (status, body) => {
       if (body && body.__csv !== undefined) {
-        res.writeHead(status, { 'content-type': 'text/csv; charset=utf-8', 'cache-control': 'no-store' });
+        res.writeHead(status, { ...SECURITY_HEADERS, ...extra, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="export.csv"' });
         return res.end(body.__csv);
       }
-      res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.writeHead(status, { ...SECURITY_HEADERS, ...extra, 'content-type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(body));
     };
     try {
@@ -136,18 +183,19 @@ function createServer(db) {
       let raw = '';
       for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) throw new HttpError(413, 'trop volumineux'); }
       try { req.body = raw ? JSON.parse(raw) : {}; } catch { throw new HttpError(400, 'JSON invalide'); }
-      const auth = req.headers.authorization || '';
-      req.token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const authz = req.headers.authorization || '';
+      req.token = authz.startsWith('Bearer ') ? authz.slice(7) : null;
+      req.ip = req.socket.remoteAddress || 'inconnue';
       for (const [method, re, handler, opts = {}] of routes) {
         const m = url.pathname.match(re);
         if (!m || method !== req.method) continue;
         let user = null;
         if (!opts.public) { user = loadSession(db, req.token); if (!user) throw new HttpError(401, 'connexion requise'); }
-        return send(200, handler(db, req, user, m.slice(1)));
+        return send(200, await handler(db, req, user, m.slice(1), ctx));
       }
       throw new HttpError(404, 'introuvable');
     } catch (e) {
-      if (e instanceof HttpError) return send(e.status, { error: e.message });
+      if (e instanceof HttpError) { extra = e.headers; return send(e.status, { error: e.message }); }
       if (/CHECK constraint|FOREIGN KEY/.test(e.message)) return send(400, { error: 'donnée refusée par la base' });
       console.error(e);
       send(500, { error: 'erreur serveur' });
@@ -155,4 +203,4 @@ function createServer(db) {
   });
 }
 
-module.exports = { createServer };
+module.exports = { createServer, createLimiter, csv, SECURITY_HEADERS };
