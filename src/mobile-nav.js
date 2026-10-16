@@ -5,7 +5,9 @@
    La source reste #nav (construit par app.js et addons.js selon le rôle) : chaque entrée ici clique le bouton d'origine. */
 (function(){
 "use strict";
-const PRIMARY = 4;
+// Téléphone : 5 sections dans la barre du bas ; la liste complète s'ouvre par le bouton « Menu » de l'en-tête
+// (placé où était « Démo locale »), comme sur tablette. Un seul point d'entrée, donc plus de bouton « Plus ».
+const PRIMARY = 5;
 const phoneMQ = matchMedia("(max-width: 699px)");
 const tabletMQ = matchMedia("(min-width: 700px) and (max-width: 1099px)");
 const L = {
@@ -16,7 +18,7 @@ const lang = () => { const s=document.getElementById("langSel"); return s && s.v
 const tr = k => (L[lang()]||L.fr)[k];
 const el = (tag, attrs={}, text) => { const e=document.createElement(tag); for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); if(text!=null) e.textContent=text; return e; };
 
-let nav, bar, drawer, panel, list, title, closeBtn, menuBtn, moreBtn, opener=null, pushed=false, scheduled=false;
+let nav, bar, drawer, panel, list, title, closeBtn, menuBtn, opener=null, pushed=false, scheduled=false;
 
 function items(){
   const out=[]; let group="";
@@ -45,9 +47,7 @@ function render(){
   bar.setAttribute("aria-label",tr("bar"));
   bar.replaceChildren(...prim.map(it=>entry(it,"mnv-tab")));
   const activeHidden=all.slice(PRIMARY).some(it=>it.on);
-  moreBtn.replaceChildren(el("span",{class:"mnv-dots","aria-hidden":"true"},"•••"),el("span",{class:"mnv-label"},tr("more")));
-  moreBtn.classList.toggle("on",activeHidden);
-  if(all.length>PRIMARY) bar.appendChild(moreBtn);
+  menuBtn.classList.toggle("has-active",activeHidden);
   // Panneau
   title.textContent=tr("all"); closeBtn.setAttribute("aria-label",tr("close")); closeBtn.textContent="×";
   menuBtn.replaceChildren(el("span",{class:"mnv-burger","aria-hidden":"true"}),el("span",{},tr("menu")));
@@ -71,7 +71,7 @@ function open(from){
   drawer.classList.toggle("side",tabletMQ.matches);
   document.body.classList.add("mnv-open");
   background().forEach(n=>n.inert=true);
-  [moreBtn,menuBtn].forEach(b=>b.setAttribute("aria-expanded","true"));
+  menuBtn.setAttribute("aria-expanded","true");
   history.pushState({noriaMenu:1},""); pushed=true;
   requestAnimationFrame(()=>{ (panel.querySelector(".mnv-item.on")||closeBtn).focus(); });
 }
@@ -81,7 +81,7 @@ function close(restore=true){
   drawer.hidden=true;
   document.body.classList.remove("mnv-open");
   background().forEach(n=>n.inert=false);
-  [moreBtn,menuBtn].forEach(b=>b.setAttribute("aria-expanded","false"));
+  menuBtn.setAttribute("aria-expanded","false");
   if(pushed){ pushed=false; if(history.state&&history.state.noriaMenu) history.back(); }
   if(restore&&opener&&document.contains(opener)) opener.focus();
   opener=null;
@@ -103,11 +103,10 @@ function keyboard(){
 function init(){
   nav=document.getElementById("nav"); if(!nav) return;
   bar=el("nav",{class:"mnv-bar",id:"mnvBar"});
-  moreBtn=el("button",{type:"button",class:"mnv-tab mnv-more","aria-haspopup":"dialog","aria-expanded":"false","aria-controls":"mnvDrawer"});
-  moreBtn.addEventListener("click",()=>open(moreBtn));
   menuBtn=el("button",{type:"button",class:"mnv-menu-btn","aria-haspopup":"dialog","aria-expanded":"false","aria-controls":"mnvDrawer"});
   menuBtn.addEventListener("click",()=>open(menuBtn));
-  const top=document.querySelector(".topbar"); if(top) top.insertBefore(menuBtn,top.firstChild);
+  // Le bouton Menu prend la place de « Démo locale », qui devient un petit badge à côté de la langue.
+  const top=document.querySelector(".topbar"); if(top) top.appendChild(menuBtn);
 
   drawer=el("div",{class:"mnv-drawer",id:"mnvDrawer"}); drawer.hidden=true;
   const backdrop=el("div",{class:"mnv-backdrop"}); backdrop.addEventListener("click",()=>close());

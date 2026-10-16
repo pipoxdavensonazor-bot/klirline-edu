@@ -33,8 +33,8 @@
       <option value="eleve">Élève</option>
     </select>
     <label class="sr-only" for="langSel">Langue</label>
-    <select id="langSel" onchange="KL.lang(this.value)" aria-label="Langue"><option value="fr">Français</option><option value="ht">Kreyòl</option></select>
-    <button id="connBtn" class="pill" onclick="KL.conn()" aria-label="Simuler une file d'attente sur cet appareil">Démo locale</button>
+    <select id="langSel" class="lang-compact" onchange="KL.lang(this.value)" aria-label="Langue / Lang (FR : français, HT : kreyòl)" title="Langue : FR français, HT kreyòl"><option value="fr" title="Français">FR</option><option value="ht" title="Kreyòl">HT</option></select>
+    <button id="connBtn" class="pill demo-badge" onclick="KL.conn()" aria-label="Simuler une file d'attente sur cet appareil">Démo locale</button>
     <button id="syncBtn" class="pill" onclick="KL.sync()" aria-label="Vider la file de démonstration sur cet appareil">Vider la file<span id="syncBadge"></span></button>
   </header>
   <div class="layout">

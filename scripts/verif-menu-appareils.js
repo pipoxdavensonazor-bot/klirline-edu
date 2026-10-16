@@ -25,7 +25,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
       const find=sel=>[...document.querySelectorAll(sel)].find(b=>b.textContent.replace(/\s+/g,' ').trim()===lab&&b.offsetParent!==null);
       let t;
       if(mode==='desktop') t=find('#nav > button');
-      else if(mode==='phone'){ t=find('#mnvBar .mnv-tab:not(.mnv-more)'); if(!t){ const m=document.querySelector('.mnv-more'); if(!m||m.offsetParent===null) return 'no-more'; m.click(); await S(60); t=find('.mnv-item'); } }
+      else if(mode==='phone'){ t=find('#mnvBar .mnv-tab:not(.mnv-more)'); if(!t){ const m=document.querySelector('.mnv-menu-btn'); if(!m||m.offsetParent===null) return 'no-menu'; m.click(); await S(60); t=find('.mnv-item'); } }
       else { const mb=document.querySelector('.mnv-menu-btn'); if(!mb||mb.offsetParent===null) return 'no-menu'; mb.click(); await S(60); t=find('.mnv-item'); }
       if(!t) return 'introuvable';
       const rc=t.getBoundingClientRect(); if(rc.height<44||rc.width<44) return 'cible '+Math.round(rc.width)+'x'+Math.round(rc.height);
@@ -42,7 +42,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   // Fermetures : Échap, fond, retour ; focus rendu
   if(modeName!=='desktop'){
    await p.select('#roleSel','direction'); await sleep(150);
-   const opener=modeName==='phone'?'.mnv-more':'.mnv-menu-btn';
+   const opener='.mnv-menu-btn';
    const isOpen=()=>p.evaluate(()=>!document.getElementById('mnvDrawer').hidden);
    await p.click(opener); await sleep(80); const a1=await isOpen(); await p.keyboard.press('Escape'); await sleep(80);
    const focusBack=await p.evaluate(s=>document.activeElement===document.querySelector(s),opener);
@@ -52,11 +52,12 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
    r.ariaModal=await p.evaluate(()=>document.querySelector('.mnv-panel').getAttribute('aria-modal')==='true');
   }
   await p.select('#roleSel','direction'); await p.evaluate(()=>window.scrollTo(0,0)); await sleep(200);
-  await p.screenshot({path:`/workspace/menu-${name}.png`});
-  if(modeName!=='desktop'){ await p.click(modeName==='phone'?'.mnv-more':'.mnv-menu-btn'); await sleep(300); await p.screenshot({path:`/workspace/menu-${name}-plus.png`}); await p.keyboard.press('Escape'); }
+  await p.screenshot({path:`/workspace/${process.env.PREFIX||'menu'}-${name}.png`});
+  if(modeName!=='desktop'){ await p.click('.mnv-menu-btn'); await sleep(300); await p.screenshot({path:`/workspace/${process.env.PREFIX||'menu'}-${name}-plus.png`}); await p.keyboard.press('Escape'); }
   // Kreyòl
   await p.select('#langSel','ht'); await sleep(150);
-  r.ht=await p.evaluate(m=>m==='desktop'?'-':m==='phone'?document.querySelector('.mnv-more').textContent:document.querySelector('.mnv-menu-btn').textContent,modeName);
+  r.ht=await p.evaluate(m=>m==='desktop'?'-':document.querySelector('.mnv-menu-btn').textContent,modeName);
+  r.entete=await p.evaluate(()=>{const v=s=>{const e=document.querySelector(s);if(!e||e.offsetParent===null)return null;const b=e.getBoundingClientRect();return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height)}};return {badge:v('#connBtn'),badgeTexte:document.querySelector('#connBtn').textContent.trim(),langue:v('#langSel'),menu:v('.mnv-menu-btn'),hauteur:Math.round(document.querySelector('.topbar').getBoundingClientRect().height)}});
   r.overflowX=await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
   r.errors=errs; report[name]=r; await p.close();
  }
