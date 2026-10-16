@@ -21,13 +21,13 @@ const toCSV=window.NORIA_U.toCSV;
 window.KL={};
 KL.t=t;
 
-const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["settings",""]];
-const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",settings:"École"};
+const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["accounts",""],["settings",""]];
+const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",accounts:"École",settings:"École"};
 const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi"};
 function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
 const ROLE_MODULES={
-  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","settings"],
-  secretariat:["dashboard","students","classes","attendance","comms","reports"],
+  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","settings"],
+  secretariat:["dashboard","students","classes","attendance","academic","comms","reports","accounts"],
   enseignant:["dashboard","classes","attendance","academic","comms"],
   comptable:["dashboard","students","finance","reports"],
   bibliothecaire:["dashboard","students","library","reports"],
@@ -35,7 +35,10 @@ const ROLE_MODULES={
   eleve:["dashboard","academic","library","comms"],
 };
 function can(m){
+  if(m==="accounts"&&!SERVER) return false; // invitations : seulement avec le serveur
+  if(m==="academic"&&S.role==="secretariat"&&!SERVER) return false;
   const base=(ROLE_MODULES[S.role]||[]).includes(m);
+  if(SERVER&&(m==="accounts"||m==="academic")) return base; // modules serveur : droits vérifiés par l'API, pas par la config locale des portails
   if(window.KL_PORTAL&&typeof window.KL_PORTAL.allow==="function") return window.KL_PORTAL.allow(S.role,m,base);
   return base;
 }
@@ -68,7 +71,7 @@ function render(){
   renderShell();
   const v=$("#view");
   if(!can(ROUTE)) ROUTE="dashboard";
-  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,settings:vSet}[ROUTE];
+  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet}[ROUTE];
   v.innerHTML=fn();
   const fb={students:bStu,attendance:bAtt,academic:bAcad,comms:bComms,finance:bFin,library:bLib,settings:bSet}[ROUTE];
   if(fb) try{fb();}catch(e){console.warn(e);}
@@ -273,7 +276,9 @@ KL.attResolve=key=>{ if(!["direction","secretariat","enseignant"].includes(S.rol
 
 /* ---------- ACADEMIQUE ---------- */
 let acEv="ev1";
+function vAcc(){ return window.NORIA_SCO?NORIA_SCO.accounts(S):""; }
 function vAcad(){
+  if(SERVER&&window.NORIA_SCO) return NORIA_SCO.acad(S);
   if(S.role==="parent"||S.role==="eleve"){ const kids=kidStudents();
     return `<h2 style="margin:0">${t("reportCard")}</h2>${kids.map(k=>`<div class="card" style="margin-top:10px"><h3>${esc(k.firstName)} ${esc(k.lastName)}</h3>${S.evals.filter(e=>e.status==="published"&&e.classId===k.classId).map(e=>`<div class="small">${esc(e.subject)} — ${esc(e.title)} : <b>${S.grades[e.id]?.[k.id]??"—"}/${e.max}</b></div>`).join("")||`<span class="mut small">${t("draft")} — ${t("noAccess")}</span>`}<div class="toolbar"><button class="ghost" onclick="KL.bulletin('${jsa(k.id)}')">${t("reportCard")} / ${t("print")}</button></div></div>`).join("")}`; }
   const scopeEvs = S.role==="enseignant" ? S.evals.filter(e=>teacherClasses().includes(e.classId)) : S.evals;
@@ -333,6 +338,7 @@ KL.bulletinClass=cid=>{ if(S.role==="enseignant"&&!teacherClasses().includes(cid
 
 /* ---------- COMMS ---------- */
 function vComms(){
+  if(SERVER&&window.NORIA_SCO) return NORIA_SCO.comms(S);
   const canPub=["direction","secretariat","enseignant"].includes(S.role);
   return `<div class="row sp"><h2 style="margin:0">${t("comms")}</h2>${canPub?`<button onclick="KL.anModal()">${t("newAnnounce")}</button>`:""}</div>
   <div class="grid g2" style="margin-top:10px"><div>${S.announces.map(a=>`<div class="card" style="margin-bottom:10px"><h3>${esc(a.title)}</h3><div class="small mut">${esc(a.target)} • ${esc(a.channel)} • ${esc(a.date)} • <span class="badge b-sent">✓ ${a.ok} / ✕ ${a.fail}</span></div><p>${esc(a.text)}</p></div>`).join("")}</div>
@@ -443,7 +449,7 @@ KL.applyServer=d=>{
   const byId=Object.fromEntries(cls.map(c=>[c.serverId,c]));
   const stu=d.students.map(x=>{ const c=byId[x.class_id]; return {id:"s"+x.id,serverId:x.id,code:x.code,firstName:x.first_name,lastName:x.last_name,sex:"",birth:x.birth_date||"",level:c?c.level:"",classId:c?c.id:"",campus:c?c.campus:"",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}; });
   const role=ROLE_ORDER.find(r=>d.me.roles.includes(r))||"eleve";
-  SERVER={me:d.me};
+  SERVER={me:d.me}; if(window.NORIA_SCO) NORIA_SCO.reset();
   S.role=ROLE_MAP[role]; S.students=stu; S.classes=cls;
   S.currentUser=Object.assign({},S.currentUser,{name:d.me.name,parentKids:stu.map(x=>x.id),studentId:stu[0]?.id||null});
   ROUTE="dashboard"; render();
@@ -454,7 +460,7 @@ if(window.NORIA_OFF) NORIA_OFF.onChange(onOfflineChange);
 KL.serverState=()=>SERVER?S:null;
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};
 KL.sync=()=>{ if(!S.online){toast(t("offline"));return;} const n=S.queue.length; S.queue=[]; Object.values(S.attendance).forEach(a=>{if(a.sync==="pending")a.sync="synced";}); save(); render(); toast(t("syncedOk")+(n?` (${n})`:"")); };
-function boot(){ try{ load(); render(); }catch(e){ console.error(e); } }
+function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); try{ load(); render(); }catch(e){ console.error(e); } }
 if(document.readyState!=="loading") boot(); else document.addEventListener("DOMContentLoaded",boot);
 window.KL=KL;
 })();

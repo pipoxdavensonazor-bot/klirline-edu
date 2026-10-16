@@ -2,6 +2,7 @@
    - File de saisie IndexedDB (base noria_offline, magasin « ops ») : chaque saisie de présence reçoit une clé
      d'idempotence (op_id) et la version de la fiche vue par l'appareil ; elle est envoyée dès que le réseau revient.
      Le serveur décide : appliquée, identique, refusée, ou conflit (la valeur du serveur est conservée et journalisée).
+   - Les notes passent par la même file (kind « grade », route /api/grades/sync, mêmes règles d'idempotence et de conflit).
    - Cache de lecture noria_cache_v1 (magasin « cache ») : profil, élèves, classes et feuilles d'appel déjà vues, pour
      rouvrir l'application sans réseau. Effacé à la déconnexion. Jamais de mot de passe ni de jeton.
    - Indicateur honnête : « Hors ligne · X en attente », « X en attente », « Synchronisé à HH:MM », conflits. */
@@ -64,11 +65,12 @@ async function flush(){
   if(!mine.length){ ST.reachable=true; emit(); return; }
   ST.sending=true; emit();
   try{
-    for(let i=0;i<mine.length;i+=200){
-      const chunk=mine.slice(i,i+200);
-      const body={ops:chunk.map(({user_id,queued_at,...o})=>o)};
+    // Même file pour l'appel et les notes : chaque saisie part vers sa route (kind « grade » → /api/grades/sync).
+    const batches=[]; for(const kind of ["att","grade"]){ const ofKind=mine.filter(o=>(o.kind||"att")===kind); for(let i=0;i<ofKind.length;i+=200) batches.push([kind,ofKind.slice(i,i+200)]); }
+    for(const [kind,chunk] of batches){
+      const body={ops:chunk.map(({user_id,queued_at,kind:_k,...o})=>o)};
       let r;
-      try{ r=await fetch("/api/attendance/sync",{method:"POST",credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json","x-noria":"1"},body:JSON.stringify(body)}); }
+      try{ r=await fetch(kind==="grade"?"/api/grades/sync":"/api/attendance/sync",{method:"POST",credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json","x-noria":"1"},body:JSON.stringify(body)}); }
       catch(e){ ST.reachable=false; break; } // réseau injoignable malgré navigator.onLine
       ST.reachable=true;
       if(r.status===401){ ST.authLost=true; break; }
@@ -79,9 +81,10 @@ async function flush(){
       for(const res of out.results||[]){
         done.add(res.op_id);
         const op=chunk.find(o=>o.op_id===res.op_id);
-        if(res.result==="conflit") ST.conflicts.push({...res,student_id:op&&op.student_id,day:op&&op.day,class_id:op&&op.class_id});
-        if(res.result==="refuse") ST.refused.push({...res,student_id:op&&op.student_id});
-        if(op&&res.status) await rememberStatus(op.class_id,op.day,op.student_id,res.status,res.version);
+        if(res.result==="conflit") ST.conflicts.push({...res,kind,student_id:op&&op.student_id,day:op&&op.day,class_id:op&&op.class_id,evaluation_id:op&&op.evaluation_id});
+        if(res.result==="refuse") ST.refused.push({...res,kind,student_id:op&&op.student_id,evaluation_id:op&&op.evaluation_id});
+        if(op&&kind==="grade"&&res.version) await rememberGrade(op.evaluation_id,op.student_id,res);
+        if(op&&kind==="att"&&res.status) await rememberStatus(op.class_id,op.day,op.student_id,res.status,res.version);
       }
       await store("ops","readwrite",s=>{ done.forEach(id=>s.delete(id)); });
       ST.lastSync=out.serverTime||new Date().toISOString();
@@ -110,9 +113,18 @@ async function loadSheet(classId,day){
   }
   return {sheet:(await getCache(k))||{},fresh:false};
 }
+async function rememberGrade(evId,studentId,res){
+  const k=`eval:${evId}`; const ev=await getCache(k); if(!ev) return;
+  ev.grades=(ev.grades||[]).filter(g=>g.student_id!==studentId).concat([{student_id:studentId,score:res.score,mention:res.mention,version:res.version}]);
+  await putCache(k,ev);
+}
+async function pendingGrades(evId){
+  const ops=(await allOps().catch(()=>[])).filter(o=>o.kind==="grade"&&o.user_id===(ST.user&&ST.user.id)&&o.evaluation_id===evId);
+  const m={}; ops.sort((a,b)=>a.queued_at.localeCompare(b.queued_at)).forEach(o=>{ m[o.student_id]={score:o.score,mention:o.mention}; }); return m;
+}
 async function pendingFor(classId,day){
   const ops=(await allOps().catch(()=>[])).filter(o=>o.user_id===(ST.user&&ST.user.id)&&o.class_id===classId&&o.day===day);
-  const m={}; ops.sort((a,b)=>a.queued_at.localeCompare(b.queued_at)).forEach(o=>{ m[o.student_id]=o.status; }); return m;
+  const m={}; ops.filter(o=>(o.kind||"att")==="att").sort((a,b)=>a.queued_at.localeCompare(b.queued_at)).forEach(o=>{ m[o.student_id]=o.status; }); return m;
 }
 
 async function init(me){
@@ -129,7 +141,7 @@ async function init(me){
   flush();
 }
 
-window.NORIA_OFF={init,enqueue,flush,loadSheet,pendingFor,putCache,getCache,clearCache,state:()=>ST,online,
+window.NORIA_OFF={init,enqueue,flush,loadSheet,pendingFor,pendingGrades,putCache,getCache,clearCache,state:()=>ST,online,
   onChange:f=>listeners.push(f),takeConflicts:()=>{ const c=ST.conflicts.slice(); return c; },clearConflicts:()=>{ ST.conflicts=[]; emit(); },
   takeRefused:()=>{ const r=ST.refused; ST.refused=[]; return r; }};
 })();

@@ -12,6 +12,7 @@ const T={
       save:"Enregistrer",done:"C'est fait. Connectez-vous.",invalid:"Lien invalide ou expiré.",short:"10 caractères minimum.",first:"Première connexion : un réseau est nécessaire.",
       pendingOut:n=>`${n} saisie(s) pas encore envoyée(s). Elles partiront à la prochaine connexion de ce compte. Se déconnecter quand même ?`,
       offOut:"Hors ligne : vous ne pourrez pas vous reconnecter avant le retour du réseau. Se déconnecter ?",
+      vTitle:"Vérification d'un bulletin",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce bulletin n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
       back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",soon:"Talè : koneksyon ak yon kòd 6 chif pa SMS.",
@@ -21,6 +22,7 @@ const T={
       save:"Anrejistre",done:"Fini. Konekte kounye a.",invalid:"Lyen an pa bon oswa li ekspire.",short:"10 karaktè minimòm.",first:"Premye koneksyon : fò gen rezo.",
       pendingOut:n=>`${n} antre poko pati. Y ap pati lè kont sa a rekonekte. Dekonekte kanmenm ?`,
       offOut:"San entènèt : ou p ap ka rekonekte toutotan rezo a pa tounen. Dekonekte ?",
+      vTitle:"Verifikasyon yon bilten",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd enkoni : se pa NORIA ki bay bilten sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",
       roles:{direction:"Direksyon",secretariat:"Sekretarya",enseignant:"Pwofesè",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",parent:"Paran",eleve:"Elèv"}},
 };
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
@@ -49,7 +51,7 @@ function screen(html){
     ${CONFIG&&CONFIG.demo?`<p class="login-demo">${esc(t("demo"))}</p>`:""}${html}
     <div class="login-lang"><button type="button" data-lang="fr" aria-pressed="${lang()==="fr"}">FR</button><button type="button" data-lang="ht" aria-pressed="${lang()==="ht"}">HT</button></div></div>`;
   el.hidden=false; document.body.classList.add("login-open"); background(true);
-  el.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{ window.KL&&KL.lang(b.dataset.lang); const cur=el.dataset.view; views[cur]&&views[cur](); }));
+  el.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{ window.KL&&KL.lang(b.dataset.lang); const cur=el.dataset.view; if(cur==="verify") views.verify(views.verify.code); else views[cur]&&views[cur](); }));
   const first=el.querySelector("input,select"); if(first) setTimeout(()=>first.focus(),30);
   return el;
 }
@@ -98,6 +100,21 @@ const views={
     el.querySelector("#rcForm").addEventListener("submit",async e=>{ e.preventDefault();
       const r=await post("/api/recovery/request",{school:el.querySelector("#lgSchool").value.trim(),identifier:el.querySelector("#rcId").value}).catch(()=>null);
       el.querySelector("#rcMsg").textContent=!r?t("net"):r.status===429?t("many"):t("sent"); });
+  },
+  async verify(code){
+    const el=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small">…</p>`); el.dataset.view="verify"; views.verify.code=code;
+    const r=await api("/api/verifier/"+encodeURIComponent(code)).catch(()=>null);
+    let h;
+    if(!r) h=`<p class="login-err">${esc(t("net"))}</p>`;
+    else if(r.status===429) h=`<p class="login-err">${esc(t("many"))}</p>`;
+    else if(r.status!==200) h=`<p class="verif-bad" id="verifRes">✕ ${esc(t("vBad"))}</p>`;
+    else { const v=r.body; const okk=v.statut==="valide";
+      h=`<p class="${okk?"verif-ok":"verif-bad"}" id="verifRes">${okk?"✓ "+esc(t("vOk")):"✕ "+esc(t("vRev"))}</p><dl class="verif-dl">
+      <dt>${esc(t("vSchool"))}</dt><dd>${esc(v.ecole)}</dd><dt>${esc(t("vStudent"))}</dt><dd>${esc(v.eleve)}</dd><dt>${esc(t("vTerm"))}</dt><dd>${esc(v.periode)}</dd><dt>${esc(t("vDate"))}</dt><dd>${esc(String(v.emis_le).slice(0,10))}</dd>
+      ${v.motif?`<dt>${esc(t("vWhy"))}</dt><dd>${esc(v.motif)}</dd>`:""}</dl>`; }
+    const box=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small mut">${esc(code)}</p>${h}<p class="small">${esc(t("vNote"))}</p><button type="button" class="login-main" id="vBack">${esc(t("back"))}</button>`);
+    box.dataset.view="verify";
+    box.querySelector("#vBack").addEventListener("click",()=>{ history.replaceState(null,"",location.pathname); location.reload(); });
   },
   token(kind,token){
     const el=screen(`<h1 id="loginTitle">${esc(kind==="invitation"?t("invTitle"):t("resTitle"))}</h1><form id="tkForm" novalidate>
@@ -154,8 +171,8 @@ async function startOffline(){
 function serverFooter(){
   const f=document.querySelector(".site-foot"); if(!f) return;
   f.innerHTML=lang()==="ht"
-    ?"NORIA se yon pwodui <strong>Klirline Inc.</strong><br>Sèvè demonstrasyon : done fiktif. Elèv, klas ak prezans soti nan sèvè a ; lòt modil yo rete sou aparèy sa a."
-    :"NORIA est un produit de <strong>Klirline Inc.</strong><br>Serveur de démonstration : données fictives. Élèves, classes et présences viennent du serveur ; les autres modules restent sur cet appareil.";
+    ?"NORIA se yon pwodui <strong>Klirline Inc.</strong><br>Sèvè demonstrasyon : done fiktif. Elèv, klas, prezans, nòt, bilten, anons ak kalandriye soti nan sèvè a ; lòt modil yo rete sou aparèy sa a."
+    :"NORIA est un produit de <strong>Klirline Inc.</strong><br>Serveur de démonstration : données fictives. Élèves, classes, présences, notes, bulletins, annonces et calendrier viennent du serveur ; les autres modules restent sur cet appareil.";
 }
 
 async function init(){
@@ -170,6 +187,8 @@ async function init(){
   document.documentElement.dataset.backend="server";
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
   serverFooter();
+  const vm=location.hash.match(/^#verifier=([A-Za-z0-9-]{4,40})$/);
+  if(vm) return views.verify(vm[1]);
   const m=location.hash.match(/^#(invitation|recuperation)=([\w-]{20,})$/);
   if(m) return views.token(m[1],m[2]);
   if(!CONFIG.session){ if(window.NORIA_OFF) await NORIA_OFF.clearCache(); return views.login(); }

@@ -55,3 +55,16 @@ html[data-backend="server"] .off-ind::before{content:"";width:9px;height:9px;bor
 @media (max-width:699px){
   html[data-backend="server"] .off-ind{grid-column:1/-1;justify-self:start;min-height:32px;font-size:12px;padding:3px 10px}
 }
+/* cœur scolaire (mode serveur) */
+.sco-bar{flex-wrap:wrap;gap:10px}
+.sco-ev{display:block;width:100%;text-align:left;background:none;border:1px solid var(--line);border-radius:10px;padding:8px;margin:6px 0;color:inherit;font:inherit}
+.sco-ev.on{border-color:var(--acc,#1d6b54);background:rgba(29,107,84,.06)}
+.sco-tab{width:100%;border-collapse:collapse}.sco-tab td{padding:5px 4px;border-bottom:1px solid var(--line)}
+.sco-in{width:4.5em;min-height:36px}.sco-note{text-align:right;white-space:nowrap}
+.sco-rc,.sco-inv,.sco-evt{padding:6px 0;border-bottom:1px solid var(--line);gap:6px;flex-wrap:wrap}
+.sco-link{margin-top:10px;padding:8px;border:1px dashed var(--line);border-radius:10px}.sco-link input{width:100%;margin:4px 0}
+.sco-new summary{cursor:pointer;font-weight:600;margin:8px 0}.sco-new .fld{display:block;margin:6px 0}.sco-new input,.sco-new select,.sco-new textarea{width:100%}
+.st-brouillon{background:#eee;color:#444}.st-soumise{background:#fff3cd;color:#7a5a00}.st-publiee{background:#d9f2e6;color:#145c3b}
+.inv-waiting{background:#fff3cd;color:#7a5a00}.inv-used{background:#d9f2e6;color:#145c3b}.inv-expired{background:#eee;color:#555}
+.verif-ok{color:#145c3b;font-weight:700}.verif-bad{color:#9b1c1c;font-weight:700}
+.verif-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}.verif-dl dt{color:#666}.verif-dl dd{margin:0;font-weight:600}
