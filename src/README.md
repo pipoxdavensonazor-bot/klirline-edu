@@ -67,4 +67,4 @@ Une revue du ZIP de suivi a renforcé les vérifications de consentement des rap
 
 ## Direction visuelle — interface v1
 
-La feuille `src/design-refresh.css` modernise l'enveloppe visuelle sans modifier les parcours métier : navigation latérale sur grand écran, barre de navigation horizontale sur téléphone, contrastes renforcés, composants plus lisibles et palette inspirée des couleurs haïtiennes (bleu profond, rouge, or et turquoise). Les références culturelles restent subtiles afin de garder une interface scolaire sobre et accueillante.
+La feuille `src/design-refresh.css` modernise l'enveloppe visuelle sans modifier les parcours métier : navigation latérale sur ordinateur (à partir de 1100 px), navigation horizontale sur tablette et téléphone, contrastes renforcés, composants plus lisibles et palette inspirée des couleurs haïtiennes (bleu profond, rouge, or et turquoise). Les références culturelles restent subtiles afin de garder une interface scolaire sobre et accueillante. Les téléphones gardent une barre compacte (logo, profil, langue, connexion) et des zones tactiles d'au moins 44 px, y compris avec l'encoche iPhone.
