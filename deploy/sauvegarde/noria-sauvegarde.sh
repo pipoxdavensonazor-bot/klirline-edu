@@ -11,6 +11,8 @@ umask 077
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 charger_config
+TMP_FILE=""
+trap 'rm -f "${TMP_FILE:-/nonexistent}"' EXIT
 
 chiffrer() {
   if [ -n "${NORIA_BACKUP_AGE_RECIPIENT:-}" ]; then age -r "$NORIA_BACKUP_AGE_RECIPIENT"
@@ -27,8 +29,7 @@ sauvegarder() {
   local stamp; stamp="${day}T$(date -u +%H%M%S)Z"
   local name; name="noria-${stamp}.dump.$(extension)"
   mkdir -p "$BACKUP_DIR"/{quotidien,hebdomadaire,mensuel}
-  local tmp="$BACKUP_DIR/.en-cours-$name"
-  trap 'rm -f "$tmp"' EXIT
+  TMP_FILE="$BACKUP_DIR/.en-cours-$name"; local tmp="$TMP_FILE"
   log "pg_dump → $name"
   # shellcheck disable=SC2046
   pg_cmd pg_dump --format=custom --compress=6 --no-password $(pg_db_args) | chiffrer > "$tmp"

@@ -40,7 +40,7 @@ jobs:
       - run: npm audit --audit-level=moderate
 
   sauvegardes:
-    # Sauvegarde pg_dump chiffrée → restauration dans une base vide → comparaison ; rotation ; envoi S3 (MinIO).
+    # Sauvegarde pg_dump chiffrée → restauration dans une base vide → comparaison ; rotation ; envoi S3 (serveur moto).
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -64,10 +64,11 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q postgresql-client-16 age
           echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
-      - name: MinIO (stockage compatible S3 de test)
+      - name: Stockage compatible S3 de test (moto)
         run: |
-          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=ci-fictif -e MINIO_ROOT_PASSWORD=ci-fictif-secret minio/minio server /data
-          for i in $(seq 1 30); do curl -fs http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
+          python3 -m venv "$RUNNER_TEMP/moto" && "$RUNNER_TEMP/moto/bin/pip" install -q 'moto[server]'
+          "$RUNNER_TEMP/moto/bin/moto_server" -H 127.0.0.1 -p 9000 > "$RUNNER_TEMP/moto.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fs -o /dev/null http://127.0.0.1:9000/ && break; sleep 1; done
           printf 'user = "ci-fictif:ci-fictif-secret"\n' | curl -fsS -K - --aws-sigv4 "aws:amz:us-east-1:s3" -X PUT http://127.0.0.1:9000/noria-ci
       - name: Sauvegarde, restauration, comparaison, rotation
         run: bash deploy/sauvegarde/test-ci.sh

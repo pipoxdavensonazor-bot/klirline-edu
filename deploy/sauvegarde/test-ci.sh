@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test de bout en bout des sauvegardes (CI) : sauvegarde → restauration dans une base vide → comparaison.
 # Prérequis : NORIA_TEST_PG=postgres://… (compte autorisé à créer des bases), pg_dump/pg_restore/psql 16, node.
-# Facultatif : age (chiffrement age testé en plus d'AES-256-GCM) ; S3_ENDPOINT/S3_BUCKET/… (MinIO) pour l'envoi
+# Facultatif : age (chiffrement age testé en plus d'AES-256-GCM) ; S3_ENDPOINT/S3_BUCKET/… (serveur moto) pour l'envoi
 # hors site et la rotation distante.
 set -Eeuo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"; repo="$(cd "$here/../.." && pwd)"

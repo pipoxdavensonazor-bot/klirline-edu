@@ -129,7 +129,7 @@ shred -u /tmp/noria-sauvegarde.key
 
 Pour basculer : `docker compose stop app`, renommer les bases (`ALTER DATABASE noria RENAME TO noria_ancienne; ALTER DATABASE noria_restau RENAME TO noria;`), `docker compose start app`. Les sessions sont conservées dans la sauvegarde pg_dump ; forcer une reconnexion avec `DELETE FROM session;` si la restauration fait suite à un incident de sécurité.
 
-**Tester une restauration une fois par trimestre** : une sauvegarde jamais restaurée n'est pas une sauvegarde. La CI le fait à chaque commit (`deploy/sauvegarde/test-ci.sh` : sauvegarde, restauration dans une base vide, comparaison des données, séquences, politiques RLS et schéma ; fichier altéré refusé ; rotation ; envoi et restauration depuis un S3 MinIO).
+**Tester une restauration une fois par trimestre** : une sauvegarde jamais restaurée n'est pas une sauvegarde. La CI le fait à chaque commit (`deploy/sauvegarde/test-ci.sh` : sauvegarde, restauration dans une base vide, comparaison des données, séquences, politiques RLS et schéma ; fichier altéré refusé ; rotation ; envoi et restauration depuis un S3 de test (moto)).
 
 ## 7. Surveillance minimale
 
