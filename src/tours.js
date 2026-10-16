@@ -4,7 +4,7 @@
 (function(){
 "use strict";
 const XD = window.KLXD;
-const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const {esc,jsa,safeUrl}=window.NORIA_U;
 const lang = ()=>{ const o=XD.readOld(); return (o&&o.lang)||"fr"; };
 const L = o=>o[lang()]||o.fr;
 function toast(m){ const c=document.querySelector("#toasts"); if(!c) return; const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3400); }
