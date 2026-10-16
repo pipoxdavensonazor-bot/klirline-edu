@@ -14,7 +14,7 @@ Ce fichier conserve le contexte d'architecture de la maquette. Les descriptions 
 | Finances + | Échéanciers, bourses et remboursements de démonstration | Aucun paiement réel |
 | Bibliothèque ouverte | Liens de ressources et listes de lecture | Disponibilité, licence et coûts à revalider auprès des éditeurs |
 | Rapports + | Filtres et exports de démonstration | Les formats ministériels ne sont pas certifiés |
-| Classe virtuelle | Séances, lien Zoom et ressource de cours | Zoom externe; aucune vidéo ou API connectée |
+| Classe virtuelle | Salle dans NORIA : Jitsi public, tableau, présence, discussion, devoirs | Serveur meet.systemli.org, sans compte ; démonstration seulement, pas de dossiers d'enfants |
 | Calendrier + | Partage et publication simulés | Les règles du navigateur ne protègent pas les données |
 | Continuité scolaire | Événements et plans de reprise | Pas de suivi des personnes ni d'évaluation de sécurité |
 

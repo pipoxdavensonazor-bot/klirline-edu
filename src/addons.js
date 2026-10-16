@@ -6,6 +6,7 @@
 const XD = window.KLXD;
 let X = XD.loadX();
 let XROUTE = null;
+let liveWanted = false;
 const save = ()=>XD.saveX(X);
 const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const money = n=>Number(n||0).toLocaleString("fr-FR").replace(/,/g," ")+" G";
@@ -129,7 +130,7 @@ function vHub(){
   <div class="small mut">${lang()==="ht"?"Fè apèl • dosye pitit • pibliye anons. Etap pa etap, pou tès pilòt.":"Faire l'appel • dossier d'un enfant • publier une annonce. Étape par étape, pour les tests pilotes."}</div>
   <div class="toolbar" id="xTours">${(window.KLX&&window.KLX.toursList?window.KLX.toursList():[]).map(t=>`<button class="soft" onclick="KLX.tour('${t.id}')">${esc(t.title)}${t.done?" ✓":""}</button>`).join("")}</div></div>
   <div class="grid g3" style="margin-top:10px">${XR.filter(m=>m.r!=="ext-hub"&&canX(m.r)).map(m=>{
-    const desc={ "ext-devoirs":"Devoirs, leçons, fichiers légers — faible connexion","ext-classe":"Horaire et lien externe, puis salle visuelle","ext-reunion":"Séances de classe : ordre du jour, présence, salle","ext-visuel":"Tableau, élèves présents et lien vers la discussion","ext-discussion":"Fil de la classe entre enseignant et élèves","ext-portails":"La direction ouvre ou ferme l'accès de chaque rôle","ext-structure":"Campus, sections, matières/coefs, périodes, barème","ext-inscriptions":"Transferts, promotions, retraits, urgences, fratries","ext-presences":"Motifs de correction, avis parents, consentements","ext-comms":"Annonces programmées, RSVP réunions, canaux/coûts","ext-finances":"Échéanciers datés, bourses, remboursements, compta","ext-biblio":"Ressources vérifiées, licences, listes, paquets hors-ligne","ext-rapports":"Filtres + presets MENFP configurables","ext-audit":"Traçabilité, exports, portabilité","ext-setup":"Parcours progressif : école → classe pilote","ext-comptes":"Rôles, codes d'activation à usage unique","ext-impressions":"Rapports par module : aperçu + permissions","ext-pret":"Carte de prêt, limite d'école, QR identifiant","ext-cal":"Publication, partage ciblé, historique","ext-pilote":"Checklist terrain : cibles à mesurer, pas des promesses","ext-continuite":"Perturbation → reprise : événement, plans par classe, suivi" }[m.r]||"";
+    const desc={ "ext-devoirs":"Devoirs, leçons, fichiers légers — faible connexion","ext-classe":"Planifier le cours, puis l'ouvrir dans la salle","ext-reunion":"Séances de classe : ordre du jour, présence, salle","ext-visuel":"Cours en direct, tableau, présence, discussion et devoirs","ext-discussion":"Fil de la classe entre enseignant et élèves","ext-portails":"La direction ouvre ou ferme l'accès de chaque rôle","ext-structure":"Campus, sections, matières/coefs, périodes, barème","ext-inscriptions":"Transferts, promotions, retraits, urgences, fratries","ext-presences":"Motifs de correction, avis parents, consentements","ext-comms":"Annonces programmées, RSVP réunions, canaux/coûts","ext-finances":"Échéanciers datés, bourses, remboursements, compta","ext-biblio":"Ressources vérifiées, licences, listes, paquets hors-ligne","ext-rapports":"Filtres + presets MENFP configurables","ext-audit":"Traçabilité, exports, portabilité","ext-setup":"Parcours progressif : école → classe pilote","ext-comptes":"Rôles, codes d'activation à usage unique","ext-impressions":"Rapports par module : aperçu + permissions","ext-pret":"Carte de prêt, limite d'école, QR identifiant","ext-cal":"Publication, partage ciblé, historique","ext-pilote":"Checklist terrain : cibles à mesurer, pas des promesses","ext-continuite":"Perturbation → reprise : événement, plans par classe, suivi" }[m.r]||"";
     return `<div class="card"><h3>${m.ic} ${esc(lbl(m))}</h3><div class="small mut">${esc(desc)}</div><div class="toolbar"><button class="soft" onclick="KL.go('${m.r}')">${esc(T("view"))}</button></div></div>`;}).join("")}</div>`;
 }
 
@@ -158,7 +159,7 @@ function vDevoirs(){
   ${canEdit?`<div class="toolbar"><input id="x_gt" placeholder="${ht?"Non gwoup":"Nom du groupe"}" style="flex:1"><button onclick="KLX.grpAdd()">${esc(T("addRow"))}</button></div>`:""}</div><div id="xModal"></div>`;
 }
 
-/* ---------- classe virtuelle (coordination + lien Zoom externe) ---------- */
+/* ---------- classe virtuelle (salle NORIA + Jitsi public, sans compte) ---------- */
 function vClasse(){
   const ht=lang()==="ht", r=role(), classes=classScope(), o=O();
   const isStaff=["direction","enseignant"].includes(r);
@@ -166,11 +167,11 @@ function vClasse(){
   const sessions=(X.classrooms||[]).filter(s=>allowed.includes(s.classId)).slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   const canCreate=["direction","enseignant"].includes(r);
   return `<div class="row sp"><h2 style="margin:0">${ht?"Klas vityèl":"Classe virtuelle"}</h2><button class="ghost" onclick="KL.go('ext-hub')">← ${esc(T("ext"))}</button></div>
-  <p class="small mut">${ht?"Orè, lyen konferans, objektif ak resous kou a nan menm espas la. Konferans lan ouvri sou Zoom.":"Retrouvez l'horaire, le lien de visioconférence, les objectifs et les ressources du cours au même endroit. La visioconférence s'ouvre sur Zoom."}</p>
-  <div class="notice small">${ht?"Zoom pa konekte ak kont lekòl la nan demonstrasyon sa a. Se pwofesè a ki mete yon lyen Zoom deja kreye.":"Zoom n'est pas connecté au compte de l'école dans cette démonstration. L'enseignant ajoute un lien Zoom déjà créé."}</div>
-  ${canCreate?`<section class="card" style="margin-top:10px"><h3>${ht?"Planifye yon kou":"Planifier un cours"}</h3><div class="grid g2"><label class="fld">${ht?"Klas":"Classe"}<select id="cl_cls">${classes.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label><label class="fld">${ht?"Matyè":"Matière"}<input id="cl_subject" maxlength="80" placeholder="${ht?"Matematik":"Mathématiques"}"></label><label class="fld">${ht?"Tit kou a":"Titre du cours"}<input id="cl_title" maxlength="120" placeholder="${ht?"Egzanp: fraksyon":"Ex. : Les fractions"}"></label><label class="fld">${ht?"Dat ak lè":"Date et heure"}<input id="cl_date" type="date" value="${today()}"><input id="cl_time" type="time" value="09:00"></label><label class="fld">${ht?"Lyen reyinyon Zoom":"Lien de la réunion Zoom"}<input id="cl_zoom" type="url" placeholder="https://zoom.us/j/..." autocomplete="url"></label><label class="fld">${ht?"Objektif ak enstriksyon":"Objectifs et consignes"}<textarea id="cl_agenda" rows="3" maxlength="1000" placeholder="${ht?"Sa elèv la pral aprann":"Ce que les élèves vont apprendre"}"></textarea></label><label class="fld">${ht?"Resous oswa lyen kou":"Ressource ou lien du cours"}<input id="cl_resource" type="url" placeholder="https://"></label></div><button onclick="KLX.clAdd()">${ht?"Anrejistre kou a":"Enregistrer le cours"}</button></section>`:""}
-  ${sessions.length?sessions.map(s=>{const c=cls(s.classId);return `<article class="card" style="margin-top:10px"><div class="row sp"><div><h3>${esc(s.title)}</h3><div class="small mut">${esc(c?c.name:"Classe")} • ${esc(s.subject)} • ${esc(s.date)} ${esc(s.time)}</div></div>${isStaff?`<button class="ghost" onclick="KLX.clDel('${esc(s.id)}')">${ht?"Retire":"Supprimer"}</button>`:""}</div><p>${esc(s.agenda|| (ht?"Pa gen enstriksyon adisyonèl.":"Aucune consigne supplémentaire."))}</p><div class="toolbar">${s.zoom?`<a class="soft button-link" href="${esc(s.zoom)}" target="_blank" rel="noopener noreferrer">${ht?"Antre nan klas Zoom":"Rejoindre le cours sur Zoom"}</a>`:""}${s.resource?`<a class="ghost button-link" href="${esc(s.resource)}" target="_blank" rel="noopener noreferrer">${ht?"Louvri resous la":"Ouvrir la ressource"}</a>`:""}<span class="small mut">${ht?"Kreye pa":"Créé par"} : ${esc(s.by)}</span></div></article>`;}).join(""):`<div class="card mut" style="margin-top:10px">${ht?"Pa gen kou planifye pou klas sa yo.":"Aucun cours n'est planifié pour ces classes."}</div>`}
-  <section class="card" style="margin-top:10px"><h3>${ht?"Zouti kou a":"Outils de cours"}</h3><ul><li>${ht?"Kou an dirèk: lyen Zoom pou reyinyon pwofesè a kreye.":"Cours en direct : lien Zoom vers la réunion créée par l'enseignant."}</li><li>${ht?"Dokiman ak lyen aprantisaj: resous kou a.":"Documents et liens d'apprentissage : ressources du cours."}</li><li>${ht?"Travay pou remèt: sèvi ak Devwa & leksyon pou depoze yon tèks.":"Travaux à rendre : utilisez Devoirs & leçons pour remettre un texte."}</li><li>${ht?"Gwoup travay: disponib nan Devwa & leçons.":"Travaux de groupe : disponibles dans Devoirs & leçons."}</li><li>${ht?"Patisipasyon ak rapò: sèvi ak Prezans + apre chak kou.":"Participation et rapport : utilisez Présences + après chaque cours."}</li></ul><p class="small mut">${ht?"Salle a se tablo ak diskisyon lekòl la. Pa gen videyo entegre.":"La salle est le tableau et la discussion de l'école. Il n'y a pas de vidéo intégrée."}</p><div class="toolbar"><button class="soft" onclick="KL.go('ext-reunion')">${ht?"Sant reyinyon":"Centre de réunion"}</button><button class="ghost" onclick="KL.go('ext-visuel')">${ht?"Klas vizyèl":"Classe visuelle"}</button><button class="ghost" onclick="KL.go('ext-discussion')">${ht?"Diskisyon":"Discussion"}</button></div></section>`;
+  <p class="small mut">${ht?"Orè, objektif ak resous yo nan menm kou a. Lè w antre, videyo, tablo, prezans, diskisyon ak devwa yo ouvri nan sal NORIA a.":"L'horaire, les objectifs et les ressources restent avec le cours. En entrant, la vidéo, le tableau, la présence, la discussion et les devoirs s'ouvrent dans la salle NORIA."}</p>
+  <div class="notice small">${ht?"Kou an dirèk la sèvi ak Jitsi sou meet.systemli.org, yon sèvè piblik gratis san kont. Li bon pou demonstrasyon an, pa pou dosye elèv reyèl.":"Le cours en direct utilise Jitsi sur meet.systemli.org, un serveur public gratuit sans compte. Il convient à la démonstration, pas à de vrais dossiers d'élèves."}</div>
+  ${canCreate?`<section class="card" style="margin-top:10px"><h3>${ht?"Planifye yon kou":"Planifier un cours"}</h3><div class="grid g2"><label class="fld">${ht?"Klas":"Classe"}<select id="cl_cls">${classes.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label><label class="fld">${ht?"Matyè":"Matière"}<input id="cl_subject" maxlength="80" placeholder="${ht?"Matematik":"Mathématiques"}"></label><label class="fld">${ht?"Tit kou a":"Titre du cours"}<input id="cl_title" maxlength="120" placeholder="${ht?"Egzanp: fraksyon":"Ex. : Les fractions"}"></label><label class="fld">${ht?"Dat ak lè":"Date et heure"}<input id="cl_date" type="date" value="${today()}"><input id="cl_time" type="time" value="09:00"></label><label class="fld">${ht?"Objektif ak enstriksyon":"Objectifs et consignes"}<textarea id="cl_agenda" rows="3" maxlength="1000" placeholder="${ht?"Sa elèv la pral aprann":"Ce que les élèves vont apprendre"}"></textarea></label><label class="fld">${ht?"Resous oswa lyen kou":"Ressource ou lien du cours"}<input id="cl_resource" type="url" placeholder="https://"></label></div><button onclick="KLX.clAdd()">${ht?"Anrejistre kou a":"Enregistrer le cours"}</button></section>`:""}
+  ${sessions.length?sessions.map(s=>{const c=cls(s.classId);return `<article class="card" style="margin-top:10px"><div class="row sp"><div><h3>${esc(s.title)}</h3><div class="small mut">${esc(c?c.name:"Classe")} • ${esc(s.subject)} • ${esc(s.date)} ${esc(s.time)}</div></div>${isStaff?`<button class="ghost" onclick="KLX.clDel('${esc(s.id)}')">${ht?"Retire":"Supprimer"}</button>`:""}</div><p>${esc(s.agenda|| (ht?"Pa gen enstriksyon adisyonèl.":"Aucune consigne supplémentaire."))}</p><div class="toolbar"><button class="soft" onclick="KLX.clEnter('${esc(s.id)}')">${ht?"Antre nan sal la":"Entrer dans la salle"}</button>${s.resource?`<a class="ghost button-link" href="${esc(s.resource)}" target="_blank" rel="noopener noreferrer">${ht?"Louvri resous la":"Ouvrir la ressource"}</a>`:""}<span class="small mut">${ht?"Kreye pa":"Créé par"} : ${esc(s.by)}</span></div></article>`;}).join(""):`<div class="card mut" style="margin-top:10px">${ht?"Pa gen kou planifye pou klas sa yo.":"Aucun cours n'est planifié pour ces classes."}</div>`}
+  <section class="card" style="margin-top:10px"><h3>${ht?"Sa ki nan sal la":"Ce que la salle réunit"}</h3><ul><li>${ht?"Kou an dirèk Jitsi : kamera, mikwo, pataj ekran ak tablo, san kite paj la.":"Cours en direct Jitsi : caméra, micro, partage d'écran et tableau, sans quitter la page."}</li><li>${ht?"Prezans klas la, sou non yo.":"La présence de la classe, par prénom."}</li><li>${ht?"Diskisyon lekòl la, ki rete anrejistre nan klas la.":"La discussion de l'école, conservée dans la classe."}</li><li>${ht?"Devwa klas la, ak lyen resous HTTPS.":"Les devoirs de la classe, et le lien de ressource HTTPS."}</li></ul></section>`;
 }
 
 /* ---------- structure ---------- */
@@ -339,23 +340,39 @@ function vReunion(){
   const classes=classScope();
   return `<div class="row sp"><h2 style="margin:0">${ht?"Sant reyinyon":"Centre de réunion"}</h2><button class="ghost" onclick="KL.go('ext-hub')">← ${esc(T("ext"))}</button></div>
   <p class="portal-kicker">${esc(ROLE_LBL[role()]||role())} · ${ht?"aksè ouvri pa direksyon an":"accès ouvert par la direction"}</p>
-  <div class="notice small">${ht?"Sal travay la chita nan NORIA : tablo, prezans ak diskisyon. Sa pa yon videyo. Yon lyen ekstèn rete opsyonèl epi li ouvri deyò.":"La salle de travail est dans NORIA : tableau, présence et discussion. Ce n'est pas une vidéo. Un lien externe reste optionnel et s'ouvre en dehors."}</div>
+  <div class="notice small">${ht?"Sal la chita nan NORIA : kou an dirèk Jitsi (meet.systemli.org, gratis, san kont), tablo, prezans, diskisyon ak devwa. Sèvè a piblik — demonstrasyon sèlman. Yon lyen HTTPS rete opsyonèl.":"La salle est dans NORIA : cours en direct Jitsi (meet.systemli.org, gratuit, sans compte), tableau, présence, discussion et devoirs. Le serveur est public — démonstration seulement. Un lien HTTPS reste optionnel."}</div>
   ${canLead()?`<section class="card" style="margin-top:10px"><h3>${ht?"Nouvo seans":"Nouvelle séance"}</h3><div class="grid g2"><label class="fld">${ht?"Klas":"Classe"}<select id="mt_cls">${classes.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select></label><label class="fld">${ht?"Matyè":"Matière"}<input id="mt_sub" maxlength="80" value="${ht?"Matematik":"Mathématiques"}"></label><label class="fld">${ht?"Tit":"Titre"}<input id="mt_title" maxlength="120" placeholder="${ht?"Egzanp : fraksyon":"Ex. : Les fractions"}"></label><label class="fld">${ht?"Dat ak lè":"Date et heure"}<input id="mt_date" type="date" value="${today()}"><input id="mt_time" type="time" value="09:00"></label><label class="fld">${ht?"Lòd jounen an":"Ordre du jour"}<textarea id="mt_agenda" rows="3" maxlength="800"></textarea></label><label class="fld">${ht?"Lyen ekstèn opsyonèl (https)":"Lien externe optionnel (https)"}<input id="mt_ext" type="url" placeholder="https://"></label></div><button onclick="KLX.meetAdd()">${ht?"Kreye seans lan":"Créer la séance"}</button></section>`:""}
   ${list.map(m=>{const c=cls(m.classId); const st=m.status==="open"?(ht?"Louvri":"Ouverte"):m.status==="closed"?(ht?"Fèmen":"Fermée"):(ht?"Planifye":"Planifiée"); return `<article class="card" style="margin-top:10px"><div class="row sp"><div><h3>${esc(m.title)}</h3><div class="small mut">${esc(c?c.name:"")} • ${esc(m.subject)} • ${esc(m.date)} ${esc(m.time)}</div></div><span class="badge ${m.status==="open"?"b-present":m.status==="closed"?"b-pending":"b-borrowed"}">${st}</span></div><p>${esc(m.agenda||"—")}</p><div class="toolbar"><button class="soft" onclick="KLX.roomOpen('${esc(m.id)}')">${ht?"Antre nan sal la":"Entrer dans la salle"}</button>${canX("ext-discussion")?`<button class="ghost" onclick="KL.go('ext-discussion')">${ht?"Diskisyon klas la":"Discussion de la classe"}</button>`:""}${m.external?`<a class="ghost button-link" href="${esc(m.external)}" target="_blank" rel="noopener noreferrer">${ht?"Lyen ekstèn":"Lien externe"}</a>`:""}${canLead()&&m.status!=="open"?`<button class="ghost" onclick="KLX.meetStatus('${esc(m.id)}','open')">${ht?"Louvri":"Ouvrir"}</button>`:""}${canLead()&&m.status==="open"?`<button class="ghost" onclick="KLX.meetStatus('${esc(m.id)}','closed')">${ht?"Fèmen":"Fermer"}</button>`:""}</div></article>`;}).join("")||`<div class="card mut" style="margin-top:10px">${ht?"Pa gen seans pou klas ou yo.":"Aucune séance pour vos classes."}</div>`}`;
 }
 function vVisuel(){
   const ht=lang()==="ht"; const o=O();
-  const meet=(X.meetings||[]).find(m=>m.id===X.focusMeet&&inScope(m.classId))||(X.meetings||[]).find(m=>m.status==="open"&&inScope(m.classId));
+  const meet=focusedMeet();
   if(!meet) return `<div class="row sp"><h2 style="margin:0">${ht?"Klas vizyèl":"Classe visuelle"}</h2><button class="ghost" onclick="KL.go('ext-reunion')">${ht?"Sant reyinyon":"Centre de réunion"}</button></div><div class="card mut">${ht?"Pa gen sal ouvri pou ou.":"Aucune salle ouverte pour vous."}</div>`;
   const c=cls(meet.classId);
   const pupils=o?o.students.filter(s=>s.classId===meet.classId):[];
   const lead=canLead()&&(role()==="direction"||classScope().some(x=>x.id===meet.classId));
-  return `<div class="row sp"><h2 style="margin:0">${ht?"Klas vizyèl":"Classe visuelle"}</h2><span class="row"><button class="ghost" onclick="KL.go('ext-reunion')">${ht?"Reyinyon":"Réunions"}</button>${canX("ext-discussion")?`<button class="ghost" onclick="KL.go('ext-discussion')">${ht?"Diskisyon":"Discussion"}</button>`:""}</span></div>
+  const threads=(X.threads||[]).filter(t=>t.classId===meet.classId);
+  const write=(role()==="direction"||role()==="enseignant"||role()==="eleve"||(role()==="parent"&&X.discParentWrite))&&inScope(meet.classId);
+  const hw=(X.homework||[]).filter(h=>h.classId===meet.classId);
+  const me=kidsOf()[0];
+  const res=/^https:\/\//.test(String(meet.external||""))?meet.external:"";
+  return `<div class="row sp"><h2 style="margin:0">${ht?"Klas vizyèl":"Classe visuelle"}</h2><span class="row"><button class="soft" onclick="KLX.liveToggle()">${liveWanted?(ht?"Fèmen dirèk la":"Fermer le direct"):(ht?"Ouvri kou an dirèk":"Ouvrir le cours en direct")}</button><button class="ghost" onclick="KL.go('ext-reunion')">${ht?"Reyinyon":"Réunions"}</button></span></div>
   <p class="portal-kicker">${esc(c?c.name:"")} · ${esc(ROLE_LBL[role()]||role())}</p>
-  <section class="board"><div class="board-kicker">${esc(meet.subject)} · ${esc(meet.date)} ${esc(meet.time)}</div><h3 class="board-title">${esc(meet.title)}</h3><p>${esc(meet.agenda||"")}</p></section>
+  <div class="notice small">${ht?"Kou an dirèk la se Jitsi (meet.systemli.org), gratis, san kont : kamera, mikwo, pataj ekran ak tablo. Sèvè a piblik — demonstrasyon sèlman, pa pou dosye timoun. Diskisyon lekòl la rete nan NORIA ; chat Jitsi a pa anrejistre isit.":"Le cours en direct est Jitsi (meet.systemli.org), gratuit et sans compte : caméra, micro, partage d'écran et tableau. Le serveur est public — démonstration seulement, pas pour des dossiers d'enfants. La discussion de l'école reste dans NORIA ; le chat Jitsi n'y est pas enregistré."}</div>
+  <section class="board"><div class="board-kicker">${esc(meet.subject)} · ${esc(meet.date)} ${esc(meet.time)}</div><h3 class="board-title">${esc(meet.title)}</h3><p>${esc(meet.agenda||"")}</p>${res?`<p style="margin-top:10px"><a href="${esc(res)}" target="_blank" rel="noopener noreferrer">${ht?"Louvri resous la":"Ouvrir la ressource"}</a></p>`:""}</section>
   <div class="card" style="margin-top:12px"><h3>${ht?"Elèv nan sal la":"Élèves dans la salle"} <span class="mut small">(${(meet.present||[]).length}/${pupils.length})</span></h3>
   <div class="seats">${pupils.map(s=>{const on=(meet.present||[]).includes(s.id); return `<button type="button" class="seat${on?" on":""}" ${lead?`onclick="KLX.meetHere('${esc(meet.id)}','${esc(s.id)}')"`:"disabled"}><b>${esc(initials(s))}</b><span>${esc(s.firstName)}</span></button>`;}).join("")}</div>
-  <p class="small mut">${lead?(ht?"Klike yon non pou make li prezan. Sa pa yon kamera.":"Cliquez un prénom pour le marquer présent. Ce n'est pas une caméra."):(ht?"Ou wè klas ou. Ou pa ka chanje prezans lan.":"Vous voyez votre classe. Vous ne pouvez pas modifier la présence.")}</p></div>`;
+  <p class="small mut">${lead?(ht?"Klike yon non pou make li prezan.":"Cliquez un prénom pour le marquer présent."):(ht?"Ou wè klas ou. Ou pa ka chanje prezans lan.":"Vous voyez votre classe. Vous ne pouvez pas modifier la présence.")}</p></div>
+  <section class="card" style="margin-top:12px"><h3>${ht?"Diskisyon klas la":"Discussion de la classe"}</h3>
+  ${lead?`<div class="toolbar"><input id="th_room" maxlength="120" placeholder="${ht?"Nouvo sijè":"Nouveau sujet"}" style="flex:1"><button onclick="KLX.roomThread('${esc(meet.classId)}')">${ht?"Ouvri":"Ouvrir"}</button></div>`:""}
+  ${threads.map(th=>`<article style="margin-top:8px"><h4 style="margin:8px 0">${esc(th.title)}</h4>
+    ${(th.posts||[]).map(p=>{const hidden=p.hidden&&!lead; return `<div class="msg"><div class="who">${esc(postName(p))} <span class="mut">${esc(p.at)}</span>${p.hidden&&lead?` <span class="badge b-pending">${ht?"Maske":"Masqué"}</span>`:""}</div><div>${hidden?(ht?"Mesaj maske":"Message masqué"):esc(p.text)}</div>${lead&&!p.hidden?`<button class="ghost" onclick="KLX.postHide('${esc(th.id)}','${esc(p.id)}','ext-visuel')">${ht?"Maske":"Masquer"}</button>`:""}</div>`;}).join("")}
+    ${write?`<div class="toolbar"><input id="th_${esc(th.id)}" maxlength="500" placeholder="${ht?"Mesaj ou":"Votre message"}" style="flex:1"><button onclick="KLX.postAdd('${esc(th.id)}','ext-visuel')">${ht?"Voye":"Envoyer"}</button></div>`:""}
+  </article>`).join("")||`<p class="small mut">${ht?"Pa gen sijè pou klas sa a.":"Aucun sujet pour cette classe."}</p>`}
+  </section>
+  <section class="card" style="margin-top:12px"><div class="row sp"><h3 style="margin:0">${ht?"Devwa klas la":"Devoirs de la classe"}</h3><button class="ghost" onclick="KL.go('ext-devoirs')">${ht?"Tout devwa yo":"Tous les devoirs"}</button></div>
+  ${hw.map(h=>{const own=me&&role()==="eleve"?(h.subs||[]).filter(s=>s.sid===me.id&&!s.hidden):[]; const last=own.slice().sort((a,b)=>(a.vers||1)-(b.vers||1)).pop(); return `<article style="margin-top:8px"><b>${esc(h.title)}</b> <span class="small mut">${esc(h.subject)} · ${esc(T("due"))} ${esc(h.due)}</span><p class="small">${esc(h.instructions||"")}</p>${role()==="eleve"&&me&&me.classId===h.classId?`<div class="toolbar"><button class="soft" onclick="KLX.rmOpen('${esc(h.id)}')">${ht?"Ekri / remèt":"Écrire / remettre"}</button>${last?`<span class="small">v${last.vers}</span>`:`<span class="small mut">${ht?"Poko remèt":"Pas encore remis"}</span>`}</div>`:""}</article>`;}).join("")||`<p class="small mut">${ht?"Pa gen devwa pou klas sa a.":"Aucun devoir pour cette classe."}</p>`}
+  </section><div id="xModal"></div>`;
 }
 function vDiscussion(){
   const ht=lang()==="ht";
@@ -477,11 +494,52 @@ function vCal(){
   <div class="card"><h3>${ht?"Istwa chanjman":"Historique des changements"}</h3>${X.calHist.slice(-8).reverse().map(h=>`<div class="small" style="padding:3px 0">• ${esc(h.at)} — ${esc(h.by)} : ${esc(h.info)}</div>`).join("")||`<div class="small mut">—</div>`}
   <div class="toolbar"><button class="ghost" onclick="KLX.calCSV()">CSV</button><button class="ghost" onclick="KLX.calICS()">ICS</button><button class="ghost" onclick="window.print()">${esc(T("print"))}</button></div></div>`;
 }
+function focusedMeet(){
+  const list=X.meetings||[];
+  return list.find(m=>m.id===X.focusMeet&&inScope(m.classId))||list.find(m=>m.status==="open"&&inScope(m.classId))||null;
+}
+function jitsiRoom(id){ return "NoriaCours"+String(id||"classe").replace(/[^a-zA-Z0-9]/g,""); }
+function liveName(){
+  const ht=lang()==="ht";
+  return ({direction:ht?"Direksyon":"Direction",secretariat:"Secrétariat",enseignant:ht?"Pwofesè":"Enseignant",parent:ht?"Paran":"Parent",eleve:ht?"Elèv":"Élève",comptable:ht?"Kontablite":"Comptabilité",bibliothecaire:ht?"Bibliyotèk":"Bibliothèque"})[role()]||"NORIA";
+}
+function syncLive(meet){
+  const existing=document.querySelector("#liveDock");
+  if(!liveWanted||!meet||XROUTE!=="ext-visuel"){ if(existing) existing.remove(); return; }
+  const ht=lang()==="ht";
+  const room=jitsiRoom(meet.id);
+  let dock=existing;
+  if(!dock){
+    dock=document.createElement("section");
+    dock.id="liveDock";
+    dock.className="live-dock";
+    dock.setAttribute("aria-label", ht?"Kou an dirèk":"Cours en direct");
+    dock.innerHTML='<div class="live-bar"><b></b><button type="button" class="ghost" id="liveClose"></button></div><p class="live-note"></p><div class="live-frame"></div>';
+    document.body.appendChild(dock);
+    dock.querySelector("#liveClose").onclick=()=>{ liveWanted=false; XGO("ext-visuel"); };
+  }
+  dock.querySelector(".live-bar b").textContent=(ht?"Kou an dirèk":"Cours en direct")+" · "+meet.title;
+  dock.querySelector("#liveClose").textContent=ht?"Fèmen":"Fermer";
+  dock.querySelector(".live-note").textContent=ht?"Jitsi gratis (meet.systemli.org) : kamera, mikwo, pataj ekran ak tablo. Pa gen kont. Sèvè piblik — demonstrasyon sèlman.":"Jitsi gratuit (meet.systemli.org) : caméra, micro, partage d'écran et tableau. Aucun compte. Serveur public — démonstration seulement.";
+  const frame=dock.querySelector(".live-frame");
+  if(frame.dataset.room!==room){
+    frame.dataset.room=room;
+    frame.replaceChildren();
+    const iframe=document.createElement("iframe");
+    iframe.title=ht?"Kou an dirèk":"Cours en direct";
+    iframe.allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write";
+    iframe.referrerPolicy="strict-origin-when-cross-origin";
+    iframe.src="https://meet.systemli.org/"+encodeURIComponent(room)+"#config.prejoinPageEnabled=true&config.startWithAudioMuted=true&config.startWithVideoMuted=true&config.disableDeepLinking=true&userInfo.displayName="+encodeURIComponent(JSON.stringify(liveName()));
+    frame.appendChild(iframe);
+  }
+}
 function XGO(r){
   if(!canX(r)){ toast(T("noAccess")); return; }
   XROUTE = r;
   const v = document.querySelector("#view"); if(!v) return;
   try{ v.innerHTML = '<div data-xview="1" style="display:contents">'+VV[r]()+'</div>'; }catch(e){ v.innerHTML = "<div class='badbox'>Erreur extension : "+esc(e.message)+"</div>"; }
+  if(r==="ext-visuel") syncLive(focusedMeet());
+  else { liveWanted=false; syncLive(null); }
   markNav(); window.scrollTo(0,0);
 }
 function markNav(){
@@ -632,7 +690,8 @@ function vContinuite(){
 
 /* ---------- API publique KLX ---------- */
 const KLX = window.KLX = {};
-KLX.roomOpen = id=>{ const m=(X.meetings||[]).find(x=>x.id===id); if(!m||!inScope(m.classId)){ toast(T("noAccess")); return; } X.focusMeet=id; X.focusClass=m.classId; save(); XGO("ext-visuel"); };
+KLX.roomOpen = id=>{ const m=(X.meetings||[]).find(x=>x.id===id); if(!m||!inScope(m.classId)){ toast(T("noAccess")); return; } X.focusMeet=id; X.focusClass=m.classId; liveWanted=true; save(); XGO("ext-visuel"); };
+KLX.liveToggle = ()=>{ if(!focusedMeet()){ toast(T("noAccess")); return; } liveWanted=!liveWanted; XGO("ext-visuel"); };
 KLX.meetAdd = ()=>{
   if(!canLead()){ toast(T("noAccess")); return; }
   const g=id=>{ const n=document.querySelector(id); return n?String(n.value||"").trim():""; };
@@ -663,7 +722,7 @@ KLX.threadAdd = classId=>{
   X.threads.push({id:XD.uid("th"),classId,title:String(title).trim().slice(0,120),posts:[]});
   X.focusClass=classId; save(); audit("discussion.sujet",title); XGO("ext-discussion");
 };
-KLX.postAdd = threadId=>{
+KLX.postAdd = (threadId, back)=>{
   const th=(X.threads||[]).find(t=>t.id===threadId); if(!th||!inScope(th.classId)){ toast(T("noAccess")); return; }
   const r=role();
   const ok=r==="direction"||r==="enseignant"||r==="eleve"||(r==="parent"&&X.discParentWrite);
@@ -673,14 +732,21 @@ KLX.postAdd = threadId=>{
   const who=r==="eleve"||r==="parent"?kidsOf().find(s=>s.classId===th.classId):null;
   if((r==="eleve"||r==="parent")&&!who){ toast(T("noAccess")); return; }
   th.posts.push({id:XD.uid("p"),role:r,sid:who?who.id:"",text:text.slice(0,500),at:new Date().toLocaleString(),hidden:false});
-  save(); audit("discussion.message",th.title); XGO("ext-discussion");
+  save(); audit("discussion.message",th.title); XGO(back==="ext-visuel"?"ext-visuel":"ext-discussion");
 };
-KLX.postHide = (threadId,postId)=>{
+KLX.roomThread = classId=>{
+  if(!(role()==="direction"||(role()==="enseignant"&&classScope().some(c=>c.id===classId)))){ toast(T("noAccess")); return; }
+  const title=(document.querySelector("#th_room")||{}).value; if(!String(title||"").trim()){ toast("!"); return; }
+  X.threads=X.threads||[];
+  X.threads.push({id:XD.uid("th"),classId,title:String(title).trim().slice(0,120),posts:[]});
+  X.focusClass=classId; save(); audit("discussion.sujet",title); XGO("ext-visuel");
+};
+KLX.postHide = (threadId,postId,back)=>{
   const th=(X.threads||[]).find(t=>t.id===threadId); if(!th){ toast(T("noAccess")); return; }
   const lead=role()==="direction"||(role()==="enseignant"&&classScope().some(c=>c.id===th.classId));
   if(!lead){ toast(T("noAccess")); return; }
   const p=(th.posts||[]).find(x=>x.id===postId); if(!p) return;
-  p.hidden=true; save(); audit("discussion.masque",th.title); XGO("ext-discussion");
+  p.hidden=true; save(); audit("discussion.masque",th.title); XGO(back==="ext-visuel"?"ext-visuel":"ext-discussion");
 };
 KLX.parentWrite = on=>{
   if(role()!=="direction"){ toast(T("noAccess")); return; }
@@ -709,13 +775,27 @@ KLX.clAdd = ()=>{
   const classId=val("#cl_cls"), title=val("#cl_title"), subject=val("#cl_subject"), date=val("#cl_date"), time=val("#cl_time");
   const clsItem=classScope().find(c=>c.id===classId);
   if(!clsItem||!title||!subject||!date||!time){ toast(lang()==="ht"?"Ranpli klas, matyè, tit, dat ak lè.":"Renseignez la classe, la matière, le titre, la date et l'heure."); return; }
-  let zoom="", resource="";
-  try { zoom=new URL(val("#cl_zoom")).href; const host=new URL(zoom).hostname.toLowerCase(); if(!["zoom.us","zoom.com"].some(d=>host===d||host.endsWith("."+d))) throw new Error("Zoom"); }
-  catch(e){ toast(lang()==="ht"?"Antre yon lyen HTTPS Zoom ki valab.":"Saisissez une adresse HTTPS Zoom valide."); return; }
+  let resource="";
   if(val("#cl_resource")){ try{ const u=new URL(val("#cl_resource")); if(u.protocol!=="https:") throw new Error("https"); resource=u.href; }catch(e){ toast(lang()==="ht"?"Lyen resous la dwe yon URL HTTPS valab.":"Le lien de ressource doit être une adresse HTTPS valide."); return; } }
   const sessions=X.classrooms||(X.classrooms=[]);
-  sessions.push({id:XD.uid("room"),classId,title,subject,date,time,zoom,resource,agenda:val("#cl_agenda").slice(0,1000),by:role(),createdAt:new Date().toISOString()});
+  sessions.push({id:XD.uid("room"),classId,title,subject,date,time,resource,agenda:val("#cl_agenda").slice(0,1000),by:role(),createdAt:new Date().toISOString()});
   save(); audit("classe.virtuelle.create",title+" / "+clsItem.name); XGO("ext-classe"); toast(T("saveOk"));
+};
+KLX.clEnter = id=>{
+  const s=(X.classrooms||[]).find(x=>x.id===id&&classScope().some(c=>c.id===x.classId));
+  if(!s){ toast(T("noAccess")); return; }
+  X.meetings=X.meetings||[];
+  let m=X.meetings.find(x=>x.fromRoom===s.id);
+  const link=s.resource||(/^https:\/\//.test(String(s.zoom||""))?s.zoom:"");
+  if(!m){
+    m={id:XD.uid("m"),classId:s.classId,title:s.title,subject:s.subject||"",date:s.date,time:s.time,agenda:s.agenda||"",by:s.by||role(),status:"open",external:link,present:[],fromRoom:s.id};
+    X.meetings.push(m);
+  } else {
+    m.status="open"; m.title=s.title; m.subject=s.subject||""; m.date=s.date; m.time=s.time; m.agenda=s.agenda||"";
+    if(link) m.external=link;
+  }
+  X.focusMeet=m.id; X.focusClass=s.classId; liveWanted=true;
+  save(); audit("classe.entrer",s.title); XGO("ext-visuel");
 };
 KLX.clDel = id=>{ if(!["direction","enseignant"].includes(role())){ toast(T("noAccess")); return; }
   const sessions=X.classrooms||[], i=sessions.findIndex(s=>s.id===id&&classScope().some(c=>c.id===s.classId)); if(i<0){ toast(T("noAccess")); return; }
@@ -922,7 +1002,7 @@ KLX.rmSend = hid=>{ const me=kidsOf()[0]; if(!me) return; const t=document.query
   subMig(h); h.subs=h.subs||[]; const vers=h.subs.filter(s=>s.sid===me.id).reduce((a,s)=>Math.max(a,s.vers||1),0)+1;
   h.subs.push({id:XD.uid("s"),sid:me.id,title:(ti&&ti.value||"").slice(0,120),text:txt.slice(0,2000),at:today(),hidden:false,vers,st:today()>(h.due||"")?"late":"submitted"});
   if(X.drafts) delete X.drafts[hid+"|"+me.id];
-  queuePush("remise",hid); save(); audit("devoir.remise",hid+" "+me.id+" v"+vers); XGO("ext-devoirs"); toast(T("saveOk")); };
+  queuePush("remise",hid); save(); audit("devoir.remise",hid+" "+me.id+" v"+vers); XGO(XROUTE==="ext-visuel"?"ext-visuel":"ext-devoirs"); toast(T("saveOk")); };
 KLX.rmTxt = hid=>{ const t=document.querySelector("#rm_x"),ti=document.querySelector("#rm_t"); dl(((ti&&ti.value)||"devoir")+".txt",(ti&&ti.value?ti.value+"\n\n":"")+(t?t.value:""),"text/plain"); };
 KLX.remise = hid=>KLX.rmOpen(hid);
 KLX.subSt = (hid,sid2,act)=>{ const h=X.homework.find(x=>x.id===hid); if(!h) return; const s=(h.subs||[]).find(x=>x.id===sid2); if(!s) return;
@@ -962,7 +1042,7 @@ function installWraps(){
   if(window.KL.calAdd&&!window.KL.calAdd.__xch){ const o2=window.KL.calAdd; const f2=function(){ const before=(XD.readOld()?XD.readOld().calendar:[]).length; const r=o2.apply(this,arguments); try{ const n=document.querySelector("#calN"); X.calHist.push({at:new Date().toLocaleString(),by:role(),info:"ajout : "+(n?n.value:"?")}); save(); }catch(e){} return r; }; f2.__xch=true; f2.__xw=o2.__xw; window.KL.calAdd=f2; }
   if(window.KL.calDel&&!window.KL.calDel.__xch){ const o3=window.KL.calDel; const f3=function(id){ const o=XD.readOld(); const k=o?o.calendar.find(x=>x.id===id):null; const r=o3.apply(this,arguments); try{ X.calHist.push({at:new Date().toLocaleString(),by:role(),info:"suppression : "+(k?k.name+" ("+k.start+"→"+k.end+")":id)}); save(); }catch(e){} return r; }; f3.__xch=true; f3.__xw=o3.__xw; window.KL.calDel=f3; }
   if(window.KL.sync&&!window.KL.sync.__xw){ const o=window.KL.sync; const f=function(){ const r=o.apply(this,arguments); try{ const n=flushQ(); if(n) audit("sync.ext",n+" items"); injectNav(); }catch(e){} return r; }; f.__xw=true; window.KL.sync=f; }
-  if(window.KL.go&&!window.KL.go.__xw){ const o=window.KL.go; const f=function(m){ if(typeof m==="string"&&m.indexOf("ext-")===0){ XGO(m); return; } XROUTE=null; try{window.__klLast=m;}catch(e){} const r=o.apply(this,arguments); try{injectToday();}catch(e){} return r; }; f.__xw=true; window.KL.go=f; }
+  if(window.KL.go&&!window.KL.go.__xw){ const o=window.KL.go; const f=function(m){ if(typeof m==="string"&&m.indexOf("ext-")===0){ XGO(m); return; } XROUTE=null; liveWanted=false; syncLive(null); try{window.__klLast=m;}catch(e){} const r=o.apply(this,arguments); try{injectToday();}catch(e){} return r; }; f.__xw=true; window.KL.go=f; }
 }
 
 /* ---------- injection nav (après chaque renderShell) ---------- */
@@ -1007,7 +1087,10 @@ function boot(){
     try{ injectNav(); }catch(e){}
     try{ injectToday(); }catch(e){}
     const v=document.querySelector("#view");
-    if(v && !v.querySelector("[data-xview]") && XROUTE){ XROUTE=null; try{ markNav(); }catch(e){} }
+    if(v && !v.querySelector("[data-xview]")){
+      if(XROUTE){ XROUTE=null; try{ markNav(); }catch(e){} }
+      if(liveWanted||document.querySelector("#liveDock")){ liveWanted=false; try{ syncLive(null); }catch(e){} }
+    }
     const nav=document.querySelector("#nav");
     const view=document.querySelector("#view");
     if(nav) obs.observe(nav,{childList:true});
