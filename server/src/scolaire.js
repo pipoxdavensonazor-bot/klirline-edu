@@ -8,7 +8,24 @@ const { reportCardPdf } = require('./pdf');
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const AUDIENCES = ['ecole', 'classe', 'parents', 'enseignants'];
-const SCALE = Number(process.env.NORIA_GRADE_SCALE || 10); // barème des moyennes (sur 10 par défaut)
+// Barème de référence des moyennes : school.grade_scale (/100 par défaut, migration 006).
+const DEFAULT_SCALE = 100;
+// Barème maximal d'une évaluation : 100, 200, 300 proposés, ou toute valeur positive jusqu'à 1000 (2 décimales au plus).
+const MAX_SCORE_LIMIT = 1000;
+function maxScore(v) {
+  const x = Number(v ?? DEFAULT_SCALE);
+  if (!Number.isFinite(x) || x <= 0 || x > MAX_SCORE_LIMIT || Math.round(x * 100) !== x * 100) throw new HttpError(400, `barème invalide (nombre positif, ${MAX_SCORE_LIMIT} au plus)`);
+  return x;
+}
+function coefficient(v) {
+  const x = Number(v ?? 1);
+  if (!Number.isFinite(x) || x <= 0 || x > 20) throw new HttpError(400, 'coefficient invalide (entre 0 et 20)');
+  return x;
+}
+async function schoolScale(db, schoolId) {
+  const r = await db.get('SELECT grade_scale FROM school WHERE id = ?', schoolId);
+  return r && r.grade_scale > 0 ? Number(r.grade_scale) : DEFAULT_SCALE;
+}
 const str = (v, max) => { const s = String(v ?? '').trim(); if (!s || s.length > max) throw new HttpError(400, `texte obligatoire (${max} caractères au plus)`); return s; };
 const int = (v) => { const x = Number(v); if (!Number.isInteger(x) || x <= 0) throw new HttpError(400, 'identifiant invalide'); return x; };
 
@@ -33,9 +50,10 @@ async function loadEvaluation(db, u, id) {
 const familyOnly = (u) => P.has(u, 'parent', 'eleve') && !P.has(u, 'direction', 'secretariat', 'enseignant');
 
 /* ---------- moyennes ---------- */
-// Notes publiées seulement, ramenées sur SCALE, pondérées par le coefficient de l'évaluation ; moyenne générale
+// Notes publiées seulement, ramenées sur le barème de référence de l'école, pondérées par le coefficient de l'évaluation ; moyenne générale
 // pondérée par le coefficient de la matière. Une note absente ou dispensée (score NULL) n'est pas comptée.
 async function computeAverages(db, schoolId, studentId, termId) {
+  const SCALE = await schoolScale(db, schoolId);
   const rows = await db.all(`SELECT s.id AS subject_id, s.name, s.coefficient AS subject_coef, ev.coefficient, ev.max_score, g.score
     FROM evaluation ev JOIN subject s ON s.id = ev.subject_id AND s.school_id = ev.school_id
     JOIN grade g ON g.evaluation_id = ev.id AND g.school_id = ev.school_id
@@ -104,6 +122,8 @@ async function applyGradeOp(t, u, op, opId) {
   const mention = op.mention == null ? null : String(op.mention);
   if (mention && !['absent', 'dispense'].includes(mention)) throw new HttpError(400, 'mention inconnue');
   const score = mention ? null : Number(op.score);
+  // Saisie hors ligne : le client envoie le barème vu à la saisie ; s'il a changé depuis, la note est refusée (à ressaisir).
+  if (op.max_score != null && Number(op.max_score) !== Number(ev.max_score)) throw new HttpError(409, `barème modifié depuis la saisie (/${op.max_score} → /${ev.max_score}) : ressaisir la note`);
   if (!mention && (!Number.isFinite(score) || score < 0 || score > ev.max_score)) throw new HttpError(400, `note entre 0 et ${ev.max_score}`);
   const base = Number.isInteger(op.base_version) && op.base_version >= 0 ? op.base_version : null;
   if (base == null) throw new HttpError(400, 'opération invalide');
@@ -196,11 +216,31 @@ const routes = [
     if (!term || !(await db.get('SELECT 1 AS x FROM subject WHERE id = ? AND school_id = ?', subjectId, u.school_id))) notFound();
     const day = String(b.day || '');
     if (!DAY.test(day) || day < term.starts_on || day > term.ends_on) throw new HttpError(400, `date hors de la période (${term.starts_on} → ${term.ends_on})`);
-    const max = Number(b.max_score ?? 10), coef = Number(b.coefficient ?? 1);
+    const max = maxScore(b.max_score), coef = coefficient(b.coefficient);
     const id = await db.insert(`INSERT INTO evaluation (school_id, class_id, subject_id, term_id, title, day, max_score, coefficient, created_by)
       VALUES (?,?,?,?,?,?,?,?,?)`, u.school_id, classId, subjectId, termId, str(b.title, 120), day, max, coef, u.id);
     await audit(db, u, 'evaluation.create', 'evaluation', id, null);
-    return { id, status: 'brouillon' };
+    return { id, status: 'brouillon', max_score: max };
+  }],
+  // Modifier une évaluation (barème, intitulé, coefficient) : seulement en brouillon. Le nouveau barème ne peut pas
+  // être inférieur à une note déjà saisie (sinon 409 : corriger ces notes d'abord).
+  ['PATCH', /^\/api\/evaluations\/(\d+)$/, async (db, req, u, [id], ctx) => {
+    if (!P.can.recordAttendance(u)) forbid();
+    const ev = await loadEvaluation(db, u, id);
+    if (!P.has(u, 'direction') && !(P.has(u, 'enseignant') && (await teaches(db, u, ev.class_id, ev.subject_id)))) await refuse(ctx, u, 'evaluation.update', 'evaluation', ev.id, null);
+    if (ev.status !== 'brouillon') throw new HttpError(409, 'évaluation soumise ou publiée : barème verrouillé');
+    const b = req.body || {};
+    const max = b.max_score === undefined ? ev.max_score : maxScore(b.max_score);
+    const coef = b.coefficient === undefined ? ev.coefficient : coefficient(b.coefficient);
+    const title = b.title === undefined ? ev.title : str(b.title, 120);
+    const top = await db.get('SELECT MAX(score) AS m FROM grade WHERE school_id = ? AND evaluation_id = ?', u.school_id, ev.id);
+    if (top && top.m != null && top.m > max) throw new HttpError(409, `une note saisie (${top.m}) dépasse le nouveau barème /${max}`);
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const r = await db.run("UPDATE evaluation SET max_score = ?, coefficient = ?, title = ?, updated_at = ? WHERE id = ? AND school_id = ? AND status = 'brouillon'",
+      max, coef, title, now, ev.id, u.school_id);
+    if (!r.changes) throw new HttpError(409, 'évaluation modifiée entre-temps');
+    await audit(db, u, 'evaluation.update', 'evaluation', ev.id, ev.max_score !== max ? `barème /${ev.max_score} → /${max}` : null);
+    return { id: ev.id, status: 'brouillon', max_score: max, coefficient: coef, title };
   }],
   ['GET', /^\/api\/evaluations\/(\d+)$/, async (db, req, u, [id]) => {
     if (!P.can.recordAttendance(u)) forbid();
@@ -290,17 +330,17 @@ const routes = [
       // Un nouveau bulletin remplace le précédent pour la même période : l'ancien code est annulé.
       await t.run(`UPDATE report_card SET revoked_at = CURRENT_TIMESTAMP, revoked_reason = 'remplacé par un bulletin plus récent'
         WHERE school_id = ? AND student_id = ? AND term_id = ? AND revoked_at IS NULL`, u.school_id, st.id, term.id);
-      const rid = await t.insert('INSERT INTO report_card (school_id, student_id, term_id, code, average, snapshot, issued_by) VALUES (?,?,?,?,?,?,?)',
-        u.school_id, st.id, term.id, code, avg.general, JSON.stringify(snap), u.id);
+      const rid = await t.insert('INSERT INTO report_card (school_id, student_id, term_id, code, average, scale, snapshot, issued_by) VALUES (?,?,?,?,?,?,?,?)',
+        u.school_id, st.id, term.id, code, avg.general, avg.scale, JSON.stringify(snap), u.id);
       await audit(t, u, 'report_card.issue', 'report_card', rid, `${term.name} ${term.year}`);
       return rid;
     });
-    return { id, code: fmtCode(code), verifyUrl: `${publicUrl(req, ctx)}/#verifier=${code}`, average: avg.general };
+    return { id, code: fmtCode(code), verifyUrl: `${publicUrl(req, ctx)}/#verifier=${code}`, average: avg.general, scale: avg.scale };
   }],
   ['GET', /^\/api\/report-cards$/, async (db, req, u) => {
     if (!P.can.readStudents(u)) forbid();
     const st = await studentVisible(db, u, int(req.query.get('student_id'))); if (!st) notFound();
-    return db.all(`SELECT r.id, r.term_id, t.name AS term, r.average, r.issued_at, r.revoked_at FROM report_card r JOIN term t ON t.id = r.term_id AND t.school_id = r.school_id
+    return db.all(`SELECT r.id, r.term_id, t.name AS term, r.average, r.scale, r.issued_at, r.revoked_at FROM report_card r JOIN term t ON t.id = r.term_id AND t.school_id = r.school_id
       WHERE r.school_id = ? AND r.student_id = ? ORDER BY r.id DESC`, u.school_id, st.id);
   }],
   ['GET', /^\/api\/report-cards\/(\d+)\/pdf$/, async (db, req, u, [id], ctx) => {
@@ -373,4 +413,4 @@ const publicRoutes = [
   }, { public: true }],
 ];
 
-module.exports = { routes, publicRoutes, computeAverages, audienceScope, verifyCode, fmtCode };
+module.exports = { routes, publicRoutes, computeAverages, maxScore, DEFAULT_SCALE, audienceScope, verifyCode, fmtCode };

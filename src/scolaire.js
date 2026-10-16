@@ -6,7 +6,7 @@
 const esc=window.NORIA_U.esc;
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
 const T={
-  fr:{grades:"Notes et évaluations",cls:"Classe",term:"Période",subject:"Matière",newEv:"Nouvelle évaluation",title:"Intitulé",day:"Date",max:"Barème",coef:"Coefficient",
+  fr:{grades:"Notes et évaluations",cls:"Classe",term:"Période",subject:"Matière",newEv:"Nouvelle évaluation",title:"Intitulé",day:"Date",max:"Barème",custom:"Autre…",customMax:"Barème personnalisé",applyMax:"Changer le barème",maxLocked:"Barème verrouillé (évaluation soumise).",maxChanged:m=>`Barème changé : /${m}.`,onScale:m=>`notes ramenées sur /${m}`,coef:"Coefficient",
     create:"Créer",save:"Enregistrer les notes",submit:"Soumettre à la direction",publish:"Publier aux familles",reopen:"Rouvrir",reason:"Motif (obligatoire) :",
     st:{brouillon:"Brouillon",soumise:"Soumise",publiee:"Publiée"},absent:"Absent",dispense:"Dispensé",none:"Aucune évaluation pour cette période.",
     pend:"en attente d'envoi",queued:n=>`${n} note(s) mises en file — envoi dès que le réseau le permet.`,readonly:"Lecture seule.",
@@ -17,7 +17,7 @@ const T={
     acc:"Comptes",invite:"Inviter un compte",name:"Nom affiché",email:"E-mail",phone:"Téléphone",role:"Rôle",student:"Élève lié",send:"Créer l'invitation",
     link:"Lien d'invitation à transmettre",simul:"Envoi SMS / e-mail simulé : copiez le lien et transmettez-le vous-même.",invs:"Invitations",
     used:"Activée",roles:{parent:"Parent",eleve:"Élève",enseignant:"Enseignant",secretariat:"Secrétariat",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",direction:"Direction"},expired:"Expirée",waiting:"En attente",cancel:"Annuler",err:"Refusé : ",net:"Réseau indisponible.",needNet:"Réseau nécessaire pour cette action."},
-  ht:{grades:"Nòt ak evalyasyon",cls:"Klas",term:"Peryòd",subject:"Matyè",newEv:"Nouvo evalyasyon",title:"Tit",day:"Dat",max:"Baremn",coef:"Koefisyan",
+  ht:{grades:"Nòt ak evalyasyon",cls:"Klas",term:"Peryòd",subject:"Matyè",newEv:"Nouvo evalyasyon",title:"Tit",day:"Dat",max:"Baremn",custom:"Lòt…",customMax:"Baremn pèsonalize",applyMax:"Chanje baremn nan",maxLocked:"Baremn nan bloke (evalyasyon an voye deja).",maxChanged:m=>`Baremn chanje : /${m}.`,onScale:m=>`nòt yo ramnen sou /${m}`,coef:"Koefisyan",
     create:"Kreye",save:"Anrejistre nòt yo",submit:"Voye bay direksyon",publish:"Pibliye pou fanmi yo",reopen:"Relouvri",reason:"Rezon (obligatwa) :",
     st:{brouillon:"Bouyon",soumise:"Voye",publiee:"Pibliye"},absent:"Absan",dispense:"Egzante",none:"Pa gen evalyasyon pou peryòd sa a.",
     pend:"ap tann pou pati",queued:n=>`${n} nòt nan fil la — y ap pati lè rezo a la.`,readonly:"Lekti sèlman.",
@@ -41,6 +41,14 @@ async function api(path,opts={}){
   return {status:r.status,body};
 }
 const post=(p,b)=>api(p,{method:"POST",body:JSON.stringify(b||{})});
+const patch=(p,b)=>api(p,{method:"PATCH",body:JSON.stringify(b||{})});
+// Barème : 100 par défaut, 200 et 300 proposés, ou valeur personnalisée positive (1000 au plus, comme le serveur).
+const PRESETS=[100,200,300];
+function maxPicker(cur,id){ const c=Number(cur)||100; const custom=!PRESETS.includes(c);
+  return `<span class="sco-max"><select name="maxSel" id="${id}Sel" aria-label="${esc(t("max"))}" onchange="NORIA_SCO.maxSel(this)">${PRESETS.map(v=>`<option value="${v}"${v===c?" selected":""}>/${v}</option>`).join("")}<option value="autre"${custom?" selected":""}>${esc(t("custom"))}</option></select>
+  <input name="max" id="${id}" type="number" inputmode="decimal" min="0.01" max="1000" step="0.01" value="${c}" aria-label="${esc(t("customMax"))}" required${custom?"":" hidden"}></span>`; }
+function maxSel(sel){ const i=sel.parentNode.querySelector("input[name=max]"); if(sel.value==="autre"){ i.hidden=false; i.focus(); } else { i.hidden=true; i.value=sel.value; } }
+function readMax(i){ const v=Number(String(i.value).replace(",",".")); return Number.isFinite(v)&&v>0&&v<=1000?Math.round(v*100)/100:null; }
 function toast(m){ const c=document.getElementById("toasts"); if(!c) return; const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3500); }
 // GET avec cache mémoire + copie hors ligne ; relance l'affichage quand la réponse arrive.
 function get(path){
@@ -86,7 +94,7 @@ function newEvForm(){
     <label class="fld">${esc(t("subject"))}<select name="subject">${mine.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></label>
     <label class="fld">${esc(t("title"))}<input name="title" required maxlength="120"></label>
     <div class="row"><label class="fld">${esc(t("day"))}<input name="day" type="date" required value="${new Date().toLocaleDateString("en-CA")}"></label>
-    <label class="fld">${esc(t("max"))}<input name="max" type="number" min="1" max="100" value="10" required></label>
+    <label class="fld">${esc(t("max"))}${maxPicker(100,"scoNewMax")}</label>
     <label class="fld">${esc(t("coef"))}<input name="coef" type="number" min="0.5" max="10" step="0.5" value="1" required></label></div>
     <button type="submit">${esc(t("create"))}</button></form></details>`;
 }
@@ -98,7 +106,7 @@ function sheet(){
   const rows=ev.students.map(s=>{ const d=ST.draft[s.id]||pend[s.id]||g[s.id]||{}; const p=!!pend[s.id];
     const v=d.mention?"":(d.score??"");
     return `<tr><td>${esc(s.first_name)} ${esc(s.last_name)}${p?` <span class="badge b-pend" title="${esc(t("pend"))}">⏳</span>`:""}</td>
-    <td><input class="sco-in" inputmode="decimal" aria-label="${esc(s.first_name)}" data-sid="${s.id}" value="${esc(v)}" ${canEdit?"":"disabled"} oninput="NORIA_SCO.edit(${s.id},this.value,null)"></td>
+    <td><input class="sco-in" inputmode="decimal" placeholder="/${ev.max_score}" aria-label="${esc(s.first_name)}" data-sid="${s.id}" value="${esc(v)}" ${canEdit?"":"disabled"} oninput="NORIA_SCO.edit(${s.id},this.value,null)"></td>
     <td><select data-msid="${s.id}" ${canEdit?"":"disabled"} onchange="NORIA_SCO.edit(${s.id},null,this.value)"><option value="">—</option><option value="absent"${d.mention==="absent"?" selected":""}>${esc(t("absent"))}</option><option value="dispense"${d.mention==="dispense"?" selected":""}>${esc(t("dispense"))}</option></select></td></tr>`; }).join("");
   const btn=[];
   if(canEdit) btn.push(`<button id="scoSave" onclick="NORIA_SCO.saveGrades()">${esc(t("save"))}</button>`);
@@ -106,13 +114,14 @@ function sheet(){
   if(ev.status==="soumise"&&has("direction")) btn.push(`<button class="ghost" id="scoPublish" onclick="NORIA_SCO.move('publier')">${esc(t("publish"))}</button>`);
   if(ev.status!=="brouillon"&&has("direction")) btn.push(`<button class="ghost" onclick="NORIA_SCO.move('rouvrir')">${esc(t("reopen"))}</button>`);
   return `<div class="card"><h3>${esc(ev.title)} <span class="badge st-${ev.status}">${esc(t("st")[ev.status])}</span></h3><p class="small mut">${esc(ev.day)} · /${ev.max_score} · coef ${ev.coefficient}${canEdit?"":" · "+esc(t("readonly"))}</p>
+  ${ev.status==="brouillon"&&has("enseignant","direction")?`<form class="row sco-maxf" onsubmit="event.preventDefault();NORIA_SCO.setMax(this)"><label class="small">${esc(t("max"))} ${maxPicker(ev.max_score,"scoEvMax")}</label><button class="ghost" type="submit">${esc(t("applyMax"))}</button></form>`:`<p class="small mut">${esc(t("maxLocked"))}</p>`}
   <table class="sco-tab"><tbody>${rows}</tbody></table>${ST.msg?`<p class="small" role="status">${esc(ST.msg)}</p>`:""}<div class="toolbar">${btn.join("")}</div></div>`;
 }
 function cards(){
   const kids=S.students.filter(s=>s.classId==="c"+ST.cls);
   return `<div class="card" style="margin-top:10px"><h3>${esc(t("rc"))}</h3>${kids.map(k=>{ const list=get(`/api/report-cards?student_id=${k.serverId}`);
     const cur=ok(list)?list.find(r=>!r.revoked_at&&r.term_id===Number(ST.term)):null;
-    return `<div class="row sp sco-rc"><span>${esc(k.firstName)} ${esc(k.lastName)}${cur?` <span class="small mut">${cur.average==null?"":esc(String(cur.average))+"/10"}</span>`:""}</span><span class="row">
+    return `<div class="row sp sco-rc"><span>${esc(k.firstName)} ${esc(k.lastName)}${cur?` <span class="small mut">${cur.average==null?"":esc(String(cur.average))+"/"+(cur.scale||100)}</span>`:""}</span><span class="row">
     ${cur?`<button class="soft" onclick="NORIA_SCO.pdf(${cur.id})">${esc(t("pdf"))}</button>`:""}<button class="ghost" data-issue="${k.serverId}" onclick="NORIA_SCO.issue(${k.serverId})">${esc(t("issue"))}</button></span></div>`; }).join("")}
   ${ST.issued?`<div class="sco-link"><p class="small">${esc(t("code"))} : <b>${esc(ST.issued.code)}</b></p><input readonly value="${esc(ST.issued.verifyUrl)}" id="scoVerify"><button class="ghost" onclick="NORIA_SCO.copy('scoVerify')">${esc(t("copy"))}</button></div>`:""}</div>`;
 }
@@ -127,6 +136,7 @@ async function saveGrades(){
   for(const [sid,d] of Object.entries(ST.draft)){
     const n=Number(sid); const op={kind:"grade",evaluation_id:ev.id,student_id:n,base_version:g[n]?g[n].version:0};
     if(d.mention) op.mention=d.mention; else if(d.score!==""&&d.score!=null){ const v=Number(String(d.score).replace(",",".")); if(!Number.isFinite(v)||v<0||v>ev.max_score){ toast(`0 – ${ev.max_score}`); return; } op.score=v; } else continue;
+    op.max_score=ev.max_score; // barème vu à la saisie : refusé au serveur s'il a changé entre-temps (saisie hors ligne)
     if(reason) op.reason=reason; ops.push(op);
   }
   if(!ops.length) return;
@@ -136,9 +146,14 @@ async function saveGrades(){
   rerender();
 }
 async function createEv(f){
-  const r=await act(()=>post("/api/evaluations",{class_id:Number(ST.cls),term_id:Number(ST.term),subject_id:Number(f.subject.value),title:f.title.value,day:f.day.value,max_score:Number(f.max.value),coefficient:Number(f.coef.value)}));
+  const r=await act(()=>post("/api/evaluations",{class_id:Number(ST.cls),term_id:Number(ST.term),subject_id:Number(f.subject.value),title:f.title.value,day:f.day.value,max_score:readMax(f.max),coefficient:Number(f.coef.value)}));
   if(!r) return; if(r.status!==200){ toast(failMsg(r)); return; }
   invalidate("/api/evaluations"); openEv(r.body.id);
+}
+async function setMax(f){
+  const m=readMax(f.max); if(m==null){ toast(`0 < ${t("max")} ≤ 1000`); return; }
+  const r=await act(()=>patch(`/api/evaluations/${ST.ev}`,{max_score:m})); if(!r) return; if(r.status!==200){ toast(failMsg(r)); return; }
+  ST.msg=t("maxChanged")(r.body.max_score); invalidate("/api/evaluations"); rerender();
 }
 async function move(action){
   let body={}; if(action==="rouvrir"){ const m=window.prompt(t("reason")); if(!m) return; body.reason=m; }
@@ -239,7 +254,7 @@ if(window.NORIA_OFF) NORIA_OFF.onChange(async st=>{
   if(navigator.onLine) invalidate("/api/evaluations");
   rerender();
 });
-window.NORIA_SCO={acad,comms,accounts,openEv,edit,saveGrades,createEv,move,issue,pdf,copy,postAnn,postEvt,invite,cancelInv,
+window.NORIA_SCO={maxSel,setMax,acad,comms,accounts,openEv,edit,saveGrades,createEv,move,issue,pdf,copy,postAnn,postEvt,invite,cancelInv,
   setCls:v=>{ ST.cls=Number(v); ST.ev=null; ST.issued=null; rerender(); }, setTerm:v=>{ ST.term=Number(v); ST.ev=null; rerender(); },
   bind:fn=>{ rerender=fn; }, reset:()=>{ Object.keys(C).forEach(k=>delete C[k]); }, label:k=>t(k)};
 })();

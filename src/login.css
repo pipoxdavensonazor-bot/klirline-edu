@@ -68,3 +68,4 @@ html[data-backend="server"] .off-ind::before{content:"";width:9px;height:9px;bor
 .inv-waiting{background:#fff3cd;color:#7a5a00}.inv-used{background:#d9f2e6;color:#145c3b}.inv-expired{background:#eee;color:#555}
 .verif-ok{color:#145c3b;font-weight:700}.verif-bad{color:#9b1c1c;font-weight:700}
 .verif-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}.verif-dl dt{color:#666}.verif-dl dd{margin:0;font-weight:600}
+.sco-max{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.sco-max input[hidden]{display:none!important}.sco-max select{min-height:36px}.sco-maxf{gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 8px}

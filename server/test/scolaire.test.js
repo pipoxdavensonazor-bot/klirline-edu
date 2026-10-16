@@ -70,17 +70,17 @@ test('parcours : saisie enseignant → soumission → publication direction → 
   assert.equal(pubLog.n, 2);
 });
 
-test('moyennes : notes publiées, ramenées sur 10, pondérées ; absence non comptée', async () => {
+test('moyennes : notes publiées, ramenées sur 100, pondérées ; absence non comptée', async () => {
   const s1 = ids.A.students[0];
-  // Maths : 15/20 → 7,5 (coef 1) ; 6/10 → 6 (coef 2) → (7,5 + 12) / 3 = 6,5. Français non publié : absent du calcul.
+  // Maths : 15/20 → 75 (coef 1) ; 6/10 → 60 (coef 2) → (75 + 120) / 3 = 65. Français non publié : absent du calcul.
   const avg = (await call('parent1', 'GET', `/api/students/${s1}/averages?term_id=${ids.A.terms[0]}`)).json;
-  assert.equal(avg.scale, 10);
-  assert.deepEqual(avg.subjects.map((s) => [s.name, s.average]), [['Mathématiques', 6.5]]);
-  assert.equal(avg.general, 6.5);
+  assert.equal(avg.scale, 100);
+  assert.deepEqual(avg.subjects.map((s) => [s.name, s.average]), [['Mathématiques', 65]]);
+  assert.equal(avg.general, 65);
   assert.equal((await call('direction', 'POST', `/api/evaluations/${evFr}/publier`)).status, 200);
   const avg2 = (await call('direction', 'GET', `/api/students/${s1}/averages?term_id=${ids.A.terms[0]}`)).json;
-  assert.deepEqual(avg2.subjects.map((s) => [s.name, s.average, s.count]).sort(), [['Français', null, 0], ['Mathématiques', 6.5, 2]]);
-  assert.equal(avg2.general, 6.5, 'la matière sans note ne pèse pas');
+  assert.deepEqual(avg2.subjects.map((s) => [s.name, s.average, s.count]).sort(), [['Français', null, 0], ['Mathématiques', 65, 2]]);
+  assert.equal(avg2.general, 65, 'la matière sans note ne pèse pas');
 });
 
 test('note publiée : correction direction avec motif, historique ; idempotence et conflit', async () => {
