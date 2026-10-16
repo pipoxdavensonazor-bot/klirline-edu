@@ -40,7 +40,8 @@ run_cycle() { # run_cycle <libellé> <variables d'environnement de chiffrement�
   local label="$1"; shift
   echo "2. [$label] Sauvegarde"
   rm -rf "$work/b"
-  env "$@" DATABASE_URL="$SRC" BACKUP_DIR="$work/b" NORIA_BACKUP_ENV=/dev/null "$here/noria-sauvegarde.sh" 2> "$work/log"
+  if ! env "$@" DATABASE_URL="$SRC" BACKUP_DIR="$work/b" NORIA_BACKUP_ENV=/dev/null "$here/noria-sauvegarde.sh" 2> "$work/log"; then
+    cat "$work/log"; exit 1; fi
   local f; f="$(find "$work/b/quotidien" -name 'noria-*' ! -name '*.sha256')"
   [ -s "$f" ] || { cat "$work/log"; exit 1; }
   if head -c 64 "$f" | grep -qa 'PGDMP'; then echo "fichier non chiffré !"; exit 1; fi
@@ -90,7 +91,7 @@ if [ -n "${S3_ENDPOINT:-}" ] && [ -n "${S3_BUCKET:-}" ]; then
   export S3_PREFIX="ci-$$"
   KEY="$(openssl rand -hex 32)"
   for i in $(seq 1 9); do
-    NORIA_BACKUP_DATE="2026-03-0$i" NORIA_BACKUP_KEY="$KEY" DATABASE_URL="$SRC" BACKUP_DIR="$work/s3loc" NORIA_BACKUP_ENV=/dev/null "$here/noria-sauvegarde.sh" 2>/dev/null
+    NORIA_BACKUP_DATE="2026-03-0$i" NORIA_BACKUP_KEY="$KEY" DATABASE_URL="$SRC" BACKUP_DIR="$work/s3loc" NORIA_BACKUP_ENV=/dev/null "$here/noria-sauvegarde.sh"
     sleep 1
   done
   . "$here/lib.sh"; charger_config
