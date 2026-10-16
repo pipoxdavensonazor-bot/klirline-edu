@@ -1000,7 +1000,19 @@ function boot(){
   if(window.KL){ window.KL.remind=function(lid){ return KLX.loanRemind(lid); }; window.KL.loanExt=function(lid){ return KLX.loanExt(lid); }; window.KL.loanLost=function(lid){ return KLX.loanLost(lid); }; }
   try{ injectToday(); }catch(e){}
   audit("ext.boot","extensions chargées (ancien intact)");
-  const obs = new MutationObserver(()=>{ injectNav(); try{injectToday();}catch(e){} const v=document.querySelector("#view"); if(v && !v.querySelector("[data-xview]") && XROUTE){ XROUTE=null; markNav(); } });
+  // injectNav always rewrites portal buttons. Observing those writes would
+  // schedule another callback and freeze the page on the first navigation.
+  const obs = new MutationObserver(()=>{
+    obs.disconnect();
+    try{ injectNav(); }catch(e){}
+    try{ injectToday(); }catch(e){}
+    const v=document.querySelector("#view");
+    if(v && !v.querySelector("[data-xview]") && XROUTE){ XROUTE=null; try{ markNav(); }catch(e){} }
+    const nav=document.querySelector("#nav");
+    const view=document.querySelector("#view");
+    if(nav) obs.observe(nav,{childList:true});
+    if(view) obs.observe(view,{childList:true});
+  });
   const nav=document.querySelector("#nav"); if(nav) obs.observe(nav,{childList:true});
   const view=document.querySelector("#view"); if(view) obs.observe(view,{childList:true});
 }
