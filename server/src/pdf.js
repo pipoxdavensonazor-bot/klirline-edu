@@ -57,21 +57,49 @@ class Page {
   }
 }
 
-function build(page, { title = 'NORIA' } = {}) {
-  const content = zlib.deflateSync(Buffer.from(page.ops.join('\n'), 'latin1'), { level: 9 });
-  const imgs = page.images || [];
-  // Objets : 1 catalogue, 2 pages, 3 page, 4-5 polices, 6 contenu, 7 infos, 8… images (XObject JPEG, DCTDecode).
-  const xobj = imgs.length ? ` /XObject << ${imgs.map((im, i) => `/${im.name} ${8 + i} 0 R`).join(' ')} >>` : '';
+function build(page, opts = {}) { return buildDoc([page], opts); }
+
+// Document de plusieurs pages, de taille quelconque (A4 par défaut ; carte CR80 pour les badges). Une même image
+// (même Buffer, par ex. le logo répété sur une planche) n'est intégrée qu'une fois.
+function buildDoc(pages, { title = 'NORIA', size = [595, 842] } = {}) {
+  const imgObjs = []; const byData = new Map();
   const objs = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >>${xobj} >> /Contents 6 0 R >>`,
+    null, // pages : rempli plus bas
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-    { stream: content, dict: '/Filter /FlateDecode' },
     `<< /Title ${pdfString(title)} /Producer (NORIA) >>`,
-    ...imgs.map((im) => ({ stream: im.data, dict: `/Type /XObject /Subtype /Image /Width ${im.width} /Height ${im.height} /ColorSpace /${im.components === 1 ? 'DeviceGray' : 'DeviceRGB'} /BitsPerComponent 8 /Filter /DCTDecode` })),
   ];
+  const kids = [];
+  for (const page of pages) {
+    const names = [];
+    for (const im of page.images || []) {
+      let ref = byData.get(im.data);
+      if (!ref) {
+        ref = { id: null, im }; byData.set(im.data, ref); imgObjs.push(ref);
+      }
+      names.push([im.name, ref]);
+    }
+    const content = zlib.deflateSync(Buffer.from(page.ops.join('\n'), 'latin1'), { level: 9 });
+    objs.push({ stream: content, dict: '/Filter /FlateDecode' });
+    const contentId = objs.length;
+    objs.push({ page: true, names, contentId });
+    kids.push(objs.length);
+  }
+  for (const ref of imgObjs) {
+    const im = ref.im;
+    objs.push({ stream: im.data, dict: `/Type /XObject /Subtype /Image /Width ${im.width} /Height ${im.height} /ColorSpace /${im.components === 1 ? 'DeviceGray' : 'DeviceRGB'} /BitsPerComponent 8 /Filter /DCTDecode` });
+    ref.id = objs.length;
+  }
+  objs[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
+  const box = `[0 0 ${n(size[0])} ${n(size[1])}]`;
+  for (let i = 0; i < objs.length; i++) {
+    const o = objs[i];
+    if (o && o.page) {
+      const xobj = o.names.length ? ` /XObject << ${o.names.map(([nm, ref]) => `/${nm} ${ref.id} 0 R`).join(' ')} >>` : '';
+      objs[i] = `<< /Type /Page /Parent 2 0 R /MediaBox ${box} /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xobj} >> /Contents ${o.contentId} 0 R >>`;
+    }
+  }
   const chunks = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];
   const offsets = []; let pos = chunks[0].length;
   objs.forEach((o, i) => {
@@ -83,7 +111,7 @@ function build(page, { title = 'NORIA' } = {}) {
     offsets.push(pos); chunks.push(head, body, tail); pos += head.length + body.length + tail.length;
   });
   const xref = ['xref', `0 ${objs.length + 1}`, '0000000000 65535 f ', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `)].join('\n');
-  chunks.push(Buffer.from(`${xref}\ntrailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 7 0 R >>\nstartxref\n${pos}\n%%EOF\n`, 'latin1'));
+  chunks.push(Buffer.from(`${xref}\ntrailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n${pos}\n%%EOF\n`, 'latin1'));
   return Buffer.concat(chunks);
 }
 
@@ -168,7 +196,7 @@ function reportCardPdf(snap, verifyUrl, school) {
   return build(p, { title: `Bulletin ${snap.student} - ${snap.term}` });
 }
 
-module.exports = { reportCardPdf, pdfString, schoolHeader, jpegSize, Page, build };
+module.exports = { reportCardPdf, pdfString, schoolHeader, jpegSize, Page, build, buildDoc };
 
 // Reçu de paiement : une demi-page A4 utile, numéro séquentiel de l'école, montant en HTG, mode et référence,
 // solde après paiement, QR vers la page publique de vérification (la même que les bulletins).

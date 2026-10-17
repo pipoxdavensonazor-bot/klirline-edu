@@ -89,7 +89,8 @@ function createStatic(root) {
       'cache-control': f.ext === '.html' || url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600',
       etag: f.etag, vary: 'Accept-Encoding',
     };
-    if (f.ext === '.html') headers['content-security-policy'] = HTML_CSP;
+    // Caméra autorisée pour la page elle-même seulement (scan des badges) ; jamais pour un cadre tiers.
+    if (f.ext === '.html') { headers['content-security-policy'] = HTML_CSP; headers['permissions-policy'] = 'camera=(self), microphone=(), geolocation=()'; }
     else delete headers['content-security-policy'];
     if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, headers); res.end(); return true; }
     const gzip = f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '');

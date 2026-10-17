@@ -463,6 +463,10 @@ function setSessionCookie(req, ctx, token) {
 }
 const eco = ecoles.createRoutes({ normalizePhone, outbox, linkBase, reqLang, newToken, INVITE_HOURS, setSessionCookie });
 routes.push(...eco.routes, ...eco.publicRoutes);
+// Bloc 2 : photo, badges, recherche et scan ; relevés de notes officiels signés.
+routes.push(...require('./badges').routes);
+const rel = require('./releves').createRoutes({ outbox, reqLang });
+routes.push(...rel.routes, ...rel.publicRoutes);
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];

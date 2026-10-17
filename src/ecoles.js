@@ -85,7 +85,9 @@ function load(src){
 function view(m){
   setTimeout(async()=>{
     const el=document.getElementById("ecoView"); if(!el) return;
-    try{ await load("src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) window.NORIA_ECOG.render(m,el,C); }
+    // Bloc 2 (recherche et scan, badges, relevés) : module séparé, lui aussi chargé à la demande.
+    const b2=m==="scan"||m==="badges"||m==="releves";
+    try{ await load(b2?"src/badges.js":"src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) (b2?window.NORIA_BAD:window.NORIA_ECOG).render(m,el,C); }
     catch(e){ el.innerHTML=`<div class="badbox">${esc(t("loadErr"))}</div>`; }
   },0);
   return `<div id="ecoView" data-view="${esc(m)}"><p class="mut">${esc(t("wait"))}</p></div>`;

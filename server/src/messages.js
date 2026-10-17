@@ -49,6 +49,15 @@ const T = {
       subject: 'NORIA — nouvo modpas',
       text: `Bonjou,\n\nPou chwazi yon nouvo modpas, louvri lyen sa a (li bon pou ${v.minutes} minit, yon sèl fwa) :\n\n${v.link}\n\nTout sesyon ou yo ap fèmen. Si se pa ou ki mande l, pa okipe mesaj sa a.\n\nNORIA` }),
   },
+  // Relevé de notes : état de la demande, sans aucune note (le document est dans le portail).
+  releve: {
+    fr: (v) => { const w = { emis: 'est disponible dans votre espace NORIA', refuse: 'a été refusée (motif dans votre espace NORIA)', annule: 'a été annulé' }[v.status];
+      return { sms: `${v.initials ? `[${v.initials}] ` : 'NORIA : '}Relevé de notes : la demande ${w}.`, subject: `${v.initials ? `[${v.initials}] ` : ''}Relevé de notes — ${v.school}`,
+        text: `Bonjour,\n\nRelevé de notes officiel (${v.school}) : la demande ${w}.\n\nNORIA` }; },
+    ht: (v) => { const w = { emis: 'disponib nan espas NORIA ou', refuse: 'refize (rezon an nan espas NORIA ou)', annule: 'anile' }[v.status];
+      return { sms: `${v.initials ? `[${v.initials}] ` : 'NORIA : '}Relve nòt : demann lan ${w}.`, subject: `${v.initials ? `[${v.initials}] ` : ''}Relve nòt — ${v.school}`,
+        text: `Bonjou,\n\nRelve nòt ofisyèl (${v.school}) : demann lan ${w}.\n\nNORIA` }; },
+  },
 };
 
 function render(kind, lang, vars) { return T[kind][pick(lang)](vars); }

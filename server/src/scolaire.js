@@ -401,6 +401,12 @@ const publicRoutes = [
     const code = raw.toUpperCase().replace(/-/g, '');
     const keys = [`verif:${req.ip}`];
     if (await ctx.limiter.blocked(keys)) throw new HttpError(429, 'trop de vérifications, réessayez plus tard');
+    // Badge (« B… », 27 caractères) et relevé officiel (« R… », 13 caractères) : même page publique.
+    if (/^[BR][A-Z2-9]{12,26}$/.test(code)) {
+      const v = code[0] === 'B' ? await require('./badges').verifyBadgePublic(db, code) : await require('./releves').verifyTranscriptPublic(db, code);
+      if (v) return v;
+      await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun document ne correspond à ce code');
+    }
     const r = /^[A-Z2-9]{12}$/.test(code) ? await db.get(`SELECT r.issued_at, r.revoked_at, r.revoked_reason, s.name AS school, st.first_name, st.last_name, t.name AS term, y.label AS year
       FROM report_card r JOIN school s ON s.id = r.school_id
       JOIN student st ON st.id = r.student_id AND st.school_id = r.school_id

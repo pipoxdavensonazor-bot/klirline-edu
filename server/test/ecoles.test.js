@@ -263,7 +263,7 @@ test('migration 009 sur des données existantes : comptes réunis par e-mail san
     INSERT INTO app_user (id, school_id, email, display_name, password_hash) VALUES (1, 1, 'meme@x.invalid', 'Même', 'scrypt$aa$bb'), (2, 2, 'meme@x.invalid', 'Même', 'scrypt$cc$dd'), (3, 2, 'autre@x.invalid', 'Autre', NULL);
     INSERT INTO user_role (school_id, user_id, role) VALUES (1, 1, 'enseignant'), (2, 2, 'direction');
     INSERT INTO student (id, school_id, code, first_name, last_name) VALUES (1, 1, 'E-001', 'Ana', 'X'), (2, 2, 'E-001', 'Bel', 'Y');`);
-  assert.deepEqual(await migrate(lite), ['009']);
+  assert.equal((await migrate(lite))[0], '009'); // puis les migrations suivantes
   const persons = raw.prepare('SELECT id, email FROM person ORDER BY id').all();
   assert.equal(persons.length, 2);
   const users = raw.prepare('SELECT id, person_id, password_hash FROM app_user ORDER BY id').all();

@@ -12,7 +12,7 @@ const T={
       save:"Enregistrer",done:"C'est fait. Connectez-vous.",invalid:"Lien invalide ou expiré.",short:"10 caractères minimum.",first:"Première connexion : un réseau est nécessaire.",
       pendingOut:n=>`${n} saisie(s) pas encore envoyée(s). Elles partiront à la prochaine connexion de ce compte. Se déconnecter quand même ?`,
       offOut:"Hors ligne : vous ne pourrez pas vous reconnecter avant le retour du réseau. Se déconnecter ?",
-      rOk:"Reçu authentique",rRev:"Reçu annulé",rNo:"Reçu n°",rAmt:"Montant",rNote:"Cette page confirme l'école, l'élève, le numéro et le montant du reçu. Aucune autre donnée n'est affichée.",vTitle:"Vérification d'un bulletin ou d'un reçu",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce document n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",
+      rOk:"Reçu authentique",rRev:"Reçu annulé",rNo:"Reçu n°",rAmt:"Montant",rNote:"Cette page confirme l'école, l'élève, le numéro et le montant du reçu. Aucune autre donnée n'est affichée.",vTitle:"Vérification d'un bulletin ou d'un reçu",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce document n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",bOk:"Badge valide",bExp:"Badge expiré",bRev:"Badge révoqué",bYear:"Année scolaire",bNote:"Cette page confirme seulement l'école, le prénom, l'année et le statut du badge. Aucune photo n'est affichée.",tOk:"Relevé de notes officiel authentique",tRev:"Relevé annulé",tMod:"Relevé modifié : signature invalide",tDoc:"Document",tFile:"Contrôler le fichier PDF reçu",tAuth:"✓ Fichier authentique : identique au document signé.",tAlt:"✕ Fichier modifié : il ne correspond pas au document signé.",tNote:"Cette page confirme l'école, l'élève, le type de document, la date et le statut. Les notes ne sont jamais affichées ici.",
       anySchool:"Toutes mes écoles",schoolOpt:"École (facultatif si vous n'en avez qu'une)",chooseTitle:"Choisissez une école",chooseHelp:"Votre compte est relié à plusieurs écoles. Vous pourrez changer d'école dans l'en-tête.",
       invBy:"vous invite à rejoindre NORIA",invAs:"Rôle",invHello:"Bonjour",existing:"Vous avez déjà un compte NORIA : saisissez votre mot de passe actuel pour relier cette école.",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
@@ -24,7 +24,7 @@ const T={
       save:"Anrejistre",done:"Fini. Konekte kounye a.",invalid:"Lyen an pa bon oswa li ekspire.",short:"10 karaktè minimòm.",first:"Premye koneksyon : fò gen rezo.",
       pendingOut:n=>`${n} antre poko pati. Y ap pati lè kont sa a rekonekte. Dekonekte kanmenm ?`,
       offOut:"San entènèt : ou p ap ka rekonekte toutotan rezo a pa tounen. Dekonekte ?",
-      rOk:"Resi otantik",rRev:"Resi anile",rNo:"Resi nimewo",rAmt:"Montan",rNote:"Paj sa a konfime lekòl la, elèv la, nimewo ak montan resi a sèlman. Okenn lòt enfòmasyon pa parèt.",vTitle:"Verifikasyon bilten oswa resi",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd sa a enkoni : se pa NORIA ki bay dokiman sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",
+      rOk:"Resi otantik",rRev:"Resi anile",rNo:"Resi nimewo",rAmt:"Montan",rNote:"Paj sa a konfime lekòl la, elèv la, nimewo ak montan resi a sèlman. Okenn lòt enfòmasyon pa parèt.",vTitle:"Verifikasyon bilten oswa resi",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd sa a enkoni : se pa NORIA ki bay dokiman sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",bOk:"Badj valab",bExp:"Badj ekspire",bRev:"Badj revoke",bYear:"Ane lekòl",bNote:"Paj sa a konfime lekòl la, prenon an, ane a ak eta badj la sèlman. Okenn foto pa parèt.",tOk:"Relve nòt ofisyèl otantik",tRev:"Relve anile",tMod:"Relve a chanje : siyati a pa bon",tDoc:"Dokiman",tFile:"Kontwole fichye PDF ou resevwa a",tAuth:"✓ Fichye otantik : li menm jan ak dokiman ki siyen an.",tAlt:"✕ Fichye a chanje : li pa koresponn ak dokiman ki siyen an.",tNote:"Paj sa a konfime lekòl la, elèv la, kalite dokiman an, dat la ak eta a. Nòt yo pa janm parèt la.",
       anySchool:"Tout lekòl mwen yo",schoolOpt:"Lekòl (ou pa oblije mete l si se yon sèl ou genyen)",chooseTitle:"Chwazi yon lekòl",chooseHelp:"Kont ou konekte ak plizyè lekòl. W ap ka chanje lekòl nan antèt la.",
       invBy:"envite w antre nan NORIA",invAs:"Wòl",invHello:"Bonjou",existing:"Ou gen yon kont NORIA deja : antre modpas ou genyen kounye a pou konekte lekòl sa a.",
       roles:{direction:"Direksyon",secretariat:"Sekretarya",enseignant:"Pwofesè",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",parent:"Paran",eleve:"Elèv"}},
@@ -164,12 +164,26 @@ const views={
     if(!r) h=`<p class="login-err">${esc(t("net"))}</p>`;
     else if(r.status===429) h=`<p class="login-err">${esc(t("many"))}</p>`;
     else if(r.status!==200) h=`<p class="verif-bad" id="verifRes">✕ ${esc(t("vBad"))}</p>`;
+    else if(r.body.type==="badge"||r.body.type==="releve"){ const v=r.body, bd=v.type==="badge", okk=v.statut==="valide";
+      const lbl=bd?{valide:"bOk",expire:"bExp",revoque:"bRev"}[v.statut]:{valide:"tOk",annule:"tRev",modifie:"tMod"}[v.statut];
+      h=`<p class="${okk?"verif-ok":"verif-bad"}" id="verifRes">${okk?"✓ ":"✕ "}${esc(t(lbl))}</p><dl class="verif-dl"><dt>${esc(t("vSchool"))}</dt><dd>${esc(v.ecole)}</dd><dt>${esc(t("vStudent"))}</dt><dd>${esc(v.eleve)}</dd>
+      ${bd?`<dt>${esc(t("bYear"))}</dt><dd>${esc(v.annee)}</dd>`:`<dt>${esc(t("tDoc"))}</dt><dd>${esc(v.document)}</dd><dt>${esc(t("vDate"))}</dt><dd>${esc(v.emis_le)}</dd>`}${v.motif?`<dt>${esc(t("vWhy"))}</dt><dd>${esc(v.motif)}</dd>`:""}</dl>
+      ${bd?"":`<label class="small">${esc(t("tFile"))}<input type="file" id="vFile" accept="application/pdf"></label><p id="vFileRes" role="status"></p>`}`; }
     else { const v=r.body; const okk=v.statut==="valide"; const rec=v.type==="recu";
       h=`<p class="${okk?"verif-ok":"verif-bad"}" id="verifRes">${okk?"✓ "+esc(t(rec?"rOk":"vOk")):"✕ "+esc(t(rec?"rRev":"vRev"))}</p><dl class="verif-dl">
       <dt>${esc(t("vSchool"))}</dt><dd>${esc(v.ecole)}</dd><dt>${esc(t("vStudent"))}</dt><dd>${esc(v.eleve)}</dd>${rec?`<dt>${esc(t("rNo"))}</dt><dd>${esc(v.numero)}</dd><dt>${esc(t("rAmt"))}</dt><dd>${esc(v.montant)}</dd>`:`<dt>${esc(t("vTerm"))}</dt><dd>${esc(v.periode)}</dd>`}<dt>${esc(t("vDate"))}</dt><dd>${esc(String(v.emis_le).slice(0,10))}</dd>
       ${v.motif?`<dt>${esc(t("vWhy"))}</dt><dd>${esc(v.motif)}</dd>`:""}</dl>`; }
-    const box=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small mut">${esc(code)}</p>${h}<p class="small">${esc(t(r&&r.body&&r.body.type==="recu"?"rNote":"vNote"))}</p><button type="button" class="login-main" id="vBack">${esc(t("back"))}</button>`);
+    const box=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small mut">${esc(code)}</p>${h}<p class="small">${esc(t({recu:"rNote",badge:"bNote",releve:"tNote"}[r&&r.body&&r.body.type]||"vNote"))}</p><button type="button" class="login-main" id="vBack">${esc(t("back"))}</button>`);
     box.dataset.view="verify";
+    // Relevé : le fichier présenté est-il celui qui a été signé (Ed25519 sur son empreinte SHA-256) ?
+    const vf=box.querySelector("#vFile");
+    if(vf) vf.addEventListener("change",async()=>{ const f=vf.files[0], out=box.querySelector("#vFileRes"); if(!f) return;
+      const buf=await f.arrayBuffer(); let body;
+      if(crypto.subtle){ const d=new Uint8Array(await crypto.subtle.digest("SHA-256",buf)); body={sha256:[...d].map(x=>x.toString(16).padStart(2,"0")).join("")}; }
+      else { let b=""; new Uint8Array(buf).forEach(x=>{ b+=String.fromCharCode(x); }); body={pdf:btoa(b)}; }
+      const x=await post("/api/verifier/"+encodeURIComponent(code)+"/fichier",body).catch(()=>null);
+      out.className=x&&x.status===200&&x.body.resultat==="authentique"?"verif-ok":"verif-bad";
+      out.textContent=!x||x.status!==200?t("net"):x.body.resultat==="authentique"?t("tAuth"):t("tAlt"); });
     box.querySelector("#vBack").addEventListener("click",()=>{ history.replaceState(null,"",location.pathname); location.reload(); });
   },
   // Choix de l'école après connexion (personne membre de plusieurs écoles).
