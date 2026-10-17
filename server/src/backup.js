@@ -24,7 +24,9 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   // Bloc 5 : portail public (images, propositions, lauréats, annonces, publicités et leurs clics).
   'portal_image', 'portal_item', 'portal_ad', 'portal_ad_click',
   // Bloc 6 : comptes, journal et clé du ministère, déclarations annuelles et leur historique.
-  'ministry_account', 'ministry_audit', 'ministry_key', 'annual_declaration', 'declaration_event'];
+  'ministry_account', 'ministry_audit', 'ministry_key', 'annual_declaration', 'declaration_event',
+  // Bloc 7 : adresses e-mail des élèves (réglages par école, destinations vérifiées, adresses, journal).
+  'school_email_settings', 'student_email_dest', 'student_email', 'student_email_event'];
 
 // Tables volontairement exclues : rien de métier, et rien qu'il soit souhaitable de remettre en service.
 const EXCLUDED = {
@@ -41,7 +43,7 @@ const EXCLUDED = {
 
 // Tables sans colonne id : ordre de sortie stable par clé primaire.
 const ORDER = { user_role: 'user_id, role', sync_op: 'school_id, op_id', student_code: 'school_id, code', student_photo: 'school_id, student_id',
-  school_key: 'school_id', security_notice: 'rule', portal_ad_click: 'ad_id, day' };
+  school_key: 'school_id', security_notice: 'rule', portal_ad_click: 'ad_id, day', school_email_settings: 'school_id' };
 const WITH_ID = new Set(TABLES.filter((t) => !ORDER[t]));
 const orderOf = (t) => (WITH_ID.has(t) ? 'id' : ORDER[t]);
 const digest = (tables) => crypto.createHash('sha256').update(JSON.stringify(tables)).digest('hex');

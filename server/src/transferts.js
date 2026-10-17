@@ -18,6 +18,7 @@ const S = require('./scolaire');
 const otp = require('./otp');
 const { maskAccount } = require('./securite');
 const { certificatePdf, day } = require('./pdf-transfert');
+const emailsEleves = require('./emails-eleves');
 
 const ACTIFS = ['demande', 'consentement', 'approuve_origine', 'approuve_ministere'];
 const CLOS = ['transfere', 'refuse', 'annule'];
@@ -288,6 +289,8 @@ async function finalize(sys, ctx, req, t) {
     await x.run("UPDATE enrollment SET status = 'transfere', reason = ?, updated_at = CURRENT_TIMESTAMP WHERE school_id = ? AND student_id = ? AND status = 'actif'", `Transfert vers ${to.name}`, t.from_school_id, st.id);
     await x.run("UPDATE badge SET status = 'revoque', revoked_at = ?, revoked_reason = ? WHERE school_id = ? AND student_id = ? AND status = 'valide'", at, 'Élève transféré', t.from_school_id, st.id);
     await x.run("UPDATE student SET status = 'transfere', transferred_at = ?, transfer_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?", at, t.id, st.id, t.from_school_id);
+    // 3 bis. Adresse e-mail NORIA de l'élève (bloc 7) : elle le suit ou reste redirigée (voir emails-eleves.js).
+    if (emailsEleves.enabled(ctx)) await emailsEleves.onTransfer(x, ctx, t, sid);
     // 4. Certificat (signé par l'école d'origine).
     const pdf = certificatePdf({
       from: { ...from, signature: t.origin_signature_image ? Buffer.from(t.origin_signature_image, 'base64') : from.signature }, to,

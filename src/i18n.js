@@ -2,7 +2,7 @@
 window.KL_I18N = {
 fr: {
   appName: "NORIA", appSub: "Une école, une famille et un avenir",
-  dashboard: "Tableau de bord", students: "Élèves", classes: "Classes", ecole: "Profil de l'école", importEleves: "Import des élèves", scan: "Recherche et scan", badges: "Badges élèves", releves: "Relevés de notes", transferts: "Transferts", portail: "Portail public", declaration: "Déclaration au ministère",
+  dashboard: "Tableau de bord", students: "Élèves", classes: "Classes", ecole: "Profil de l'école", importEleves: "Import des élèves", scan: "Recherche et scan", badges: "Badges élèves", releves: "Relevés de notes", transferts: "Transferts", portail: "Portail public", declaration: "Déclaration au ministère", emails: "Adresses e-mail élèves", monemail: "Adresse e-mail NORIA",
   attendance: "Présences", academic: "Académique", comms: "Communications",
   finance: "Finances", library: "Bibliothèque", reports: "Rapports", accounts: "Comptes", settings: "Paramètres",
   online: "Démo locale", offline: "File locale", sync: "Vider la file (démo)", pending: "en attente ici",
@@ -65,7 +65,7 @@ fr: {
 },
 ht: {
   appName: "NORIA", appSub: "Yon lekòl, yon fanmi ak yon avni",
-  dashboard: "Tablo jeneral", students: "Elèv", classes: "Klas", ecole: "Pwofil lekòl la", importEleves: "Enpòte elèv yo", scan: "Chèche ak eskane", badges: "Badj elèv", releves: "Relve nòt", transferts: "Transfè", portail: "Pòtay piblik", declaration: "Deklarasyon bay ministè",
+  dashboard: "Tablo jeneral", students: "Elèv", classes: "Klas", ecole: "Pwofil lekòl la", importEleves: "Enpòte elèv yo", scan: "Chèche ak eskane", badges: "Badj elèv", releves: "Relve nòt", transferts: "Transfè", portail: "Pòtay piblik", declaration: "Deklarasyon bay ministè", emails: "Adrès imel elèv", monemail: "Adrès imel NORIA",
   attendance: "Prezans", academic: "Akademik", comms: "Kominikasyon",
   finance: "Finans", library: "Bibliyotèk", reports: "Rapò", accounts: "Kont", settings: "Reglaj",
   online: "Demo lokal", offline: "Fil lokal", sync: "Vide fil la (demo)", pending: "ap tann isit",

@@ -212,6 +212,15 @@ motif journalisé (journal du ministère et journal de l'école), déclaration a
 ministère des transferts signée, vérification de documents, règle d'assistant `ministere_consultations`. Détails :
 `docs/ministere.md`. Vérification navigateur : `NODE_PATH=… node scripts/verif-ministere.js`.
 
+## Adresses e-mail des élèves (bloc 7, `test/emails-eleves.test.js`)
+
+Désactivées par défaut (`NORIA_EMAIL_ELEVES=0` : routes, page `/email/verifier` et scripts répondent 404). À `1` avec
+`NORIA_EMAIL_DOMAINE` : adresse dérivée du code élève (unique, jamais réattribuée), sous-domaine/préfixe par école,
+création en masse avec aperçu, transfert vers une adresse personnelle vérifiée (code ou lien), accord parental pour
+les mineurs, suspension, fin de scolarité avec délai, règle de transfert entre écoles, journal en ajout seul, règle
+d'assistant `emails_eleves`, adaptateurs `simule` / Cloudflare / Forward Email / Mailgun sans clé dans le code.
+Coûts et branchement : `docs/emails-eleves.md`. Vérification navigateur : `NODE_PATH=… node scripts/verif-emails.js`.
+
 ## Reste à faire avant toute donnée réelle
 
 Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), finances, bibliothèque et rapports côté serveur (encore locaux), validation par Philippe des règles de notes (barème /10, publication par la direction seule, annulation du bulletin précédent), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).

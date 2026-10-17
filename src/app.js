@@ -23,27 +23,28 @@ KL.t=t;
 
 // Ordre du menu (ordinateur, tiroir mobile ; les 5 premières entrées autorisées forment la barre du bas du téléphone).
 // « Échanges » (transferts, portail, ministère) juste après le quotidien pour rester visible sans défiler.
-const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["transferts",""],["portail",""],["declaration",""],["comms",""],["finance",""],["reports",""],["badges",""],["releves",""],["scan",""],["library",""],["ecole",""],["importEleves",""],["accounts",""],["settings",""]];
-const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",transferts:"Échanges",portail:"Échanges",declaration:"Échanges",comms:"Vie scolaire",finance:"Vie scolaire",reports:"Vie scolaire",badges:"Documents",releves:"Documents",scan:"Documents",library:"Bibliothèque",ecole:"Administration",importEleves:"Administration",accounts:"Administration",settings:"Administration"};
+const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["transferts",""],["portail",""],["declaration",""],["comms",""],["finance",""],["reports",""],["monemail",""],["badges",""],["releves",""],["scan",""],["library",""],["ecole",""],["importEleves",""],["accounts",""],["emails",""],["settings",""]];
+const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",transferts:"Échanges",portail:"Échanges",declaration:"Échanges",comms:"Vie scolaire",finance:"Vie scolaire",reports:"Vie scolaire",monemail:"Vie scolaire",badges:"Documents",releves:"Documents",scan:"Documents",library:"Bibliothèque",ecole:"Administration",importEleves:"Administration",accounts:"Administration",emails:"Administration",settings:"Administration"};
 const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi","Échanges":"Echanj","Vie scolaire":"Lavi lekòl","Documents":"Dokiman","Administration":"Administrasyon"};
 // Libellés propres au menu : ce que fait l'entrée, et « lecture seule » quand le rôle ne peut que consulter.
 const NAV_LBL={fr:{portail:"Portail : propositions",ro:"lecture seule"},ht:{portail:"Pòtay : pwopozisyon",ro:"lekti sèlman"}};
-const READ_ONLY={secretariat:["declaration"]};
+const READ_ONLY={secretariat:["declaration","emails"]};
 function navLabel(m){ const N=NAV_LBL[S.lang==="ht"?"ht":"fr"]; const base=N[m]||t(m==="comms"?"comms":m); return (READ_ONLY[S.role]||[]).includes(m)?`${base} · ${N.ro}`:base; }
 function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
 const ROLE_MODULES={
-  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","ecole","importEleves","scan","badges","releves","transferts","portail","declaration","settings"],
-  secretariat:["dashboard","students","classes","attendance","academic","comms","library","reports","accounts","importEleves","scan","badges","releves","transferts","declaration"],
+  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","ecole","importEleves","scan","badges","releves","transferts","portail","declaration","emails","settings"],
+  secretariat:["dashboard","students","classes","attendance","academic","comms","library","reports","accounts","importEleves","scan","badges","releves","transferts","declaration","emails"],
   enseignant:["dashboard","classes","attendance","academic","comms"],
   comptable:["dashboard","students","finance","reports"],
   bibliothecaire:["dashboard","students","library","reports","scan"],
-  parent:["dashboard","attendance","academic","comms","finance","library","releves"],
-  eleve:["dashboard","academic","library","comms","releves"],
+  parent:["dashboard","attendance","academic","comms","finance","library","releves","monemail"],
+  eleve:["dashboard","academic","library","comms","releves","monemail"],
 };
 function can(m){
   if(m==="accounts"&&!SERVER) return false; // invitations : seulement avec le serveur
   if(m==="ecole"||m==="importEleves"||m==="scan"||m==="badges"||m==="releves"||m==="transferts"||m==="portail") return !!SERVER&&!!window.NORIA_ECO&&(ROLE_MODULES[S.role]||[]).includes(m); // profil d'école, import : serveur seulement
   if(m==="declaration") return !!SERVER&&!!window.NORIA_ECO&&document.documentElement.dataset.ministere==="1"&&(ROLE_MODULES[S.role]||[]).includes(m); // bloc 6 : portail du ministère activé seulement
+  if(m==="emails"||m==="monemail") return !!SERVER&&!!window.NORIA_ECO&&document.documentElement.dataset.emailsEleves==="1"&&(ROLE_MODULES[S.role]||[]).includes(m); // bloc 7 : NORIA_EMAIL_ELEVES=1 seulement
   if(m==="academic"&&S.role==="secretariat"&&!SERVER) return false;
   const base=(ROLE_MODULES[S.role]||[]).includes(m);
   if(SERVER&&(m==="accounts"||m==="academic"||m==="finance"||m==="library")) return base; // modules serveur : droits vérifiés par l'API, pas par la config locale des portails
@@ -79,7 +80,7 @@ function render(){
   renderShell();
   const v=$("#view");
   if(!can(ROUTE)) ROUTE="dashboard";
-  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet,ecole:()=>NORIA_ECO.view("ecole"),importEleves:()=>NORIA_ECO.view("importEleves"),scan:()=>NORIA_ECO.view("scan"),badges:()=>NORIA_ECO.view("badges"),releves:()=>NORIA_ECO.view("releves"),transferts:()=>NORIA_ECO.view("transferts"),portail:()=>NORIA_ECO.view("portail"),declaration:()=>NORIA_ECO.view("declaration")}[ROUTE];
+  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet,ecole:()=>NORIA_ECO.view("ecole"),importEleves:()=>NORIA_ECO.view("importEleves"),scan:()=>NORIA_ECO.view("scan"),badges:()=>NORIA_ECO.view("badges"),releves:()=>NORIA_ECO.view("releves"),transferts:()=>NORIA_ECO.view("transferts"),portail:()=>NORIA_ECO.view("portail"),declaration:()=>NORIA_ECO.view("declaration"),emails:()=>NORIA_ECO.view("emails"),monemail:()=>NORIA_ECO.view("monemail")}[ROUTE];
   // Écran d'accueil après connexion : l'école (logo ou initiales, nom, devise, coordonnées) et, pour un parent, ses enfants.
   v.innerHTML=(SERVER&&ROUTE==="dashboard"&&window.NORIA_ECO?NORIA_ECO.banner():"")+fn();
   const fb={students:bStu,attendance:bAtt,academic:bAcad,comms:bComms,finance:bFin,library:bLib,settings:bSet}[ROUTE];

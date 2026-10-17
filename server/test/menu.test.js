@@ -27,5 +27,11 @@ test('menu : sections FR/HT, modules récents présents, « Échanges » visible
   assert.ok(ROLES.secretariat.includes('declaration') && RO.secretariat.includes('declaration'), 'déclaration : secrétariat en lecture seule');
   for (const r of ['enseignant', 'comptable', 'bibliothecaire', 'parent', 'eleve']) for (const m of ['transferts', 'portail', 'declaration']) assert.ok(!ROLES[r].includes(m), `${m} interdit à ${r}`);
   assert.match(src, /m==="declaration"\)\s*return[^;]*dataset\.ministere==="1"/, 'déclaration seulement si NORIA_MINISTERE=1');
+  // Bloc 7 : adresses e-mail des élèves (Administration pour la direction, Vie scolaire pour élève et parent).
+  assert.equal(SPACE.emails, 'Administration'); assert.equal(SPACE.monemail, 'Vie scolaire');
+  assert.ok(RO.secretariat.includes('emails'), 'adresses e-mail : secrétariat en lecture seule');
+  for (const r of ['parent', 'eleve']) assert.ok(ROLES[r].includes('monemail') && !ROLES[r].includes('emails'), r);
+  for (const r of ['enseignant', 'comptable', 'bibliothecaire']) assert.ok(!ROLES[r].includes('emails') && !ROLES[r].includes('monemail'), r);
+  assert.match(src, /m==="emails"\|\|m==="monemail"\)\s*return[^;]*dataset\.emailsEleves==="1"/, 'seulement si NORIA_EMAIL_ELEVES=1');
   assert.deepEqual(Object.keys(LBL.fr).sort(), Object.keys(LBL.ht).sort(), 'libellés du menu FR = HT');
 });

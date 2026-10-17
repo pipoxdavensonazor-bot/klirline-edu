@@ -302,6 +302,7 @@ async function init(){
   document.documentElement.dataset.backend="server";
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
   if(CONFIG.ministere) document.documentElement.dataset.ministere="1"; // bloc 6 (prototype) : NORIA_MINISTERE=1
+  if(CONFIG.emailsEleves) document.documentElement.dataset.emailsEleves="1"; // bloc 7 : NORIA_EMAIL_ELEVES=1
   serverFooter();
   // Administration de la plateforme : interface séparée, chargée à la demande.
   if(location.hash==="#admin"&&window.NORIA_ECO){ try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }

@@ -18,6 +18,10 @@ async function main() {
   if (prod && (notifier.simulated.sms || notifier.simulated.email))
     console.warn('Attention : envoi simulé (console) en production — définir NORIA_SMS_PROVIDER et NORIA_EMAIL_PROVIDER.');
   console.log(`Envoi : SMS ${notifier.sms.name}, e-mail ${notifier.email.name}.`);
+  // Bloc 7 : adresses e-mail des élèves activées en production avec le fournisseur simulé → rien n'est réellement transféré.
+  if (prod && process.env.NORIA_EMAIL_ELEVES === '1' && (!process.env.NORIA_EMAIL_DOMAINE || (process.env.NORIA_EMAIL_FOURNISSEUR || 'simule') === 'simule' || (process.env.NORIA_EMAIL_ENVOI || 'simule') === 'simule')) {
+    console.warn('Attention : NORIA_EMAIL_ELEVES=1 sans NORIA_EMAIL_DOMAINE ou avec un fournisseur simulé — voir docs/emails-eleves.md.');
+  }
   const db = await openStore(url);
   const empty = !(await db.get('SELECT COUNT(*) AS n FROM school')).n;
   if (empty && demo) {

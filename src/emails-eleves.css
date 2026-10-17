@@ -1,0 +1,14 @@
+/* NORIA — bloc 7 : adresses e-mail des élèves (direction, espace élève/parent). */
+.em-tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.em-tw table{min-width:560px}
+.em-tw code,.em-addr{word-break:break-all}
+.em-addr{font:600 1.15rem/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:.3rem 0}
+.em-steps{margin:.4rem 0 0;padding-left:1.2rem}
+.em-steps li{margin:.15rem 0}
+.em-ok{color:#1a7f37}
+.em-code{letter-spacing:.3em;font-size:1.2rem;max-width:11ch;text-align:center}
+.em-owner{display:flex;gap:1rem;flex-wrap:wrap;margin:.3rem 0}
+.em-owner label{display:flex;gap:.35rem;align-items:center}
+.em-form label{display:block;margin:.45rem 0}
+.em-form input:not([type=radio]):not([type=checkbox]),.em-form select{display:block;width:100%;max-width:420px;margin-top:.2rem}
+.em-form .em-owner label{display:flex;margin:0}

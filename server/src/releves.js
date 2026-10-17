@@ -10,6 +10,7 @@ const { jpegSize } = require('./pdf');
 const { transcriptPdf } = require('./pdf-bloc2');
 const K = require('./cles');
 const S = require('./scolaire');
+const emailsEleves = require('./emails-eleves');
 
 const IMG_MAX = 48 * 1024;
 const RE_CODE = /^R[A-Z2-9]{12}$/;
@@ -204,6 +205,7 @@ function createRoutes({ outbox, reqLang }) {
       const pdf = transcriptPdf({
         school: { name: sch.name, initials: sch.initials, address: sch.address, email: sch.email, phone: sch.phone, motto: sch.motto, logo: img(sch.logo), seal: img(sch.seal), signature: img(sch.signature), signature_name: sch.signature_name },
         student: `${st.first_name} ${st.last_name}`, studentCode: st.code, className: st.class_name, birthDate: st.birth_date, scope: t.scope, ...c,
+        studentEmail: await emailsEleves.activeAddress(db, ctx, u.school_id, t.student_id),
         code: fmt(code), verifyUrl: `${S.publicUrl(req, ctx)}/#verifier=${code}`, keyId: keys.keyId, issuedAt, issuer: u.display_name,
       });
       const hash = crypto.createHash('sha256').update(pdf).digest('hex');

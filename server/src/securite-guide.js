@@ -95,6 +95,16 @@ const G = {
       ht: 'Yon direksyon pa konn pwopoze plis pase kèk kontni pa jou. Yon rafal ka soti nan yon kont yo vòlè oswa yon robo k ap ranpli lis moderasyon an (kontni ki pa bon, imaj lou). Wout la gen pwòp limit li tou : 30 pwopozisyon pa èdtan pou chak lekòl.' },
     faux: { fr: 'Normal après les résultats des examens officiels, quand une école propose d’un coup la liste de ses lauréats.', ht: 'Sa nòmal apre rezilta egzamen ofisyèl yo, lè yon lekòl pwopoze tout laureya li yo yon sèl kou.' },
   },
+  emails_eleves: {
+    titre: { fr: 'Adresses e-mail des élèves : activité inhabituelle', ht: 'Adrès imel elèv yo : aktivite ki pa nòmal' },
+    expl: { fr: '{cible} : {n} changements de destination en une heure, {creations} adresses créées en une heure, jusqu’à {repetes} changements pour une même adresse en 24 h, {echecs} codes de vérification faux. Seuils : {seuil} changements, {seuilCreations} créations, {seuilAdresse} par adresse, {seuilEchecs} codes faux.',
+      ht: '{cible} : {n} chanjman destinasyon nan inèdtan, {creations} adrès kreye nan inèdtan, jiska {repetes} chanjman pou menm adrès la nan 24 è, {echecs} move kòd verifikasyon. Limit : {seuil} chanjman, {seuilCreations} kreyasyon, {seuilAdresse} pa adrès, {seuilEchecs} move kòd.' },
+    reco: { fr: 'Ouvrez « Adresses e-mail élèves » et le journal des adresses concernées. Si les changements sont inattendus, suspendez ces adresses (plus aucun transfert), appelez les familles, puis déconnectez et verrouillez le compte en cause.',
+      ht: 'Louvri « Adrès imel elèv » ak jounal adrès sa yo. Si chanjman yo pa t prevwa, sispann adrès yo (pa gen transfè ankò), rele fanmi yo, epi dekonekte e fèmen kont lan.' },
+    pourquoi: { fr: 'Changer la destination d’une adresse, c’est détourner les messages d’un élève (souvent mineur). Une rafale peut venir d’un compte volé ; des codes faux à répétition, de quelqu’un qui essaie de deviner un code. Les créations en masse sont normales à la rentrée, rares ensuite.',
+      ht: 'Chanje destinasyon yon adrès, se detounen mesaj yon elèv (souvan minè). Yon rafal ka soti nan yon kont yo vòlè ; anpil move kòd, nan yon moun k ap eseye devine yon kòd. Kreyasyon an mas nòmal nan rantre lekòl, ra apre.' },
+    faux: { fr: 'Normal le jour où la direction crée les adresses de toute l’école, ou quand plusieurs parents configurent leur adresse après une réunion.', ht: 'Sa nòmal jou direksyon an kreye adrès tout lekòl la, oswa lè plizyè paran mete adrès yo apre yon reyinyon.' },
+  },
   ministere_consultations: {
     titre: { fr: 'Consultation en masse par un compte du ministère', ht: 'Twòp konsiltasyon pa yon kont ministè' },
     expl: { fr: '{cible} a fait {n} consultations en une heure, dont {nominatif} fiches nominatives, sur {ecoles} école(s) (moyenne habituelle : {moyenne} par heure).',

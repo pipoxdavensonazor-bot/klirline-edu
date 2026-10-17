@@ -23,6 +23,7 @@ const DEFAULTS = {
   exportsHeure: 20, pdfHeure: 100, fichesHeure: 200,
   recherchesEcoleHeure: 30, recherchesEchecsHeure: 10,
   propositionsHeure: 10, propositionsJour: 30,
+  emailsCreationsHeure: 300, emailsDestinationsHeure: 10, emailsDestinationAdresseJour: 3, emailsEchecsHeure: 15,
   ministereConsultationsHeure: 150, ministereNominatifHeure: 25, ministereEcolesHeure: 40, ministereMinimum: 30, ministereFacteur: 4,
   sensiblesJour: 10, horsHeuresAttention: 3, heureMatin: 6, heureSoir: 20,
   latenceAttentionMs: 500, latenceCritiqueMs: 2000, disqueAttentionPct: 15, disqueCritiquePct: 5, memoireAttentionPct: 10, memoireCritiquePct: 3,
@@ -314,6 +315,34 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     }
     return out;
   }
+  // Bloc 7 : adresses e-mail des élèves — créations en masse, rafale de changements de destination (détournement
+  // des messages), changements répétés pour la même adresse, échecs de code de vérification.
+  async function ruleEmails() {
+    const out = []; const hour = now() - H; const day = now() - 24 * H;
+    const rows = await db.all("SELECT school_id, user_id, detail, at_ms FROM security_event WHERE kind = 'email_eleve' AND at_ms > ? AND school_id IS NOT NULL", day);
+    const by = new Map();
+    for (const r of rows) { const k = Number(r.school_id); if (!by.has(k)) by.set(k, []); by.get(k).push(r); }
+    for (const [sid, list] of by) {
+      const recent = list.filter((r) => Number(r.at_ms) > hour);
+      const creations = recent.filter((r) => /^creation:/.test(r.detail || '')).reduce((a, r) => a + Number(String(r.detail).split(':')[1] || 0), 0);
+      const dests = recent.filter((r) => /^destination:/.test(r.detail || ''));
+      const echecs = recent.filter((r) => /^verif_echec:/.test(r.detail || '')).length;
+      const perAddress = new Map();
+      for (const r of list.filter((x) => /^destination:/.test(x.detail || ''))) perAddress.set(r.detail, (perAddress.get(r.detail) || 0) + 1);
+      const repeat = Math.max(0, ...perAddress.values());
+      if (creations < S.emailsCreationsHeure && dests.length < S.emailsDestinationsHeure && repeat < S.emailsDestinationAdresseJour && echecs < S.emailsEchecsHeure) continue;
+      const critique = creations >= 3 * S.emailsCreationsHeure || dests.length >= 3 * S.emailsDestinationsHeure || echecs >= 3 * S.emailsEchecsHeure;
+      const counts = new Map();
+      for (const r of recent.length ? recent : list) if (r.user_id) counts.set(r.user_id, (counts.get(r.user_id) || 0) + 1);
+      const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+      const vars = { n: dests.length, creations, repetes: repeat, echecs, cible: `école n° ${sid}`, seuil: S.emailsDestinationsHeure, seuilCreations: S.emailsCreationsHeure, seuilAdresse: S.emailsDestinationAdresseJour, seuilEchecs: S.emailsEchecsHeure };
+      out.push({ rule: 'emails_eleves', key: `e:${sid}`, severity: critique ? 'critique' : 'attention', vars, varsHt: { ...vars, cible: `lekòl n° ${sid}` },
+        evidence: [`${dests.length} changements de destination en 1 h, ${creations} adresses créées en 1 h, ${repeat} changements pour une même adresse en 24 h, ${echecs} codes faux en 1 h`,
+          ...(await lastEvents("kind = 'email_eleve' AND school_id = ? AND at_ms > ?", sid, day)).map(evLine)],
+        actions: top ? accountActions({ user_id: Number(top[0]) }) : [] });
+    }
+    return out;
+  }
   async function ruleSensitive() {
     const out = [];
     const since = new Date(now() - 24 * H).toISOString().replace('T', ' ').slice(0, 19);
@@ -472,7 +501,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       await flush();
       const cands = [];
       const health = await ruleHealth(opts);
-      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, rulePropositions, ruleMinistere, ruleSensitive]) {
+      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, rulePropositions, ruleMinistere, ruleEmails, ruleSensitive]) {
         try { cands.push(...await f()); } catch (e) { log(`[assistant] règle ${f.name} en échec : ${e.message}`); }
       }
       cands.push(...health.alerts, ...ruleConfig(), ...ruleDeps());
@@ -517,8 +546,8 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     const g = G[alert.rule] || G.sante;
     const ev = JSON.parse(alert.evidence || '[]');
     const vars = { seuil: '', n: alert.hits };
-    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure, ministere_consultations: S.ministereConsultationsHeure, propositions_masse: S.propositionsHeure };
-    Object.assign(vars, { seuilNominatif: S.ministereNominatifHeure, seuilEcoles: S.ministereEcolesHeure, facteur: S.ministereFacteur, seuilJour: S.propositionsJour, jour: '', echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
+    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure, ministere_consultations: S.ministereConsultationsHeure, propositions_masse: S.propositionsHeure, emails_eleves: S.emailsDestinationsHeure };
+    Object.assign(vars, { seuilNominatif: S.ministereNominatifHeure, seuilEcoles: S.ministereEcolesHeure, facteur: S.ministereFacteur, seuilJour: S.propositionsJour, jour: '', creations: '', repetes: '', seuilCreations: S.emailsCreationsHeure, seuilAdresse: S.emailsDestinationAdresseJour, seuilEchecs: S.emailsEchecsHeure, echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
     const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications|vérifications|propositions|consultations)/) || [])[1]; if (m) vars.n = m;
     const cm = alert.explain_fr.match(/essayé (\d+) comptes/); if (cm) vars.comptes = cm[1];
     if (q === 'libre' && llm && libre) {

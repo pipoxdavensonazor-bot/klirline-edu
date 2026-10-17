@@ -17,6 +17,7 @@ const plateforme = require('./plateforme');
 const { createSecurity } = require('./securite');
 const { createPortal } = require('./portail-pages');
 const ministere = require('./ministere');
+const emailsEleves = require('./emails-eleves');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -133,6 +134,8 @@ const routes = [
     ecoles: ctx.demo ? await db.all('SELECT slug, name FROM school ORDER BY id') : undefined,
     // Bloc 6 : présent seulement quand le portail du ministère est activé (NORIA_MINISTERE=1).
     ministere: ministere.enabled(ctx) || undefined,
+    // Bloc 7 : présent seulement quand les adresses e-mail des élèves sont activées (NORIA_EMAIL_ELEVES=1).
+    emailsEleves: emailsEleves.enabled(ctx) || undefined,
   }), { public: true, optionalUser: true }],
   ['POST', /^\/api\/login$/, async (db, req, _u, _m, ctx) => {
     const { school, password, method = 'password' } = req.body || {};
@@ -190,7 +193,9 @@ const routes = [
     const link = `${linkBase(req, ctx)}/#invitation=${token}`;
     const logoUrl = school.has_logo && linkBase(req, ctx) ? `${linkBase(req, ctx)}/api/ecoles/${school.slug}/logo` : null;
     const sent = await outbox(db, ctx, u.school_id, mail || tel, 'invitation', reqLang(req, school.default_lang),
-      { school: school.name, initials: I.schoolInitials(school), logoUrl, name: String(display_name), hours: INVITE_HOURS, link }, [token]);
+      { school: school.name, initials: I.schoolInitials(school), logoUrl, name: String(display_name), hours: INVITE_HOURS, link,
+        // Bloc 7 : l'invitation d'un élève rappelle son adresse e-mail NORIA quand elle est active.
+        proEmail: role === 'eleve' ? await emailsEleves.activeAddress(db, ctx, u.school_id, sid) : null }, [token]);
     await audit(db, u, 'invitation.create', 'invitation', id, `${role} (${sent.channel} ${sent.envoi})`);
     // Le lien reste rendu à la personne qui invite : elle peut le transmettre elle-même si l'envoi est simulé ou a échoué.
     return { id, expiresAt: expires, link: `/#invitation=${token}`, channel: sent.channel, envoi: sent.envoi };
@@ -482,6 +487,7 @@ const portail = require('./portail');
 routes.push(...portail.schoolRoutes());
 // Bloc 6 : déclaration annuelle au ministère (direction). Routes 404 tant que NORIA_MINISTERE ne vaut pas 1.
 routes.push(...ministere.schoolRoutes());
+routes.push(...emailsEleves.schoolRoutes(), ...emailsEleves.inboundRoutes());
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
@@ -634,6 +640,7 @@ function createServer(db, options = {}) {
     // X-Forwarded-For, ajoutée par le mandataire. Sans trustProxy, l'en-tête est ignoré (il serait falsifiable).
     trustProxy: !!options.trustProxy,
     env: options.env || process.env,
+    emailFetch: options.emailFetch || null, // bloc 7 : faux fetch des tests (aucun appel réseau)
   };
   // Vérification d'un élève entre écoles : limite dédiée par compte et par école (fenêtre de 15 min, comme la connexion).
   ctx.searchLimit = options.searchLimit || {
@@ -682,6 +689,13 @@ function createServer(db, options = {}) {
         if (!url.pathname.startsWith('/api/') && portal && /text\/html/.test(req.headers.accept || '')) return portal.notFound(req, res, url, SECURITY_HEADERS);
         throw new HttpError(404, 'introuvable');
       }
+      // Bloc 7 : adresses e-mail des élèves désactivées par défaut → pages, scripts et routes inexistants.
+      if (!emailsEleves.enabled(ctx) && emailsEleves.GATED.test(url.pathname)) {
+        if (!url.pathname.startsWith('/api/') && portal && /text\/html/.test(req.headers.accept || '')) return portal.notFound(req, res, url, SECURITY_HEADERS);
+        throw new HttpError(404, 'introuvable');
+      }
+      // Page publique de vérification d'une adresse de destination (formulaire HTML, hors JSON).
+      if (url.pathname === '/email/verifier' || url.pathname === '/email/verifier/') return emailsEleves.serveVerify(db, req, res, url, ctx, SECURITY_HEADERS);
       // Sonde de santé (Docker, Caddy, hébergeur) : la base répond-elle ? Aucune donnée, aucun journal.
       if (url.pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
         let ok = true;
@@ -697,6 +711,7 @@ function createServer(db, options = {}) {
       }
       let raw = '';
       for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) throw new HttpError(413, 'trop volumineux'); }
+      req.rawBody = raw; // signature HMAC du webhook entrant (bloc 7)
       try { req.body = raw ? JSON.parse(raw) : {}; } catch { throw new HttpError(400, 'JSON invalide'); }
       const authz = req.headers.authorization || '';
       req.token = authz.startsWith('Bearer ') ? authz.slice(7) : null;

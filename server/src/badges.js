@@ -8,6 +8,7 @@ const { jpegSize } = require('./pdf');
 const { badgePdf, badgeSheetPdf } = require('./pdf-bloc2');
 const { schoolKeys } = require('./cles');
 const { publicUrl } = require('./scolaire');
+const emailsEleves = require('./emails-eleves');
 
 const PHOTO_MAX = 40 * 1024;
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -86,7 +87,7 @@ async function badgeDocs(db, ctx, req, schoolId, rows) {
   const out = [];
   for (const b of rows) out.push({ school, photo: await photoOf(db, schoolId, b.student_id), first_name: b.first_name, last_name: b.last_name,
     class_name: b.class_name, code: b.code, year: b.year, expires_on: b.expires_on, status: badgeStatus(b),
-    url: `${base}/#verifier=${tokenFor(keys.badgeSecret, b.token_nonce)}` });
+    url: `${base}/#verifier=${tokenFor(keys.badgeSecret, b.token_nonce)}`, email: await emailsEleves.activeAddress(db, ctx, schoolId, b.student_id) });
   return out;
 }
 async function createBadge(t, u, keys, st, year, className, replacesId) {

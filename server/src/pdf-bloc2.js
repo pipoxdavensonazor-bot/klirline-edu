@@ -41,6 +41,8 @@ function drawBadge(p, b, ox = 0, oy = 0) {
   p.text(tx, oy + 74, 'Classe / Klas', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 66, cut(b.class_name || '-', 18), { size: 7.5, bold: true });
   p.text(tx, oy + 54, 'Code élève / Kòd elèv', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 46, b.code, { size: 7.5, bold: true });
   p.text(tx, oy + 34, 'Année / Ane', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 26, b.year, { size: 7.5, bold: true });
+  // Bloc 7 : adresse e-mail NORIA, seulement quand elle est active.
+  if (b.email) p.text(tx, oy + 18, cut(b.email, 32), { size: 5, gray: 0.3 });
   p.qr(ox + W - 74, oy + 22, 70, b.url);
   p.line(ox, oy + 15, ox + W, oy + 15, 0.3, 0.8);
   p.text(ox + 8, oy + 6, `Expire le / Ekspire ${b.expires_on}  -  Scanner pour vérifier / Eskane pou verifye`, { size: 5.2, gray: 0.35 });
@@ -86,6 +88,7 @@ function transcriptPdf(r) {
   p.text(L, 712, 'Relevé de notes officiel / Relve nòt ofisyèl', { size: 16, bold: true });
   p.text(L, 695, r.scopeLabel, { size: 11, gray: 0.25 });
   const info = [['Élève / Elèv', r.student], ['Code élève / Kòd elèv', r.studentCode], ['Classe / Klas', r.className || '-'], ['Date de naissance / Dat nesans', r.birthDate || '-']];
+  if (r.studentEmail) info.push(['E-mail NORIA / Imèl NORIA', r.studentEmail]); // bloc 7 : adresse active seulement
   let y = 672;
   for (const [k, v] of info) { p.text(L, y, k, { size: 9, gray: 0.35 }); p.text(200, y, v, { size: 10, bold: k.startsWith('Élève') }); y -= 14; }
   y -= 8;

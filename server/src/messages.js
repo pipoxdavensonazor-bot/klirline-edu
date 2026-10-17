@@ -17,7 +17,7 @@ function inviteHtml(v, lang) {
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font:15px/1.5 Arial,sans-serif;color:#1f2a37">
 <table role="presentation" width="100%" style="max-width:520px;margin:auto;background:#fff;border-radius:12px;padding:24px"><tr><td>
 <table role="presentation"><tr><td>${mark}</td><td style="padding-left:14px"><b style="font-size:18px">${h(v.school)}</b><br><span style="color:#5b6573">${h(v.initials || '')}</span></td></tr></table>
-<p>${L.hi}</p><p>${L.body}</p>
+<p>${L.hi}</p><p>${L.body}</p>${v.proEmail ? `<p>${lang === 'ht' ? 'Adrès imel NORIA ou' : 'Votre adresse e-mail NORIA'} : <b>${h(v.proEmail)}</b></p>` : ''}
 <p><a href="${h(v.link)}" style="display:inline-block;background:#1f6feb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${L.cta}</a></p>
 <p style="color:#5b6573;font-size:12px">${h(v.link)}</p><p style="color:#5b6573;font-size:12px">NORIA</p></td></tr></table></body></html>`;
 }
@@ -35,11 +35,11 @@ const T = {
     fr: (v) => ({ sms: `${v.initials ? `[${v.initials}] ` : 'NORIA : '}${v.school} vous invite. Activez votre compte (${v.hours} h) : ${v.link}`,
       subject: `${v.initials ? `[${v.initials}] ` : ''}Invitation NORIA — ${v.school}`,
       html: inviteHtml(v, 'fr'),
-      text: `${banner(v)}Bonjour ${v.name},\n\n${v.school} vous invite à rejoindre NORIA.\nActivez votre compte et choisissez votre mot de passe avec ce lien (valable ${v.hours} heures, une seule fois) :\n\n${v.link}\n\nNORIA` }),
+      text: `${banner(v)}Bonjour ${v.name},\n\n${v.school} vous invite à rejoindre NORIA.\nActivez votre compte et choisissez votre mot de passe avec ce lien (valable ${v.hours} heures, une seule fois) :\n\n${v.link}\n\n${v.proEmail ? `Votre adresse e-mail NORIA : ${v.proEmail}\n\n` : ''}NORIA` }),
     ht: (v) => ({ sms: `${v.initials ? `[${v.initials}] ` : 'NORIA : '}${v.school} envite w. Aktive kont ou (${v.hours} è) : ${v.link}`,
       subject: `${v.initials ? `[${v.initials}] ` : ''}Envitasyon NORIA — ${v.school}`,
       html: inviteHtml(v, 'ht'),
-      text: `${banner(v)}Bonjou ${v.name},\n\n${v.school} envite w antre nan NORIA.\nAktive kont ou epi chwazi modpas ou ak lyen sa a (li bon pou ${v.hours} è, yon sèl fwa) :\n\n${v.link}\n\nNORIA` }),
+      text: `${banner(v)}Bonjou ${v.name},\n\n${v.school} envite w antre nan NORIA.\nAktive kont ou epi chwazi modpas ou ak lyen sa a (li bon pou ${v.hours} è, yon sèl fwa) :\n\n${v.link}\n\n${v.proEmail ? `Adrès imel NORIA ou : ${v.proEmail}\n\n` : ''}NORIA` }),
   },
   recuperation: {
     fr: (v) => ({ sms: `NORIA : nouveau mot de passe (${v.minutes} min) : ${v.link}`,
