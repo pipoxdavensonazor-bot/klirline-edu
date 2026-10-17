@@ -22,6 +22,7 @@ const DEFAULTS = {
   pic4xx: 100, pic4xxFacteur: 3, pic5xxAttention: 5, pic5xxCritique: 20, picFenetreMin: 10,
   exportsHeure: 20, pdfHeure: 100, fichesHeure: 200,
   recherchesEcoleHeure: 30, recherchesEchecsHeure: 10,
+  propositionsHeure: 10, propositionsJour: 30,
   sensiblesJour: 10, horsHeuresAttention: 3, heureMatin: 6, heureSoir: 20,
   latenceAttentionMs: 500, latenceCritiqueMs: 2000, disqueAttentionPct: 15, disqueCritiquePct: 5, memoireAttentionPct: 10, memoireCritiquePct: 3,
   baseMaxMo: 2048, sauvegardeMaxHeures: 26, certAttentionJours: 21, certCritiqueJours: 7, rapportAuditMaxJours: 7,
@@ -120,6 +121,8 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       if (req.method === 'GET' && /^\/api\/students\/\d+$/.test(p)) return record({ ...base, kind: 'fiche' });
       // Vérification d'un élève d'une autre école (bloc 4) : « introuvable » = code ou date de naissance faux.
       if (req.method === 'POST' && p === '/api/transferts/recherche') return record({ ...base, kind: 'recherche', detail: req.secDetail || null });
+      // Proposition d'un contenu pour le portail public (bloc 5).
+      if (req.method === 'POST' && p === '/api/portail/propositions') return record({ ...base, kind: 'proposition', detail: String((req.body || {}).kind || '').slice(0, 20) || null });
     }
   }
   async function loginOk(req, who) {
@@ -259,6 +262,24 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       out.push({ rule: 'recherches_eleves', key: `e:${r.school_id}`, severity: critique ? 'critique' : 'attention', vars, varsHt: { ...vars, cible: `lekòl n° ${r.school_id}` },
         evidence: [`${n} vérifications d’élèves en 1 h dont ${miss} sans résultat (seuils ${S.recherchesEcoleHeure} / ${S.recherchesEchecsHeure})`,
           ...(await lastEvents("kind = 'recherche' AND school_id = ? AND at_ms > ?", r.school_id, since)).map(evLine)],
+        actions: top ? accountActions({ user_id: Number(top.user_id) }) : [] });
+    }
+    return out;
+  }
+  // Bloc 5 : propositions en masse pour le portail public (compte compromis, robot, envoi de contenu indésirable).
+  async function rulePropositions() {
+    const out = []; const since = now() - 24 * H; const hour = now() - H;
+    const rows = await db.all(`SELECT school_id, COUNT(*) AS n, SUM(CASE WHEN at_ms > ? THEN 1 ELSE 0 END) AS h, COUNT(DISTINCT user_id) AS users
+      FROM security_event WHERE kind = 'proposition' AND at_ms > ? AND school_id IS NOT NULL GROUP BY school_id`, hour, since);
+    for (const r of rows) {
+      const n = Number(r.n), h = Number(r.h || 0);
+      if (h < S.propositionsHeure && n < S.propositionsJour) continue;
+      const top = await db.get("SELECT user_id, COUNT(*) AS n FROM security_event WHERE kind = 'proposition' AND at_ms > ? AND school_id = ? GROUP BY user_id ORDER BY COUNT(*) DESC LIMIT 1", since, r.school_id);
+      const critique = h >= 3 * S.propositionsHeure || n >= 3 * S.propositionsJour;
+      const vars = { n: h, jour: n, cible: `école n° ${r.school_id}`, comptes: Number(r.users), seuil: S.propositionsHeure, seuilJour: S.propositionsJour };
+      out.push({ rule: 'propositions_masse', key: `e:${r.school_id}`, severity: critique ? 'critique' : 'attention', vars, varsHt: { ...vars, cible: `lekòl n° ${r.school_id}` },
+        evidence: [`${h} propositions pour le portail en 1 h, ${n} en 24 h (seuils ${S.propositionsHeure} / ${S.propositionsJour})`,
+          ...(await lastEvents("kind = 'proposition' AND school_id = ? AND at_ms > ?", r.school_id, since)).map(evLine)],
         actions: top ? accountActions({ user_id: Number(top.user_id) }) : [] });
     }
     return out;
@@ -421,7 +442,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       await flush();
       const cands = [];
       const health = await ruleHealth(opts);
-      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, ruleSensitive]) {
+      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, rulePropositions, ruleSensitive]) {
         try { cands.push(...await f()); } catch (e) { log(`[assistant] règle ${f.name} en échec : ${e.message}`); }
       }
       cands.push(...health.alerts, ...ruleConfig(), ...ruleDeps());
@@ -466,9 +487,9 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     const g = G[alert.rule] || G.sante;
     const ev = JSON.parse(alert.evidence || '[]');
     const vars = { seuil: '', n: alert.hits };
-    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure };
-    Object.assign(vars, { echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
-    const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications|vérifications)/) || [])[1]; if (m) vars.n = m;
+    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure, propositions_masse: S.propositionsHeure };
+    Object.assign(vars, { seuilJour: S.propositionsJour, jour: '', echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
+    const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications|vérifications|propositions)/) || [])[1]; if (m) vars.n = m;
     const cm = alert.explain_fr.match(/essayé (\d+) comptes/); if (cm) vars.comptes = cm[1];
     if (q === 'libre' && llm && libre) {
       try { return { source: llm.name, reponse: await llm.ask({ question: libre, alerte: llm.redact(alert) }) }; }

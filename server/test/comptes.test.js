@@ -132,13 +132,23 @@ test('classes : portée par rôle', async () => {
 });
 
 test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', async () => {
-  const home = await raw('/', { 'accept-encoding': 'gzip' });
+  // L'application est servie sur /app (et /index.html) ; la racine / est le portail public (bloc 5).
+  const home = await raw('/app', { 'accept-encoding': 'gzip' });
   assert.equal(home.status, 200);
   assert.equal(home.headers['content-encoding'], 'gzip');
   assert.match(zlib.gunzipSync(home.body).toString(), /<meta name="noria-server" content="1">/);
   assert.match(home.headers['content-security-policy'], /frame-ancestors 'none'/);
-  const again = await raw('/', { 'if-none-match': home.headers.etag });
+  const again = await raw('/app', { 'if-none-match': home.headers.etag });
   assert.equal(again.status, 304);
+  assert.equal((await raw('/index.html')).status, 200);
+  const app2 = await raw('/app/'); assert.equal(app2.status, 301); assert.equal(app2.headers.location, '/app');
+  const portal = await raw('/', { 'accept-encoding': 'gzip' });
+  assert.equal(portal.status, 200); assert.equal(portal.headers['content-encoding'], 'gzip');
+  const ph = zlib.gunzipSync(portal.body).toString();
+  assert.match(ph, /<html lang="fr">/); assert.match(ph, /href="\/app"/); assert.doesNotMatch(ph, /noria-server|manifest\.webmanifest/);
+  assert.match(portal.headers['content-security-policy'], /default-src 'none'/);
+  assert.equal(portal.headers['set-cookie'], undefined);
+  assert.equal((await raw('/', { 'if-none-match': portal.headers.etag })).status, 304);
   assert.equal((await raw('/src/app.js')).status, 200);
   // Application installable : manifeste et service worker servis à la racine, version et liste remplies par le serveur.
   const sw = await raw('/sw.js');
@@ -150,6 +160,8 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   const mf = await raw('/manifest.webmanifest');
   assert.equal(mf.status, 200); assert.match(mf.headers['content-type'], /manifest\+json/);
   assert.equal(JSON.parse(mf.body.toString()).display, 'standalone');
+  assert.equal(JSON.parse(mf.body.toString()).start_url, '/app');
+  assert.match(swText, /"\/app"/, 'le service worker met /app en cache');
   for (const p of ['/server/src/seed.js', '/src/../server/package.json', '/src/%2e%2e/server/package.json', '/.git/config', '/src/x.sqlite', '/package.json'])
     assert.equal((await raw(p)).status, 404, p);
 });

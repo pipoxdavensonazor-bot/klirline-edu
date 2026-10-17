@@ -85,6 +85,16 @@ const G = {
       ht: 'Verifikasyon an montre sèlman yon ti rezilta, men anpil esè ka sèvi pou devine kòd ak dat nesans. Limit pa lekòl ak pa èdtan : {seuil} verifikasyon oswa {echecs} san rezilta ; wout la gen pwòp limit debi li tou.' },
     faux: { fr: 'Fréquent à la rentrée scolaire, quand le secrétariat vérifie tous les nouveaux élèves.', ht: 'Sa rive souvan nan rantre lekòl, lè sekretarya a ap verifye tout nouvo elèv yo.' },
   },
+  propositions_masse: {
+    titre: { fr: 'Propositions en masse pour le portail public', ht: 'Twòp pwopozisyon pou pòtay piblik la' },
+    expl: { fr: '{cible} a envoyé {n} propositions pour le portail public en une heure ({jour} en 24 h), depuis {comptes} compte(s). Seuils : {seuil} par heure ou {seuilJour} par jour.',
+      ht: '{cible} voye {n} pwopozisyon pou pòtay piblik la nan inèdtan ({jour} nan 24 è), sou {comptes} kont. Limit : {seuil} pa èdtan oswa {seuilJour} pa jou.' },
+    reco: { fr: 'Rien n’est publié sans votre validation : ouvrez la file de modération et regardez ces propositions. Si elles sont indésirables ou inattendues, appelez la direction, puis déconnectez et verrouillez le compte en cause.',
+      ht: 'Anyen pa parèt san ou pa valide l : louvri lis moderasyon an epi gade pwopozisyon sa yo. Si yo pa bon oswa yo pa t prevwa, rele direksyon an, epi dekonekte e fèmen kont lan.' },
+    pourquoi: { fr: 'Une direction propose rarement plus de quelques contenus par jour. Une rafale peut venir d’un compte volé ou d’un robot qui remplit la file de modération (contenu indésirable, images lourdes). La route a aussi sa propre limite : 30 propositions par heure et par école.',
+      ht: 'Yon direksyon pa konn pwopoze plis pase kèk kontni pa jou. Yon rafal ka soti nan yon kont yo vòlè oswa yon robo k ap ranpli lis moderasyon an (kontni ki pa bon, imaj lou). Wout la gen pwòp limit li tou : 30 pwopozisyon pa èdtan pou chak lekòl.' },
+    faux: { fr: 'Normal après les résultats des examens officiels, quand une école propose d’un coup la liste de ses lauréats.', ht: 'Sa nòmal apre rezilta egzamen ofisyèl yo, lè yon lekòl pwopoze tout laureya li yo yon sèl kou.' },
+  },
   modifs_sensibles: {
     titre: { fr: 'Modifications sensibles inhabituelles', ht: 'Chanjman sansib ki pa nòmal' },
     expl: { fr: '{cible} a fait {n} modifications sensibles en 24 h ({quoi}), dont {hors} hors des heures habituelles (heure d’Haïti).',
