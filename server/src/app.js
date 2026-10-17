@@ -15,6 +15,7 @@ const I = require('./identite');
 const ecoles = require('./ecoles');
 const plateforme = require('./plateforme');
 const { createSecurity } = require('./securite');
+const { createPortal } = require('./portail-pages');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -473,6 +474,9 @@ routes.push(...rel.routes, ...rel.publicRoutes);
 // Bloc 4 : vérification d'un élève entre écoles, signalements, décisions de fin d'année, transferts de dossier.
 const trf = require('./transferts').createRoutes({ outbox, reqLang });
 routes.push(...trf.routes, ...trf.publicRoutes);
+// Bloc 5 : propositions des directions pour le portail public (événements, articles, lauréats) et école partenaire.
+const portail = require('./portail');
+routes.push(...portail.schoolRoutes());
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
@@ -631,9 +635,13 @@ function createServer(db, options = {}) {
     user: createLimiter({ db, max: 15, windowMs: 15 * 60 * 1000 }),
     school: createLimiter({ db, max: 40, windowMs: 15 * 60 * 1000 }),
   };
+  // Portail public : propositions d'une école limitées par heure (la règle « propositions_masse » de l'assistant alerte avant).
+  ctx.portalLimit = options.portalLimit || createLimiter({ db, max: portail.PROPOSALS_PER_HOUR, windowMs: 3600e3 });
   // Assistant sécurité : observe les connexions, refus et erreurs ; n'agit jamais seul (voir src/securite.js).
   ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl }));
   const serveStatic = options.staticRoot === false ? null : createStatic(options.staticRoot || path.join(__dirname, '..', '..'));
+  // Portail public (pages HTML rendues par le serveur, sans connexion) sur / et /ht/… ; l'application est sur /app.
+  const portal = options.portal === false ? null : createPortal(db, { publicUrl: ctx.publicUrl, secureCookie: ctx.secureCookie, root: options.staticRoot || path.join(__dirname, '..', '..') });
   const srv = http.createServer(async (req, res) => {
     let extra = {};
     const cookies = [];
@@ -669,8 +677,11 @@ function createServer(db, options = {}) {
         res.writeHead(ok ? 200 : 503, { ...SECURITY_HEADERS, 'content-type': 'application/json; charset=utf-8' });
         return res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ ok, db: db.kind }));
       }
-      if (!url.pathname.startsWith('/api/') && (req.method === 'GET' || req.method === 'HEAD') && serveStatic) {
-        if (serveStatic(req, res, SECURITY_HEADERS)) return;
+      if (!url.pathname.startsWith('/api/') && (req.method === 'GET' || req.method === 'HEAD')) {
+        if (portal && await portal.serve(req, res, url, SECURITY_HEADERS, clientIp(req, ctx.trustProxy))) return;
+        if (serveStatic && serveStatic(req, res, SECURITY_HEADERS)) return;
+        // Adresse inconnue demandée par un navigateur : page 404 du portail plutôt qu'une réponse JSON.
+        if (portal && /text\/html/.test(req.headers.accept || '')) return portal.notFound(req, res, url, SECURITY_HEADERS);
       }
       let raw = '';
       for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) throw new HttpError(413, 'trop volumineux'); }

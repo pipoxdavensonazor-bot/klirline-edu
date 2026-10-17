@@ -94,4 +94,46 @@ async function seedMulti(db, ids) {
   return ids;
 }
 
-module.exports = { seed, seedMulti, DEMO_PASSWORD };
+// Portail public de démonstration (NORIA_DEMO=1) : contenus 100 % fictifs, déjà publiés, dates relatives au jour.
+// Les contenus « de la plateforme » portent created_by_admin = 0 (aucun compte super-admin en démonstration).
+async function seedPortal(db, ids) {
+  const day = (n) => new Date(Date.now() + n * 86400e3).toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+  const y = new Date().getFullYear();
+  const A = ids.A.school, B = ids.B.school;
+  await db.tx(async (t) => {
+    const item = (o) => { const k = Object.keys(o); return t.insert(`INSERT INTO portal_item (${k.join(', ')}, status, published_at) VALUES (${k.map(() => '?').join(',')}, 'publie', ?)`, ...k.map((x) => o[x]), now); };
+    await item({ kind: 'evenement', created_by_admin: 0, category: 'examens', event_date: day(12), event_end: day(15), place: 'Centres d’examen du pays (fictif)', department: null,
+      title_fr: 'Examens officiels de 9e année fondamentale (exemple fictif)', title_ht: 'Egzamen ofisyèl 9yèm ane fondamantal (egzanp fiktif)',
+      body_fr: 'Calendrier indicatif et entièrement fictif, pour la démonstration du portail.\n\nVérifiez toujours les dates auprès des autorités compétentes.',
+      body_ht: 'Kalandriye sa a fiktif nèt, se pou demonstrasyon pòtay la sèlman.\n\nToujou verifye dat yo kote otorite yo.' });
+    await item({ kind: 'evenement', school_id: A, created_by: ids.A.users.direction, category: 'culture', event_date: day(5), place: 'Cour de l’École fictive A, Port-au-Prince', department: 'ouest',
+      title_fr: 'Journée du créole à l’École fictive A', title_ht: 'Jounen kreyòl nan Lekòl fiktif A', body_fr: 'Contes, chants et poésie présentés par les élèves (événement fictif).', body_ht: 'Kont, chante ak powezi elèv yo ap prezante (evènman fiktif).' });
+    await item({ kind: 'evenement', school_id: B, created_by: ids.B.users.direction, category: 'sport', event_date: day(21), place: 'Terrain municipal (fictif), Cap-Haïtien', department: 'nord',
+      title_fr: 'Tournoi interscolaire de football (fictif)', title_ht: 'Tounwa foutbòl ant lekòl (fiktif)', body_fr: 'Rencontre amicale entre écoles partenaires.' });
+    await item({ kind: 'evenement', created_by_admin: 0, category: 'concours', event_date: day(-20), place: 'En ligne (fictif)',
+      title_fr: 'Concours national d’orthographe (édition passée, fictive)', title_ht: 'Konkou nasyonal òtograf (edisyon ki pase, fiktif)' });
+    const L = [['Anne-Marie Exemple', 'Excellent', 0, 0, 0, 'ouest', A], ['Jean Fictif', 'Très bien', 1, 1, 1, 'ouest', A], ['Rose Démonstration', 'Bien', 1, 0, 0, 'nord', B], ['Paul Modèle', 'Très bien', 0, 0, 0, 'nord', B]];
+    for (const [n, m, minor, cs, cp, dep, sch] of L) {
+      await item({ kind: 'laureat', school_id: sch, created_by: sch === A ? ids.A.users.direction : ids.B.users.direction, person_name: n, mention: m, year: y, exam: 'Examens officiels de 9e AF (fictif)', exam_type: 'examen',
+        department: dep, school_name: sch === A ? 'École fictive A' : 'École fictive B', minor, consent_school: cs, consent_parent: cp,
+        consent_parent_name: cp ? 'Parent fictif' : null, consent_at: cp ? now : null, consent_by: cp ? 'démonstration' : null, featured: 1 });
+    }
+    await item({ kind: 'laureat', created_by_admin: 0, person_name: 'Claire Imaginaire', mention: 'Lauréate', year: y - 1, exam: 'Concours d’entrée (fictif)', exam_type: 'concours', department: 'sud', minor: 0 });
+    await item({ kind: 'temoignage', school_id: A, created_by: ids.A.users.direction, author: 'Direction de l’École fictive A',
+      title_fr: 'Les absences signalées le jour même aux parents', title_ht: 'Paran yo konnen absans yo menm jou a',
+      body_fr: 'Depuis que les présences sont saisies sur téléphone, les parents sont prévenus le jour même. Témoignage fictif pour la démonstration.',
+      body_ht: 'Depi pwofesè yo antre prezans yo sou telefòn, paran yo resevwa nouvèl la menm jou a. Temwayaj fiktif pou demonstrasyon.' });
+    await item({ kind: 'article', school_id: B, created_by: ids.B.users.direction, author: 'Équipe pédagogique (fictive)',
+      title_fr: 'Une bibliothèque de classe en kreyòl', body_fr: 'Les élèves de 7e ont réuni une trentaine de livres en kreyòl et en français. Article fictif.' });
+    await t.insert(`INSERT INTO portal_ad (sponsored, sponsor, title_fr, title_ht, text_fr, text_ht, url, starts_on, ends_on, created_by_admin) VALUES (1,?,?,?,?,?,?,?,?,0)`,
+      'Librairie fictive', 'Fournitures scolaires à prix réduit (exemple)', 'Founiti lekòl pi bon mache (egzanp)', 'Encart de démonstration : aucun produit réel.', 'Espas demonstrasyon : pa gen pwodui reyèl.',
+      'https://example.org/', day(-3), day(30));
+    await t.insert(`INSERT INTO portal_ad (sponsored, title_fr, title_ht, text_fr, starts_on, ends_on, created_by_admin) VALUES (0,?,?,?,?,?,0)`,
+      'Inscriptions ouvertes pour les écoles partenaires', 'Enskripsyon louvri pou lekòl patnè yo', 'Les écoles qui souhaitent rejoindre NORIA peuvent écrire à l’équipe (annonce fictive).', day(-1), day(60));
+    await t.insert(`INSERT INTO portal_ad (sponsored, sponsor, title_fr, starts_on, ends_on, created_by_admin) VALUES (1,?,?,?,?,0)`, 'Annonceur expiré (fictif)', 'Encart terminé : ne doit pas apparaître', day(-30), day(-2));
+    await t.run('UPDATE school SET portal_partner = 1, portal_partner_at = ? WHERE id IN (?,?)', now, A, B);
+  });
+}
+
+module.exports = { seed, seedMulti, seedPortal, DEMO_PASSWORD };

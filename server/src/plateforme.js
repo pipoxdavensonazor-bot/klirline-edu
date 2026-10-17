@@ -177,6 +177,8 @@ const ROUTES = [
 ROUTES.push(...require('./securite-actions').routes({ log, dbSize, backups }));
 // Bloc 4 : étape « autorisation ministère » des transferts (désactivée par défaut).
 ROUTES.push(...require('./transferts').adminRoutes({ log }));
+// Bloc 5 : modération et publication du portail public, annonces et encarts sponsorisés.
+ROUTES.push(...require('./portail').adminRoutes({ log }));
 
 function parseAdminToken(req, parseCookies) {
   const h = req.headers.authorization || '';

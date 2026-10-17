@@ -1,6 +1,7 @@
 'use strict';
-// Sert la maquette (index.html et src/) : liste blanche d'extensions, pas de sortie du dossier,
+// Sert l'application (index.html sur /app, et src/) : liste blanche d'extensions, pas de sortie du dossier,
 // compression gzip, ETag et cache court. Rien d'autre du dépôt (server/, .git, docs) n'est exposé.
+// La racine / est le portail public (server/src/portail-pages.js) ; /index.html reste un alias de l'application.
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
@@ -31,7 +32,7 @@ function createStatic(root) {
   function resolve(pathname) {
     let p;
     try { p = decodeURIComponent(pathname); } catch { return null; }
-    if (p === '/' || p === '/index.html') return path.join(rootAbs, 'index.html');
+    if (p === '/app' || p === '/index.html') return path.join(rootAbs, 'index.html');
     if (ROOT_FILES.has(p)) return path.join(rootAbs, p.slice(1));
     if (!p.startsWith('/src/') || p.includes('\0')) return null;
     const abs = path.resolve(rootAbs, '.' + p);

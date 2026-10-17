@@ -1,5 +1,7 @@
 /* NORIA — service worker : met l'interface en cache pour qu'elle s'ouvre sans réseau.
    Les réponses /api/ (données personnelles) ne sont JAMAIS mises en cache ici.
+   L'application est sur /app ; la racine / est le portail public (pages serveur, non mises en cache ici : réseau
+   seul, avec l'application en cache comme page de secours hors ligne).
    VERSION et ASSETS sont remplis par le serveur (server/src/static.js) à partir de index.html. */
 "use strict";
 const VERSION = "__NORIA_VERSION__";
@@ -11,7 +13,7 @@ self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE)
     // no-cache : revalidation par ETag (304, quelques centaines d'octets) au lieu d'un second téléchargement complet
     // des fichiers que la page vient de recevoir.
-    .then((c) => c.addAll(["/", ...ASSETS].map((u) => new Request(u, { cache: "no-cache" }))))
+    .then((c) => c.addAll(["/app", ...ASSETS].map((u) => new Request(u, { cache: "no-cache" }))))
     .then(() => self.skipWaiting()));
 });
 
@@ -29,15 +31,17 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return; // réseau seul
   if (req.mode === "navigate") {
-    // Page : réseau d'abord (pour recevoir les mises à jour), cache si hors ligne ou trop lent.
+    const app = url.pathname === "/app" || url.pathname === "/index.html";
+    // Application : réseau d'abord (pour recevoir les mises à jour), cache si hors ligne ou trop lent.
+    // Portail : réseau seul (pages publiques légères) ; hors ligne, l'application en cache sert de secours sur /.
     e.respondWith((async () => {
       const cache = await caches.open(CACHE);
       try {
-        const res = await withTimeout(fetch(req), HTML_TIMEOUT_MS);
-        if (res.ok && url.pathname === "/") cache.put("/", res.clone());
+        const res = await (app ? withTimeout(fetch(req), HTML_TIMEOUT_MS) : fetch(req));
+        if (res.ok && url.pathname === "/app") cache.put("/app", res.clone());
         return res;
       } catch (err) {
-        return (await cache.match("/")) || Response.error();
+        return ((app || url.pathname === "/") && (await cache.match("/app"))) || Response.error();
       }
     })());
     return;

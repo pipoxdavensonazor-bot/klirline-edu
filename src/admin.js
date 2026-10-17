@@ -46,7 +46,7 @@ function loginView(){
   root().innerHTML=`<div class="login-card adm-card"><img class="login-logo" src="src/noria-logo.png" alt="NORIA" width="160" height="60"><h1>${esc(t("login"))}</h1>
     <form id="admLogin" data-action-submit="NORIA_ADM.submitPw" novalidate><label class="fld">${esc(t("email"))}<input id="admEmail" type="email" autocomplete="username" required></label>
     <label class="fld">${esc(t("pw"))}<input id="admPw" type="password" autocomplete="current-password" required></label><p id="admErr" class="login-err" role="alert"></p>
-    <button type="submit" class="login-main">${esc(t("next"))}</button></form><a class="login-link" href="/">${esc(t("back"))}</a>${langBtns()}</div>`;
+    <button type="submit" class="login-main">${esc(t("next"))}</button></form><a class="login-link" href="/app">${esc(t("back"))}</a>${langBtns()}</div>`;
 }
 async function submitPw(){
   const err=document.getElementById("admErr"); err.textContent="";
