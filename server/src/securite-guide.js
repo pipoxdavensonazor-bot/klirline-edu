@@ -75,6 +75,16 @@ const G = {
     pourquoi: { fr: 'Seuils par compte et par heure : {seuils}.', ht: 'Limit pa kont ak pa èdtan : {seuils}.' },
     faux: { fr: 'Fréquent en fin de trimestre (impression de tous les bulletins).', ht: 'Sa rive souvan nan fen trimès (enprime tout kanè yo).' },
   },
+  recherches_eleves: {
+    titre: { fr: 'Beaucoup de vérifications d’élèves par une même école', ht: 'Yon lekòl verifye twòp elèv' },
+    expl: { fr: '{cible} a fait {n} vérifications d’élèves (code + date de naissance) en une heure, dont {miss} sans résultat, depuis {comptes} compte(s). Seuils : {seuil} vérifications ou {echecs} échecs.',
+      ht: '{cible} fè {n} verifikasyon elèv (kòd + dat nesans) nan inèdtan, ladan yo {miss} pa jwenn anyen, sou {comptes} kont. Limit : {seuil} verifikasyon oswa {echecs} echèk.' },
+    reco: { fr: 'Appelez la direction de cette école : une rentrée chargée explique beaucoup de vérifications, pas des dizaines de codes faux. Si personne ne l’explique, déconnectez et verrouillez le compte en cause.',
+      ht: 'Rele direksyon lekòl sa a : yon rantre chaje ka esplike anpil verifikasyon, men pa plizyè douzèn kòd ki fo. Si pèsonn pa ka esplike l, dekonekte epi fèmen kont lan.' },
+    pourquoi: { fr: 'La vérification ne montre qu’un résultat minimal, mais beaucoup d’essais peuvent servir à deviner des codes et des dates de naissance. Seuils par école et par heure : {seuil} vérifications ou {echecs} sans résultat ; la route a aussi sa propre limite de débit.',
+      ht: 'Verifikasyon an montre sèlman yon ti rezilta, men anpil esè ka sèvi pou devine kòd ak dat nesans. Limit pa lekòl ak pa èdtan : {seuil} verifikasyon oswa {echecs} san rezilta ; wout la gen pwòp limit debi li tou.' },
+    faux: { fr: 'Fréquent à la rentrée scolaire, quand le secrétariat vérifie tous les nouveaux élèves.', ht: 'Sa rive souvan nan rantre lekòl, lè sekretarya a ap verifye tout nouvo elèv yo.' },
+  },
   modifs_sensibles: {
     titre: { fr: 'Modifications sensibles inhabituelles', ht: 'Chanjman sansib ki pa nòmal' },
     expl: { fr: '{cible} a fait {n} modifications sensibles en 24 h ({quoi}), dont {hors} hors des heures habituelles (heure d’Haïti).',

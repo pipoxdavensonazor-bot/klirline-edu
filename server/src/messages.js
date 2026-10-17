@@ -58,6 +58,21 @@ const T = {
       return { sms: `${v.initials ? `[${v.initials}] ` : 'NORIA : '}Relve nòt : demann lan ${w}.`, subject: `${v.initials ? `[${v.initials}] ` : ''}Relve nòt — ${v.school}`,
         text: `Bonjou,\n\nRelve nòt ofisyèl (${v.school}) : demann lan ${w}.\n\nNORIA` }; },
   },
+  // Transfert de dossier : code de consentement envoyé au parent rattaché (école d'origine), puis état final. Sans note.
+  transfert_code: {
+    fr: (v) => ({ sms: `NORIA : ${v.to} demande le dossier scolaire de votre enfant (${v.from}). Si vous êtes d'accord, donnez ce code à l'école : ${v.code} (${v.minutes} min).`,
+      subject: `Transfert de dossier — ${v.to}`,
+      text: `Bonjour,\n\n${v.to} demande le transfert du dossier scolaire de votre enfant, inscrit à ${v.from}.\n\nSi vous êtes d'accord, donnez ce code à l'école d'accueil : ${v.code}\nIl est valable ${v.minutes} minutes et ne sert qu'une fois. Si vous n'êtes pas d'accord, ne donnez pas ce code.\n\nNORIA` }),
+    ht: (v) => ({ sms: `NORIA : ${v.to} mande dosye lekòl pitit ou (${v.from}). Si ou dakò, bay lekòl la kòd sa a : ${v.code} (${v.minutes} min).`,
+      subject: `Transfè dosye — ${v.to}`,
+      text: `Bonjou,\n\n${v.to} mande pou yo transfere dosye lekòl pitit ou, ki enskri nan ${v.from}.\n\nSi ou dakò, bay lekòl k ap resevwa l la kòd sa a : ${v.code}\nLi bon pou ${v.minutes} minit epi li sèvi yon sèl fwa. Si ou pa dakò, pa bay kòd la.\n\nNORIA` }),
+  },
+  transfert: {
+    fr: (v) => { const w = { transfere: `est terminé : le dossier est maintenant à ${v.to}`, refuse: 'a été refusé par l’école d’origine', annule: 'a été annulé' }[v.status];
+      return { sms: `NORIA : le transfert du dossier de votre enfant (${v.from} → ${v.to}) ${w}.`, subject: `Transfert de dossier — ${v.to}`, text: `Bonjour,\n\nLe transfert du dossier scolaire de votre enfant (${v.from} → ${v.to}) ${w}.\n\nNORIA` }; },
+    ht: (v) => { const w = { transfere: `fini : dosye a nan ${v.to} kounye a`, refuse: 'lekòl kote l te ye a refize l', annule: 'anile' }[v.status];
+      return { sms: `NORIA : transfè dosye pitit ou (${v.from} → ${v.to}) ${w}.`, subject: `Transfè dosye — ${v.to}`, text: `Bonjou,\n\nTransfè dosye lekòl pitit ou (${v.from} → ${v.to}) ${w}.\n\nNORIA` }; },
+  },
 };
 
 function render(kind, lang, vars) { return T[kind][pick(lang)](vars); }

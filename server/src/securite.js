@@ -21,6 +21,7 @@ const DEFAULTS = {
   interEcolesRefus: 10, interEcolesAutres: 3, interFenetreMin: 15,
   pic4xx: 100, pic4xxFacteur: 3, pic5xxAttention: 5, pic5xxCritique: 20, picFenetreMin: 10,
   exportsHeure: 20, pdfHeure: 100, fichesHeure: 200,
+  recherchesEcoleHeure: 30, recherchesEchecsHeure: 10,
   sensiblesJour: 10, horsHeuresAttention: 3, heureMatin: 6, heureSoir: 20,
   latenceAttentionMs: 500, latenceCritiqueMs: 2000, disqueAttentionPct: 15, disqueCritiquePct: 5, memoireAttentionPct: 10, memoireCritiquePct: 3,
   baseMaxMo: 2048, sauvegardeMaxHeures: 26, certAttentionJours: 21, certCritiqueJours: 7, rapportAuditMaxJours: 7,
@@ -117,6 +118,8 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       if (body && body.__pdf) return record({ ...base, kind: 'pdf' });
       if (req.method === 'GET' && p.startsWith('/api/export/')) return record({ ...base, kind: 'export' });
       if (req.method === 'GET' && /^\/api\/students\/\d+$/.test(p)) return record({ ...base, kind: 'fiche' });
+      // Vérification d'un élève d'une autre école (bloc 4) : « introuvable » = code ou date de naissance faux.
+      if (req.method === 'POST' && p === '/api/transferts/recherche') return record({ ...base, kind: 'recherche', detail: req.secDetail || null });
     }
   }
   async function loginOk(req, who) {
@@ -239,6 +242,24 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       const seuils = `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`;
       out.push({ rule: 'volume_anormal', key: `u:${r.user_id}|${r.kind}`, severity: n >= 3 * lim[r.kind] ? 'critique' : 'attention', vars: { n, cible, quoi: nom[r.kind].fr, seuil: lim[r.kind], seuils }, varsHt: { n, cible, quoi: nom[r.kind].ht, seuil: lim[r.kind], seuils },
         evidence: [`${n} ${nom[r.kind].fr} en 1 h (seuil ${lim[r.kind]})`, ...(await lastEvents('kind = ? AND user_id = ? AND at_ms > ?', r.kind, r.user_id, now() - H)).map(evLine)], actions: accountActions({ user_id: Number(r.user_id) }) });
+    }
+    return out;
+  }
+  // Bloc 4 : beaucoup de vérifications d'élèves par une même école (ou beaucoup de codes/dates faux) en une heure.
+  async function ruleSearches() {
+    const out = []; const since = now() - H;
+    const rows = await db.all(`SELECT school_id, COUNT(*) AS n, SUM(CASE WHEN detail = 'introuvable' THEN 1 ELSE 0 END) AS miss, COUNT(DISTINCT user_id) AS users
+      FROM security_event WHERE kind = 'recherche' AND at_ms > ? AND school_id IS NOT NULL GROUP BY school_id`, since);
+    for (const r of rows) {
+      const n = Number(r.n), miss = Number(r.miss || 0);
+      if (n < S.recherchesEcoleHeure && miss < S.recherchesEchecsHeure) continue;
+      const top = await db.get("SELECT user_id, COUNT(*) AS n FROM security_event WHERE kind = 'recherche' AND at_ms > ? AND school_id = ? GROUP BY user_id ORDER BY COUNT(*) DESC LIMIT 1", since, r.school_id);
+      const critique = n >= 3 * S.recherchesEcoleHeure || miss >= 3 * S.recherchesEchecsHeure;
+      const vars = { n, miss, cible: `école n° ${r.school_id}`, comptes: Number(r.users), seuil: S.recherchesEcoleHeure, echecs: S.recherchesEchecsHeure };
+      out.push({ rule: 'recherches_eleves', key: `e:${r.school_id}`, severity: critique ? 'critique' : 'attention', vars, varsHt: { ...vars, cible: `lekòl n° ${r.school_id}` },
+        evidence: [`${n} vérifications d’élèves en 1 h dont ${miss} sans résultat (seuils ${S.recherchesEcoleHeure} / ${S.recherchesEchecsHeure})`,
+          ...(await lastEvents("kind = 'recherche' AND school_id = ? AND at_ms > ?", r.school_id, since)).map(evLine)],
+        actions: top ? accountActions({ user_id: Number(top.user_id) }) : [] });
     }
     return out;
   }
@@ -400,7 +421,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       await flush();
       const cands = [];
       const health = await ruleHealth(opts);
-      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSensitive]) {
+      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, ruleSensitive]) {
         try { cands.push(...await f()); } catch (e) { log(`[assistant] règle ${f.name} en échec : ${e.message}`); }
       }
       cands.push(...health.alerts, ...ruleConfig(), ...ruleDeps());
@@ -445,9 +466,9 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     const g = G[alert.rule] || G.sante;
     const ev = JSON.parse(alert.evidence || '[]');
     const vars = { seuil: '', n: alert.hits };
-    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour };
-    Object.assign(vars, { seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
-    const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications)/) || [])[1]; if (m) vars.n = m;
+    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure };
+    Object.assign(vars, { echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
+    const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications|vérifications)/) || [])[1]; if (m) vars.n = m;
     const cm = alert.explain_fr.match(/essayé (\d+) comptes/); if (cm) vars.comptes = cm[1];
     if (q === 'libre' && llm && libre) {
       try { return { source: llm.name, reponse: await llm.ask({ question: libre, alerte: llm.redact(alert) }) }; }

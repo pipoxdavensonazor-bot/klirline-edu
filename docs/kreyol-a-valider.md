@@ -18,6 +18,8 @@ Le test `server/test/kreyol.test.js` vérifie que chaque clé française a son �
 | `cash`, mode `especes` | Espèces | Lajan kach | **Kach** (finances), **Lajan kach** (démo) | Faut-il une seule forme ? |
 | barème | Barème | Baremn / barem | **Barèm** | Orthographe IPN de ce mot ? |
 | `coef` | Coefficient | Koyefisyan | **Koefisyan** | Laquelle des deux graphies faut-il garder ? |
+| `transferts` (bloc 4) | Transferts (entre écoles) | — | **Transfè** | Même mot que « Transfè labank » : faut-il préciser « Transfè dosye » ? |
+| `redouble` / `echec` (bloc 4) | Redouble / Échec | — | **Double / Echwe** | « Double » est-il compris pour un redoublement ? |
 | `ret` (bibliothèque) | Retour | — | **Resevwa liv la** | Le bouton s'adresse au personnel. Faut-il plutôt « Retou » ? |
 | `cur` (prêts) | En cours | — | **Ki poko remèt** | Est-ce assez court pour un filtre ? |
 | `bal` | Solde | Sold | **Sa ki rete pou peye** (finances) ; « Sold » ailleurs | Les parents comprennent-ils « sold » ? Le solde peut aussi être négatif (trop-perçu). |

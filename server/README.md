@@ -195,6 +195,13 @@ Vérification navigateur : `scripts/verif-otp.js` (captures `otp-<sujet>-<appare
 - MonCash et NatCash : pas d'appel d'API, la référence est saisie à la main. `src/paiement-adaptateurs.js` définit l'interface `verify()` d'un futur adaptateur, choisi par `NORIA_PAIEMENT_ADAPTATEUR`.
 - Vérification navigateur : `node scripts/verif-biblio-recus.js http://127.0.0.1:3100`.
 
+## Lien entre écoles (bloc 4, `test/transferts.test.js`)
+
+Vérification minimale d'un élève (code + date de naissance obligatoire, limite de débit dédiée), signalements
+(texte réservé aux directions), décisions de fin d'année, transferts de dossier (consentement du parent, approbation
+signée Ed25519, étape ministère désactivée par défaut, copie et archivage, certificat vérifiable). Détails :
+`docs/transferts.md`. Vérification navigateur : `NODE_PATH=… node scripts/verif-transferts.js`.
+
 ## Reste à faire avant toute donnée réelle
 
 Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), finances, bibliothèque et rapports côté serveur (encore locaux), validation par Philippe des règles de notes (barème /10, publication par la direction seule, annulation du bulletin précédent), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).

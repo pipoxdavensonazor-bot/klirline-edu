@@ -346,6 +346,8 @@ const routes = [
     const keys = Object.keys(fields).filter((k) => allowed.includes(k));
     if (!keys.length) throw new HttpError(400, 'aucun champ modifiable');
     const sc = P.studentScope(u, 'student');
+    const arch = await db.get(`SELECT student.status FROM student WHERE student.id = ? AND ${sc.sql}`, Number(id), ...sc.params);
+    if (arch && arch.status === 'transfere') throw new HttpError(409, 'dossier archivé (élève transféré) : lecture seule');
     const r = await db.run(`UPDATE student SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE student.id = ? AND ${sc.sql}`, ...keys.map((k) => fields[k]), Number(id), ...sc.params);
     if (!r.changes) notFound();
@@ -468,6 +470,9 @@ routes.push(...eco.routes, ...eco.publicRoutes);
 routes.push(...require('./badges').routes);
 const rel = require('./releves').createRoutes({ outbox, reqLang });
 routes.push(...rel.routes, ...rel.publicRoutes);
+// Bloc 4 : vérification d'un élève entre écoles, signalements, décisions de fin d'année, transferts de dossier.
+const trf = require('./transferts').createRoutes({ outbox, reqLang });
+routes.push(...trf.routes, ...trf.publicRoutes);
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
@@ -619,6 +624,12 @@ function createServer(db, options = {}) {
     // Derrière Caddy (ou un autre mandataire de confiance) : l'adresse du client est la dernière entrée de
     // X-Forwarded-For, ajoutée par le mandataire. Sans trustProxy, l'en-tête est ignoré (il serait falsifiable).
     trustProxy: !!options.trustProxy,
+    env: options.env || process.env,
+  };
+  // Vérification d'un élève entre écoles : limite dédiée par compte et par école (fenêtre de 15 min, comme la connexion).
+  ctx.searchLimit = options.searchLimit || {
+    user: createLimiter({ db, max: 15, windowMs: 15 * 60 * 1000 }),
+    school: createLimiter({ db, max: 40, windowMs: 15 * 60 * 1000 }),
   };
   // Assistant sécurité : observe les connexions, refus et erreurs ; n'agit jamais seul (voir src/securite.js).
   ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl }));
@@ -700,6 +711,8 @@ function createServer(db, options = {}) {
       if (/CHECK constraint|FOREIGN KEY|violates (check|foreign key|not-null) constraint/.test(e.message)) return send(400, { error: 'donnée refusée par la base' });
       if (isUnique(e)) return send(409, { error: 'doublon refusé par la base' });
       if (/row-level security/.test(e.message)) { req.rls = true; return send(404, { error: 'introuvable' }); }
+      // Garde-fous de la base (archive d'un élève transféré, transfert clos, signature figée).
+      if (/lecture seule|signature figée|suppression interdite/.test(e.message)) return send(409, { error: 'dossier en lecture seule' });
       console.error(e);
       send(500, { error: 'erreur serveur' });
     }

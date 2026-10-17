@@ -402,8 +402,10 @@ const publicRoutes = [
     const keys = [`verif:${req.ip}`];
     if (await ctx.limiter.blocked(keys)) throw new HttpError(429, 'trop de vérifications, réessayez plus tard');
     // Badge (« B… », 27 caractères) et relevé officiel (« R… », 13 caractères) : même page publique.
-    if (/^[BR][A-Z2-9]{12,26}$/.test(code)) {
-      const v = code[0] === 'B' ? await require('./badges').verifyBadgePublic(db, code) : await require('./releves').verifyTranscriptPublic(db, code);
+    // Certificat de transfert (« T… », 13 caractères) : idem.
+    if (/^[BRT][A-Z2-9]{12,26}$/.test(code)) {
+      const v = code[0] === 'B' ? await require('./badges').verifyBadgePublic(db, code)
+        : code[0] === 'T' ? await require('./transferts').verifyTransferPublic(db, code) : await require('./releves').verifyTranscriptPublic(db, code);
       if (v) return v;
       await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun document ne correspond à ce code');
     }

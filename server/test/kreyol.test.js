@@ -38,7 +38,7 @@ function compare(fr, ht, where, errors) {
 const DICTS = [
   ['scolaire.js', 'const T={'], ['login.js', 'const T={'], ['gestion.js', 'const T={'],
   ['offline.js', 'const L={'], ['mobile-nav.js', 'const L = {'],
-  ['ecoles.js', 'const T={'], ['ecoles-gestion.js', 'const T={'], ['admin.js', 'const T={'], ['badges.js', 'const T={'], ['admin-securite.js', 'const T={'],
+  ['ecoles.js', 'const T={'], ['ecoles-gestion.js', 'const T={'], ['admin.js', 'const T={'], ['badges.js', 'const T={'], ['admin-securite.js', 'const T={'], ['transferts.js', 'const T={'],
 ];
 
 test('KL_I18N (i18n.js + addons-i18n.js) : chaque clé FR existe en HT', () => {

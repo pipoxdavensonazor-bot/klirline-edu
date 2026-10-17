@@ -175,6 +175,8 @@ const ROUTES = [
 ];
 // Assistant sécurité (bloc 3) : mêmes garanties (session super-admin, x-noria, journal).
 ROUTES.push(...require('./securite-actions').routes({ log, dbSize, backups }));
+// Bloc 4 : étape « autorisation ministère » des transferts (désactivée par défaut).
+ROUTES.push(...require('./transferts').adminRoutes({ log }));
 
 function parseAdminToken(req, parseCookies) {
   const h = req.headers.authorization || '';
