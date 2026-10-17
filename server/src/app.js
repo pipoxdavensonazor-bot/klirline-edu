@@ -651,11 +651,13 @@ function createServer(db, options = {}) {
   // Bloc 6 : vérifications de documents par un compte du ministère (codes inconnus limités par compte).
   ctx.ministryVerifyLimit = options.ministryVerifyLimit || createLimiter({ db, max: 30, windowMs: 15 * 60 * 1000 });
   ctx.portalLimit = options.portalLimit || createLimiter({ db, max: portail.PROPOSALS_PER_HOUR, windowMs: 3600e3 });
+  // Bloc 8 : formulaires publics (demande d'inscription, code des comptes grand public) : 8 envois par heure et par clé.
+  ctx.publicLimit = options.publicLimit || createLimiter({ db, max: 8, windowMs: 3600e3 });
   // Assistant sécurité : observe les connexions, refus et erreurs ; n'agit jamais seul (voir src/securite.js).
   ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl }));
   const serveStatic = options.staticRoot === false ? null : createStatic(options.staticRoot || path.join(__dirname, '..', '..'));
   // Portail public (pages HTML rendues par le serveur, sans connexion) sur / et /ht/… ; l'application est sur /app.
-  const portal = options.portal === false ? null : createPortal(db, { publicUrl: ctx.publicUrl, secureCookie: ctx.secureCookie, root: options.staticRoot || path.join(__dirname, '..', '..') });
+  const portal = options.portal === false ? null : createPortal(db, { ctx, publicUrl: ctx.publicUrl, secureCookie: ctx.secureCookie, root: options.staticRoot || path.join(__dirname, '..', '..') });
   const srv = http.createServer(async (req, res) => {
     let extra = {};
     const cookies = [];
@@ -709,6 +711,11 @@ function createServer(db, options = {}) {
         // Adresse inconnue demandée par un navigateur : page 404 du portail plutôt qu'une réponse JSON.
         if (portal && /text\/html/.test(req.headers.accept || '')) return portal.notFound(req, res, url, SECURITY_HEADERS);
       }
+      // Bloc 8 : formulaires HTML du portail (inscription d'une école, compte grand public, désinscription).
+      if (portal && req.method === 'POST' && portal.handlesPost(url.pathname)) {
+        if (ctx.sec && await ctx.sec.isBlocked(clientIp(req, ctx.trustProxy))) throw new HttpError(403, 'adresse temporairement bloquée');
+        if (await portal.post(req, res, url, SECURITY_HEADERS, clientIp(req, ctx.trustProxy))) return;
+      }
       let raw = '';
       for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) throw new HttpError(413, 'trop volumineux'); }
       req.rawBody = raw; // signature HMAC du webhook entrant (bloc 7)
@@ -758,7 +765,8 @@ function createServer(db, options = {}) {
     }
   });
   srv.sec = ctx.sec;
+  srv.ctx = ctx;
   return srv;
 }
 
-module.exports = { createServer, clientIp, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier };
+module.exports = { createServer, clientIp, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier, outbox, linkBase, INVITE_HOURS };

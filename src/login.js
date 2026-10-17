@@ -7,7 +7,7 @@ const T={
   fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",forgot:"Mot de passe oublié ?",
       back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:"Recevoir un code par SMS ou e-mail",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:"Nous envoyons un code à 6 chiffres au téléphone ou à l'e-mail du compte.",enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
-      demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
+      reg:"Votre école n’est pas encore sur NORIA ? Inscrire mon école",demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
       logout:"Se déconnecter",invTitle:"Activer votre compte",resTitle:"Nouveau mot de passe",newPw:"Nouveau mot de passe (10 caractères minimum)",
       save:"Enregistrer",done:"C'est fait. Connectez-vous.",invalid:"Lien invalide ou expiré.",short:"10 caractères minimum.",first:"Première connexion : un réseau est nécessaire.",
       pendingOut:n=>`${n} saisie(s) pas encore envoyée(s). Elles partiront à la prochaine connexion de ce compte. Se déconnecter quand même ?`,
@@ -19,7 +19,7 @@ const T={
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
       back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Resevwa yon kòd pa SMS oswa imèl",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"N ap voye yon kòd 6 chif sou telefòn oswa imèl kont la.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
-      demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
+      reg:"Lekòl ou poko sou NORIA ? Enskri lekòl mwen",demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
       logout:"Dekonekte",invTitle:"Aktive kont ou",resTitle:"Nouvo modpas",newPw:"Nouvo modpas (10 karaktè minimòm)",
       save:"Anrejistre",done:"Fini. Konekte kounye a.",invalid:"Lyen an pa bon oswa li ekspire.",short:"10 karaktè minimòm.",first:"Premye koneksyon : fò gen rezo.",
       pendingOut:n=>`${n} antre poko pati. Y ap pati lè kont sa a rekonekte. Dekonekte kanmenm ?`,
@@ -51,7 +51,7 @@ function screen(html){
   let el=document.getElementById("loginScreen");
   if(!el){ el=document.createElement("div"); el.id="loginScreen"; el.className="login-screen"; document.body.appendChild(el); }
   el.innerHTML=`<div class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-    <img class="login-logo" src="src/noria-logo.png" alt="NORIA" width="160" height="60">
+    <img class="login-logo" src="src/noria-logo.png" alt="NORIA" width="112" height="60">
     ${CONFIG&&CONFIG.demo?`<p class="login-demo">${esc(t("demo"))}</p>`:""}${html}
     <div class="login-lang"><button type="button" data-lang="fr" aria-pressed="${lang()==="fr"}">FR</button><button type="button" data-lang="ht" aria-pressed="${lang()==="ht"}">HT</button></div></div>`;
   el.hidden=false; document.body.classList.add("login-open"); background(true);
@@ -79,6 +79,7 @@ const views={
       </form>
       ${(CONFIG.methods||[]).includes("code6")?`<button type="button" class="login-alt" id="lgCode">${esc(t("useCode"))}</button>`:""}
       <button type="button" class="login-link" id="lgForgot">${esc(t("forgot"))}</button>
+      <a class="login-link login-reg" href="${lang()==="ht"?"/ht":""}/inscrire-ecole">${esc(t("reg"))}</a>
       ${CONFIG.demo?`<details class="login-demo-acc"><summary>${esc(t("demoAcc"))}</summary><p class="small">${esc(t("demoPw"))} : <code>demo-fictif-2026</code></p><div class="login-acc">${["direction","secretariat","prof1","compta","biblio","parent1","eleve1"].map(h=>`<button type="button" data-acc="${h}">${h}</button>`).join("")}</div></details>`:""}`);
     el.dataset.view="login";
     el.querySelector("#lgForgot").addEventListener("click",views.forgot);

@@ -10,6 +10,7 @@ const path = require('node:path');
 const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const Pt = require('./portail');
+const PP = require('./portail-public');
 
 // CSP du portail : plus stricte que celle de l'application (aucune connexion sortante, aucun cadre, aucun formulaire externe).
 const PORTAL_CSP = ["default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self'", "base-uri 'none'",
@@ -45,8 +46,8 @@ const T = {
     months: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
     mshort: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
     notFound: 'Page introuvable', notFoundText: 'Cette page n’existe pas ou n’est plus publiée.', home: 'Retour à l’accueil',
-    footer: 'NORIA est un produit de Klirline Inc. Portail public : aucun compte, aucun cookie, aucun traceur.',
-    footerSchools: 'Vous dirigez une école ? Connectez-vous à votre espace pour proposer un événement, un article ou un lauréat : chaque contenu est relu avant publication.',
+    footer: 'NORIA est un produit de Klirline Inc. Portail consultable sans compte, sans traceur ; un cookie de session est posé seulement si vous vous connectez à « Mon compte ».',
+    footerSchools: 'Vous dirigez une école ? Inscrivez-la sur NORIA, ou connectez-vous à votre espace pour proposer un événement, un article ou un lauréat : chaque contenu est relu avant publication.', rss: 'Flux RSS des annonces',
     desc: {
       '': 'NORIA, gestion scolaire pour Haïti : événements nationaux, lauréats des examens et concours, vie des écoles partenaires, en français et en kreyòl.',
       evenements: 'Événements scolaires nationaux en Haïti : examens officiels, concours, culture, sport. Dates, lieux et descriptions.',
@@ -79,8 +80,8 @@ const T = {
     months: ['janvye', 'fevriye', 'mas', 'avril', 'me', 'jen', 'jiyè', 'out', 'septanm', 'oktòb', 'novanm', 'desanm'],
     mshort: ['jan', 'fev', 'mas', 'avr', 'me', 'jen', 'jiy', 'out', 'sept', 'okt', 'nov', 'des'],
     notFound: 'Nou pa jwenn paj la', notFoundText: 'Paj sa a pa egziste oswa li pa pibliye ankò.', home: 'Retounen nan akèy la',
-    footer: 'NORIA se yon pwodui Klirline Inc. Pòtay piblik : pa gen kont, pa gen cookie, pa gen traseur.',
-    footerSchools: 'Ou dirije yon lekòl ? Konekte nan espas ou pou pwopoze yon evènman, yon atik oswa yon laureya : ekip la li chak kontni anvan li pibliye.',
+    footer: 'NORIA se yon pwodui Klirline Inc. Ou ka gade pòtay la san kont, pa gen traseur ; yon cookie sesyon parèt sèlman si ou konekte nan « Kont mwen ».',
+    footerSchools: 'Ou dirije yon lekòl ? Enskri l sou NORIA, oswa konekte nan espas ou pou pwopoze yon evènman, yon atik oswa yon laureya : ekip la li chak kontni anvan li pibliye.', rss: 'Flux RSS anons yo',
     desc: {
       '': 'NORIA, jesyon lekòl pou Ayiti : evènman nasyonal, laureya egzamen ak konkou, lavi lekòl patnè yo, an franse ak an kreyòl.',
       evenements: 'Evènman lekòl nasyonal ann Ayiti : egzamen ofisyèl, konkou, kilti, espò. Dat, kote ak deskripsyon.',
@@ -126,18 +127,20 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
     `<meta property="og:description" content="${esc(desc)}">`, `<meta property="og:url" content="${esc(abs(canonical))}">`, `<meta property="og:image" content="${esc(og)}">`,
     `<meta property="og:locale" content="${t.locale}">`, `<meta property="og:locale:alternate" content="${T[other].locale}">`,
     `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
-    '<meta name="theme-color" content="#0e1218">', '<link rel="icon" href="/src/favicon.svg" type="image/svg+xml">', '<link rel="apple-touch-icon" href="/src/icon-192.png">',
+    '<meta name="theme-color" content="#0e1218">', '<link rel="icon" href="/favicon.ico" sizes="48x48">', '<link rel="icon" href="/src/favicon.svg" type="image/svg+xml">',
+    '<link rel="icon" href="/src/favicon-32.png" type="image/png" sizes="32x32">', '<link rel="apple-touch-icon" href="/src/apple-touch-icon.png" sizes="180x180">',
+    `<link rel="alternate" type="application/rss+xml" title="${esc(t.rss)}" href="${L === 'ht' ? '/ht' : ''}/annonces.rss">`,
     `<link rel="stylesheet" href="/src/portail.css?v=${assets.css}">`, `<script src="/src/portail.js?v=${assets.js}"></script>`,
   ].join('');
   const nav = PAGES.map((p) => `<a href="${href(L, p)}"${p === page ? ' aria-current="page"' : ''}>${esc(t.nav[p])}</a>`).join('');
   const langs = ['fr', 'ht'].map((l) => `<a href="${esc(alt ? alt[l] : href(l))}" hreflang="${l}" lang="${l}"${l === L ? ' aria-current="true"' : ''} title="${esc(T[l].name)}">${l.toUpperCase()}</a>`).join('');
   return `<!doctype html><html lang="${L}"><head>${head}</head><body>
 <a class="skip" href="#contenu">${esc(t.skip)}</a>
-<header class="hd"><div class="wrap hd-in"><a class="brand" href="${href(L)}"><img src="/src/favicon.svg" alt="" width="32" height="32"><span>NORIA</span></a>
-<nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav><a class="btn btn-in" href="/app" title="${esc(t.loginTitle)}">${esc(t.login)}</a></div>
-<nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}</div></nav></header>
+<header class="hd"><div class="wrap hd-in"><a class="brand" href="${href(L)}"><img src="/src/noria-logo.png" alt="NORIA — ${esc(L === 'ht' ? 'Yon lekòl, yon fanmi ak yon avni' : 'Une école, une famille et un avenir')}" width="89" height="48"></a>
+<nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav><a class="btn btn-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a><a class="btn btn-in" href="/app" title="${esc(t.loginTitle)}">${esc(t.login)}</a></div>
+<nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}<a class="nav-acc" href="${href(L, 'compte')}"${page === 'compte' ? ' aria-current="page"' : ''}>${esc(PP.X[L].account)}</a></div></nav></header>
 <main id="contenu" class="wrap" tabindex="-1">${body}</main>
-<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a href="/app">${esc(t.ctaSchools)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
+<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="/app">${esc(t.ctaSchools)}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
 </body></html>`;
 }
 
@@ -195,6 +198,7 @@ async function home(pub, L) {
       + section('s-la', t.featured, featured.length ? `<ul class="grid la-g">${featured.map((p) => laureateCard(p, L, { photo: false })).join('')}</ul>` : empty(t.noLaureates), more(L, 'laureats', t.allLaureates))
       + section('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : empty(t.noAds), more(L, 'annonces', t.allAds))
       + section('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : empty(t.noCommunity), more(L, 'communaute', t.allCommunity))
+      + `<section class="sec box-reg" aria-labelledby="s-reg"><h2 id="s-reg">${esc(PP.X[L].boxTitle)}</h2><p>${esc(PP.X[L].boxText)}</p><p class="cta"><a class="btn" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> <a class="btn btn-o" href="/app">${esc(PP.X[L].loginApp)}</a></p></section>`
       + section('s-pa', t.partners, `<p class="mut">${esc(t.partnersHelp)}</p>${partners.length ? `<ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : empty(t.noPartners)}`),
   };
 }
@@ -270,7 +274,7 @@ async function ads(pub, L) {
 }
 
 /* ---------- Service HTTP ---------- */
-function createPortal(db, { publicUrl = null, secureCookie = false, root = path.join(__dirname, '..', '..') } = {}) {
+function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, root = path.join(__dirname, '..', '..') } = {}) {
   const pub = Pt.createPublic(db);
   const cache = new Map();
   const assetHash = (f) => { try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(root, 'src', f))).digest('hex').slice(0, 10); } catch { return '1'; } };
@@ -304,6 +308,16 @@ function createPortal(db, { publicUrl = null, secureCookie = false, root = path.
     const t = T[L];
     return { status: 404, html: layout({ L, page: null, title: t.notFound, desc: t.notFoundText, body: `<h1>${esc(t.notFound)}</h1><p>${esc(t.notFoundText)}</p><p><a class="btn" href="${href(L)}">${esc(t.home)}</a></p>`, canonical: href(L), alt: null, base, assets: getAssets(), status: 404 }) };
   }
+  // Bloc 8 : pages et formulaires de l'inscription des écoles et des comptes grand public (jamais en cache partagé).
+  const site = ctx ? PP.createPublicSite(db, {
+    ctx, write: (...a) => write(...a), baseOf: (req) => baseOf(req), esc, T,
+    render: ({ L, title, body, req, status }) => {
+      const p = new URL(req.url, 'http://x').pathname.replace(/^\/ht/, '').replace(/^\//, '');
+      const canon = p.startsWith('compte') ? 'compte' : p;
+      return layout({ L, page: canon === 'compte' ? 'compte' : null, title, desc: t0(L).desc[''], body, canonical: href(L, canon), alt: { fr: href('fr', canon), ht: href('ht', canon) }, base: baseOf(req), assets: getAssets(), status: status === 200 ? 200 : 404 });
+    },
+  }) : null;
+  const t0 = (L) => T[L];
   async function sitemap(base) {
     const rows = await pub.sitemap();
     const urls = PAGES.map((p) => ({ p, mod: null })).concat(rows.map((r) => ({ p: `${r.kind === 'evenement' ? 'evenements' : 'communaute'}/${r.id}`, mod: String(r.updated_at || r.published_at || '').slice(0, 10) })));
@@ -311,7 +325,7 @@ function createPortal(db, { publicUrl = null, secureCookie = false, root = path.
     const one = (loc, p, mod) => `<url><loc>${loc}</loc>${mod ? `<lastmod>${esc(mod)}</lastmod>` : ''}<xhtml:link rel="alternate" hreflang="fr" href="${u(p)}"/><xhtml:link rel="alternate" hreflang="ht" href="${uh(p)}"/></url>`;
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls.map(({ p, mod }) => one(u(p), p, mod) + one(uh(p), p, mod)).join('')}</urlset>\n`;
   }
-  const robots = (base) => `User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /api/\nDisallow: /p/clic/\n${base ? `Sitemap: ${base}/sitemap.xml\n` : ''}`;
+  const robots = (base) => `User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /api/\nDisallow: /p/clic/\nDisallow: /compte\nDisallow: /ht/compte\nDisallow: /desinscription\n${base ? `Sitemap: ${base}/sitemap.xml\n` : ''}`;
 
   function write(req, res, baseHeaders, { status, body, type, cache: cc, extra = {} }) {
     const raw = Buffer.isBuffer(body) ? body : Buffer.from(body);
@@ -335,6 +349,7 @@ function createPortal(db, { publicUrl = null, secureCookie = false, root = path.
       const to = p === '/app/' ? '/app' : (p.slice('/public'.length) || '/');
       res.writeHead(301, { ...baseHeaders, location: to + url.search, 'cache-control': 'public, max-age=86400' }); res.end(); return true;
     }
+    if (site && (await site.rss(req, res, url, baseHeaders) || await site.get(req, res, url, baseHeaders))) return true;
     if (p === '/robots.txt') { write(req, res, baseHeaders, { status: 200, body: robots(baseOf(req)), type: 'text/plain; charset=utf-8', cache: 'public, max-age=3600' }); return true; }
     if (p === '/sitemap.xml') { write(req, res, baseHeaders, { status: 200, body: await sitemap(baseOf(req)), type: 'application/xml; charset=utf-8', cache: 'public, max-age=3600' }); return true; }
     let m = p.match(/^\/p\/img\/(\d{1,9})(-v)?$/);
@@ -373,7 +388,8 @@ function createPortal(db, { publicUrl = null, secureCookie = false, root = path.
     const r = notFoundPage(L, baseOf(req));
     write(req, res, baseHeaders, { status: 404, body: r.html, type: 'text/html; charset=utf-8', cache: 'no-cache', extra: { 'content-language': L } });
   }
-  return { serve, notFound, pub, T };
+  const post = async (req, res, url, baseHeaders, ip) => (site ? site.post(req, res, url, baseHeaders, ip) : false);
+  return { serve, notFound, pub, T, post, handlesPost: (p) => !!site && site.handlesPost(p) };
 }
 
 module.exports = { createPortal, PORTAL_CSP, T, esc };

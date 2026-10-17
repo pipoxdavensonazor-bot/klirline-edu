@@ -10,11 +10,13 @@ const crypto = require('node:crypto');
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json; charset=utf-8',
-  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8', '.ico': 'image/x-icon',
 };
 const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
 // Fichiers servis à la racine (application installable) en plus de index.html et src/.
-const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest']);
+const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest', '/favicon.ico']);
+// Icônes demandées par les navigateurs à la racine (bloc 8) : copies servies depuis src/.
+const ROOT_ALIASES = { '/apple-touch-icon.png': '/src/apple-touch-icon.png', '/apple-touch-icon-precomposed.png': '/src/apple-touch-icon.png' };
 // Scripts et feuilles de style : appelés avec ?v=<version> (les images gardent leur URL, aussi utilisée par les gabarits JS).
 const VERSIONNES = /^\/src\/.+\.(?:js|css)$/;
 
@@ -38,6 +40,7 @@ function createStatic(root) {
     // Bloc 6 : portail du ministère (page séparée, légère ; 404 en amont tant que NORIA_MINISTERE ne vaut pas 1).
     if (p === '/ministere' || p === '/ministere/') return path.join(rootAbs, 'ministere.html');
     if (ROOT_FILES.has(p)) return path.join(rootAbs, p.slice(1));
+    if (ROOT_ALIASES[p]) p = ROOT_ALIASES[p];
     if (!p.startsWith('/src/') || p.includes('\0')) return null;
     const abs = path.resolve(rootAbs, '.' + p);
     if (!abs.startsWith(srcAbs + path.sep)) return null;
@@ -58,6 +61,7 @@ function createStatic(root) {
     const h = crypto.createHash('sha256');
     for (const u of list) h.update(u).update(fs.readFileSync(resolve(u)));
     h.update(fs.readFileSync(path.join(rootAbs, 'index.html')));
+    h.update(src); // toute modification de sw.js lui-même change aussi la version (bloc 8)
     // Mêmes URL que la page (src/x.js?v=…) : le service worker revalide ce que la page vient de recevoir (304) au lieu
     // de tout retélécharger sous une autre URL.
     const v = assetVersion();

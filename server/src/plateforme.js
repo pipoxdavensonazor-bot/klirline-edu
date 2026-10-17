@@ -3,7 +3,7 @@
 // (npm run admin:creer), jamais par l'interface. Connexion en deux étapes obligatoire : mot de passe, puis code à
 // 6 chiffres (même mécanisme que la connexion par code : HMAC salé, 10 min, 5 essais). Session séparée (cookie
 // noria_admin, 2 h). Ces routes utilisent la connexion système (hors RLS) : elles sont toutes journalisées dans
-// platform_audit, en lecture par défaut ; les seules écritures sont créer, suspendre et réactiver une école (motif exigé).
+// platform_audit, en lecture par défaut ; les écritures (créer, suspendre, réactiver une école, traiter une demande d'inscription, inviter une direction) sont toutes journalisées.
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -47,6 +47,26 @@ function backups() {
       .sort((a, b) => (a.at < b.at ? 1 : -1));
     return { configure: true, count: files.length, last: files[0] || null, total: files.reduce((a, f) => a + f.size, 0) };
   } catch (e) { return { configure: true, error: 'dossier de sauvegarde illisible' }; }
+}
+
+// Création d'une école (route POST /api/admin/ecoles et acceptation d'une demande d'inscription, bloc 8), dans la
+// transaction de l'appelant ; journalisée.
+const DEPS = ['artibonite', 'centre', 'grand-anse', 'nippes', 'nord', 'nord-est', 'nord-ouest', 'ouest', 'sud', 'sud-est'];
+async function createSchool(t, a, req, b) {
+  const slug = String(b.slug || '').trim().toLowerCase();
+  const name = String(b.name || '').trim();
+  if (!/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/.test(slug)) throw new HttpError(400, 'identifiant (slug) : lettres minuscules, chiffres et tirets');
+  if (!name || name.length > 120) throw new HttpError(400, 'nom obligatoire (120 caractères au plus)');
+  const initials = I.cleanInitials(b.initials || '') || I.deriveInitials(name);
+  // Bloc 6 : département et commune facultatifs (filtres du portail du ministère).
+  const department = b.department ? String(b.department) : null;
+  if (department && !DEPS.includes(department)) throw new HttpError(400, 'département inconnu');
+  const commune = b.commune ? String(b.commune).trim().slice(0, 80) : null;
+  if (await t.get('SELECT 1 AS x FROM school WHERE slug = ?', slug)) throw new HttpError(409, 'identifiant (slug) déjà utilisé');
+  const sid = await t.insert('INSERT INTO school (slug, name, initials, default_lang, department, commune) VALUES (?,?,?,?,?,?)', slug, name, initials, b.lang === 'ht' ? 'ht' : 'fr', department, commune);
+  await t.insert('INSERT INTO campus (school_id, name) VALUES (?,?)', sid, 'Campus principal');
+  await log(t, a, 'admin.school.create', sid, `${slug} — ${b.reason}`, 'ok', req.ip);
+  return { id: sid, slug, name, initials, department, commune, status: 'active' };
 }
 
 const ROUTES = [
@@ -150,23 +170,7 @@ const ROUTES = [
   // Écritures (motif obligatoire, journalisées) : créer, suspendre, réactiver une école.
   ['POST', /^\/api\/admin\/ecoles$/, async (db, req, a) => {
     const b = req.body || {}; const why = reason(b);
-    const slug = String(b.slug || '').trim().toLowerCase();
-    const name = String(b.name || '').trim();
-    if (!/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/.test(slug)) throw new HttpError(400, 'identifiant (slug) : lettres minuscules, chiffres et tirets');
-    if (!name || name.length > 120) throw new HttpError(400, 'nom obligatoire (120 caractères au plus)');
-    const initials = I.cleanInitials(b.initials || '') || I.deriveInitials(name);
-    // Bloc 6 : département et commune facultatifs (filtres du portail du ministère).
-    const DEPS = ['artibonite', 'centre', 'grand-anse', 'nippes', 'nord', 'nord-est', 'nord-ouest', 'ouest', 'sud', 'sud-est'];
-    const department = b.department ? String(b.department) : null;
-    if (department && !DEPS.includes(department)) throw new HttpError(400, 'département inconnu');
-    const commune = b.commune ? String(b.commune).trim().slice(0, 80) : null;
-    const id = await db.tx(async (t) => {
-      const sid = await t.insert('INSERT INTO school (slug, name, initials, default_lang, department, commune) VALUES (?,?,?,?,?,?)', slug, name, initials, b.lang === 'ht' ? 'ht' : 'fr', department, commune);
-      await t.insert('INSERT INTO campus (school_id, name) VALUES (?,?)', sid, 'Campus principal');
-      await log(t, a, 'admin.school.create', sid, `${slug} — ${why}`, 'ok', req.ip);
-      return sid;
-    });
-    return { id, slug, name, initials, status: 'active' };
+    return db.tx((t) => createSchool(t, a, req, { ...b, reason: why }));
   }, { auth: true, write: true }],
   ['POST', /^\/api\/admin\/ecoles\/(\d+)\/(suspendre|reactiver)$/, async (db, req, a, [id, op]) => {
     const why = reason(req.body);
@@ -186,6 +190,8 @@ ROUTES.push(...require('./transferts').adminRoutes({ log }));
 ROUTES.push(...require('./portail').adminRoutes({ log }));
 // Bloc 6 : comptes du ministère (création, désactivation) et journal de leurs consultations (404 si NORIA_MINISTERE=0).
 ROUTES.push(...require('./ministere').adminRoutes({ log }));
+// Bloc 8 : demandes d'inscription des écoles (accepter, refuser) et invitation de la direction d'une école.
+ROUTES.push(...require('./portail-public').adminRoutes({ log, createSchool }));
 
 function parseAdminToken(req, parseCookies) {
   const h = req.headers.authorization || '';
@@ -227,4 +233,4 @@ async function createAdmin(db, { email, name, phone, password }) {
   return id;
 }
 
-module.exports = { dispatch, createAdmin, loadAdmin, COOKIE, backups, dbSize };
+module.exports = { dispatch, createAdmin, loadAdmin, createSchool, COOKIE, backups, dbSize };

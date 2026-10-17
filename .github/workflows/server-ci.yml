@@ -139,6 +139,9 @@ jobs:
           curl -skI -H 'accept-encoding: gzip' https://localhost/ | grep -qi 'content-encoding: gzip'
           curl -sk -o /dev/null -w '%{http_code}' https://localhost/app | grep -q 200
           curl -sk https://localhost/robots.txt | grep -q 'Disallow: /app'
+          curl -skI https://localhost/favicon.ico | grep -qi 'content-type: image/x-icon'
+          curl -sk -o /dev/null -w '%{http_code}' https://localhost/inscrire-ecole | grep -q 200
+          curl -sk https://localhost/annonces.rss | grep -q '<rss version="2.0">'
           docker compose exec -T app node -e "fetch('http://127.0.0.1:3100/healthz').then(r=>r.json()).then(j=>{if(!j.ok||j.db!=='pg')process.exit(1)})"
       - name: Sauvegarde et restauration par le conteneur db
         run: |

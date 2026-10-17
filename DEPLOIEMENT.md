@@ -73,6 +73,11 @@ cd /opt/noria && git pull && docker compose up -d --build
 
 Les migrations s'appliquent au démarrage. Faire une sauvegarde juste avant (`sudo deploy/sauvegarde/noria-sauvegarde.sh`). L'application est indisponible quelques secondes pendant le redémarrage.
 
+Bloc 8 (portail ouvert, migration 016) : aucune nouvelle variable obligatoire. Vérifier que `NORIA_PUBLIC_URL`
+(liens des e-mails : invitations, désinscription), `NODE_ENV=production` (cookie `noria_public` en `Secure`, déjà le cas avec docker-compose) et
+`NORIA_EMAIL_PROVIDER=resend` sont bien réglés ; les super-admins actifs reçoivent les nouvelles demandes
+d'inscription. Détails : `docs/portail-public.md`.
+
 ## 6. Sauvegardes (obligatoire avant des données réelles)
 
 `deploy/sauvegarde/noria-sauvegarde.sh` :

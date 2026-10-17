@@ -101,3 +101,25 @@ main{padding-bottom:32px;outline:0}
   .nav a{padding:12px 14px}
 }
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+/* Bloc 8 : logo, inscription des écoles, Mon compte */
+.brand img{display:block;height:40px;width:auto;background:#fff;border-radius:8px;padding:2px 6px}
+.hd-in{flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
+.btn-reg{background:var(--gold);padding:8px 12px;min-height:40px;font-size:.88rem}
+.nav-acc{margin-left:auto}
+.box-reg{background:var(--acc2);border:1px solid #c9dbf0;border-radius:var(--r);padding:16px}
+.box-reg h2{margin-top:0}
+.pf{display:grid;gap:12px;margin:14px 0;max-width:560px}
+.pf h2{margin:0;font-size:1.1rem}
+.fld{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:.93rem}
+.fld input,.fld select,.fld textarea{font:inherit;font-weight:400;color:var(--ink);padding:10px;border:1px solid #c9c6bf;border-radius:8px;background:#fff;min-height:44px}
+.fld small{font-weight:400}
+.req{color:#b42318}
+.ck{display:flex;gap:8px;align-items:center;min-height:36px}
+.ck input{width:20px;height:20px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.alert{background:#fdecea;border:1px solid #f4b8b0;color:#7a1a10;border-radius:var(--r);padding:10px 14px}
+.okbox{background:#e7f6ec;border:1px solid #a8dcb9;color:#14532d;border-radius:var(--r);padding:10px 14px}
+.danger{border-color:#f4b8b0}
+.btn-d{background:#b42318}
+@media (max-width:480px){.hd-in{gap:4px}.brand img{height:28px;padding:1px 3px;border-radius:6px}.lang a{min-width:26px;padding:5px 3px;font-size:.8rem}.hd .btn-reg,.hd .btn-in{padding:6px 8px;min-height:36px;font-size:.76rem;letter-spacing:-.01em}}
+@media (max-width:359px){.lang{display:none}}

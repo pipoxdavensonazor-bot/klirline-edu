@@ -28,7 +28,7 @@
 	# index.html et sw.js restent « no-cache » (réglés par l'application) pour que les mises à jour arrivent tout de suite.
 	# Portail public (/, /ht, /evenements…) et images /p/img : en-têtes de cache réglés par l'application (bloc 5).
 	@statiques {
-		path /src/* /manifest.webmanifest
+		path /src/* /manifest.webmanifest /favicon.ico /apple-touch-icon.png
 		not query v=*
 	}
 	header @statiques >Cache-Control "public, max-age=86400, stale-while-revalidate=604800"

@@ -59,7 +59,7 @@ function resendAdapter(env) {
   return {
     name: 'resend',
     async send(m) {
-      const r = await postJson(`${base}/emails`, { body: { from, to: [m.to], subject: m.subject, text: m.text, ...(m.html ? { html: m.html } : {}) }, headers: { authorization: `Bearer ${key}` } });
+      const r = await postJson(`${base}/emails`, { body: { from, to: [m.to], subject: m.subject, text: m.text, ...(m.html ? { html: m.html } : {}), ...(m.headers ? { headers: m.headers } : {}) }, headers: { authorization: `Bearer ${key}` } });
       return { id: r.id || null };
     },
   };

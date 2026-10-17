@@ -26,7 +26,9 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   // Bloc 6 : comptes, journal et clé du ministère, déclarations annuelles et leur historique.
   'ministry_account', 'ministry_audit', 'ministry_key', 'annual_declaration', 'declaration_event',
   // Bloc 7 : adresses e-mail des élèves (réglages par école, destinations vérifiées, adresses, journal).
-  'school_email_settings', 'student_email_dest', 'student_email', 'student_email_event'];
+  'school_email_settings', 'student_email_dest', 'student_email', 'student_email_event',
+  // Bloc 8 : demandes d'inscription des écoles, comptes grand public et leurs abonnements, journal des envois groupés.
+  'school_request', 'public_account', 'public_digest'];
 
 // Tables volontairement exclues : rien de métier, et rien qu'il soit souhaitable de remettre en service.
 const EXCLUDED = {
@@ -38,6 +40,8 @@ const EXCLUDED = {
   ministry_login: 'codes de connexion à usage unique du ministère (10 min)',
   security_pending: 'actions de l’assistant en attente de confirmation par code (quelques minutes)',
   login_attempt: 'compteurs de tentatives pour la limite de débit (fenêtres de 15 min)',
+  public_session: 'sessions des comptes grand public, éphémères : reconnexion par code',
+  public_code: 'codes à usage unique du portail (10 min) et formulaires non vérifiés',
   outbox: 'boîte d’envoi simulée : contient des liens et codes en clair',
 };
 

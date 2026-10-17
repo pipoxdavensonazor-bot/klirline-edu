@@ -113,3 +113,63 @@ img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
   récents), trois annonces, trois contenus de la communauté, toutes les écoles partenaires.
 - Démonstration (`NORIA_DEMO=1`) : contenus fictifs publiés (`seedPortal`), dont un encart expiré qui ne doit pas
   apparaître et un lauréat mineur sans double consentement (initiales).
+
+## Bloc 8 — portail ouvert aux écoles et au grand public
+
+Code : `server/src/portail-public.js` (pages, formulaires, routes d'administration, envois groupés),
+`src/admin-demandes.js` (onglet « Demandes » de #admin, chargé à la demande), migration `016_portail_public`
+(`.sql` commun + `.pg.sql`). Tests : `server/test/portail-public.test.js`.
+
+### Inscription des écoles
+- Bouton « Inscrire mon école » / « Enskri lekòl mwen » dans l'en-tête du portail, encadré « Vous dirigez une école ? »
+  sur l'accueil, lien dans le pied de page et sur l'écran de connexion de `/app`.
+- Formulaire `/inscrire-ecole` (FR) et `/ht/inscrire-ecole` (HT) : nom de l'école, département (les 10), commune,
+  nom de la direction, e-mail, téléphone facultatif, effectif approximatif, message facultatif. HTML classique, aucun
+  script. Champ piège `site_web` (rempli → réponse identique, rien d'enregistré ni d'envoyé). Origine étrangère
+  (`Origin` d'un autre site, ou `Sec-Fetch-Site: cross-site`) refusée.
+- Étape 2 : code à 6 chiffres envoyé à l'adresse (HMAC salé, 10 min, 5 essais, usage unique, table `public_code`).
+  Ce n'est qu'après vérification que la demande est créée (`school_request`, statut `en_attente`), journalisée
+  (`platform_audit`, action `public.demande`), notifiée par e-mail à tous les super-admins actifs, avec un accusé de
+  réception au demandeur.
+- Limite de débit : 8 envois par heure par adresse IP et par e-mail (codes et vérifications), réponse 429.
+- #admin → « Demandes » : filtre par statut ; **Accepter** (identifiant proposé, modifiable) crée l'école par la même
+  logique que `POST /api/admin/ecoles` (`createSchool`, avec département et commune), puis une invitation « direction »
+  (jeton `account_token` de 72 h, lien `/app#invitation=…`) envoyée par e-mail au demandeur ; **Refuser** exige un
+  motif, envoyé au demandeur dans sa langue. Actions journalisées : `admin.demande.accepter`, `admin.demande.refuser`,
+  `admin.direction.inviter`.
+- Routes : `GET /api/admin/demandes[?statut=]`, `POST /api/admin/demandes/<id>/accepter` `{slug?, reason?}`,
+  `POST /api/admin/demandes/<id>/refuser` `{reason}`.
+
+### Inviter la direction d'une école
+- #admin → « Écoles » : bouton « Inviter la direction » sous chaque école active (nom + e-mail) →
+  `POST /api/admin/ecoles/<id>/inviter-direction` `{email, name}`. Même mécanisme d'invitation que dans l'école ;
+  une invitation direction encore valable pour la même adresse est remplacée. Le lien est aussi affiché au
+  super-admin (à transmettre si l'e-mail n'arrive pas).
+- Le formulaire de création d'école expose désormais département et commune.
+
+### Comptes grand public (rôle « public », sans école)
+- `/compte` (FR) et `/ht/compte` (HT) : connexion **sans mot de passe** par code à 6 chiffres. E-mail (envoi réel par
+  le fournisseur configuré) ou téléphone (accepté ; SMS encore simulé tant que `NORIA_SMS_PROVIDER=console`).
+  Le compte est créé à la première vérification (table `public_account`, `role = 'public'`, aucune donnée scolaire).
+- Cookie posé **seulement après connexion** : `noria_public`, `HttpOnly; SameSite=Lax; Path=/`, `Secure` en
+  production (`NODE_ENV=production` ou `NORIA_SECURE_COOKIE=1`), 30 jours. Les pages du portail ne lisent ni ne posent de cookie (cache
+  partagé inchangé) ; les pages `/compte*` sont `no-store, private` et `noindex`.
+- « Mon compte » : abonnements annonces / événements / lauréats, filtre facultatif par département, langue des
+  e-mails, déconnexion, suppression immédiate du compte (case de confirmation).
+- Envoi groupé : à la publication d'un événement ou d'un lauréat (création publiée ou passage à « publié ») et à
+  l'activation d'une annonce officielle en cours (les encarts sponsorisés ne sont jamais envoyés), une seule fois par
+  contenu (`public_digest`), en tâche de fond, par lots de 50 (pause de 1 s entre lots). Une annonce programmée
+  (début futur) n'est pas envoyée à sa création : la réactiver le jour venu. Lauréat mineur : mêmes règles de
+  consentement que le portail (initiales).
+- Chaque e-mail porte un lien de désinscription **signé** (HMAC par compte, clé `link_key` + `NORIA_OTP_SECRET`) en un
+  clic (`GET /desinscription?c=&s=&t=`), plus les en-têtes `List-Unsubscribe` / `List-Unsubscribe-Post` (transmis à
+  Resend).
+- Sans compte : flux RSS `/annonces.rss` et `/ht/annonces.rss` (annonces officielles en cours).
+
+### Logo et icônes
+- En-tête du portail : `src/noria-logo.png` (optimisé : 13,7 Ko → 4 Ko, 32 couleurs), `width="89" height="48"`.
+- Icônes régénérées à partir du « N » du logo (couleur #123048) : `favicon.svg`, `favicon-32.png`,
+  `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, `/favicon.ico` (16/32/48, 3,5 Ko, servi à la
+  racine), `/apple-touch-icon.png` (alias). Balises sur le portail, `/app` (chemins absolus) et `ministere.html`.
+- Service worker : sa version inclut désormais son propre source ; révision 8.
+- Premier chargement mesuré (Chrome headless, cache vide) : `/app` 142 Ko, portail 12,8 Ko.

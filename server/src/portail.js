@@ -402,7 +402,9 @@ function adminRoutes({ log }) {
   const LIST = `SELECT i.*, s.name AS school, s.status AS school_status FROM portal_item i LEFT JOIN school s ON s.id = i.school_id`;
   const shape = (r) => ({ ...r, minor: !!Number(r.minor), consent_school: !!Number(r.consent_school), consent_parent: !!Number(r.consent_parent), featured: !!Number(r.featured),
     public_name: r.kind === 'laureat' ? (consented(r) ? r.person_name : initials(r.person_name)) : undefined });
-  const move = async (db, req, a, id, to, from, why, action) => {
+  // Bloc 8 : e-mail groupé aux abonnés du portail à la publication (une fois par contenu, en tâche de fond).
+  const notify = (db, req, ctx, kind, id) => { if (ctx && ['evenement', 'laureat', 'annonce'].includes(kind)) require('./portail-public').notifyPublished(db, ctx, kind, id, require('./app').linkBase(req, ctx) || 'https://noriaedu.com'); };
+  const move = async (db, req, a, id, to, from, why, action, ctx) => {
     const r = await getItem(db, id);
     const now = iso();
     const upd = await db.run(`UPDATE portal_item SET status = ?, moderated_by = ?, moderated_at = ?, moderation_reason = ?, updated_at = ?${to === 'publie' ? ', published_at = ?' : ''}
@@ -410,6 +412,7 @@ function adminRoutes({ log }) {
     if (!upd.changes) throw new HttpError(409, `statut actuel « ${r.status} » : action impossible`);
     await log(db, a, `admin.portail.${action}`, r.id, `${r.kind}${r.school_id ? ` école ${r.school_id}` : ''}${why ? ` — ${why}` : ''}`, 'ok', req.ip);
     bump();
+    if (to === 'publie') notify(db, req, ctx, r.kind, r.id);
     return { id: r.id, status: to };
   };
   return [
@@ -429,7 +432,7 @@ function adminRoutes({ log }) {
       return rows.map(shape);
     }, { auth: true }],
     // Création directe par le super-admin : publiée tout de suite, sauf « brouillon » (reste en attente).
-    ['POST', /^\/api\/admin\/portail\/elements$/, async (db, req, a) => {
+    ['POST', /^\/api\/admin\/portail\/elements$/, async (db, req, a, _m, ctx) => {
       const b = req.body || {};
       const o = readItem(b, b.kind, { label: `super-admin n° ${a.id}` });
       const id = await db.tx(async (t) => {
@@ -443,6 +446,7 @@ function adminRoutes({ log }) {
         return nid;
       });
       bump();
+      if (!bool(b.brouillon)) notify(db, req, ctx, o.kind, id);
       return { id, status: bool(b.brouillon) ? 'en_attente' : 'publie' };
     }, { auth: true, write: true }],
     // Correction par le super-admin (motif obligatoire) : le statut ne change pas.
@@ -462,7 +466,7 @@ function adminRoutes({ log }) {
       bump();
       return { id: r.id, status: r.status };
     }, { auth: true, write: true }],
-    ['POST', /^\/api\/admin\/portail\/elements\/(\d+)\/publier$/, async (db, req, a, [id]) => move(db, req, a, id, 'publie', ['en_attente', 'depublie', 'refuse'], reason(req.body, false), 'publier'), { auth: true, write: true }],
+    ['POST', /^\/api\/admin\/portail\/elements\/(\d+)\/publier$/, async (db, req, a, [id], ctx) => move(db, req, a, id, 'publie', ['en_attente', 'depublie', 'refuse'], reason(req.body, false), 'publier', ctx), { auth: true, write: true }],
     ['POST', /^\/api\/admin\/portail\/elements\/(\d+)\/refuser$/, async (db, req, a, [id]) => move(db, req, a, id, 'refuse', ['en_attente'], reason(req.body), 'refuser'), { auth: true, write: true }],
     ['POST', /^\/api\/admin\/portail\/elements\/(\d+)\/depublier$/, async (db, req, a, [id]) => move(db, req, a, id, 'depublie', ['publie'], reason(req.body), 'depublier'), { auth: true, write: true }],
     ['POST', /^\/api\/admin\/portail\/elements\/(\d+)\/une$/, async (db, req, a, [id]) => {
@@ -485,7 +489,7 @@ function adminRoutes({ log }) {
         (SELECT COALESCE(SUM(c.clicks), 0) FROM portal_ad_click c WHERE c.ad_id = a.id AND c.day >= ?) AS clics_30j FROM portal_ad a ORDER BY a.id DESC LIMIT 200`, since)
         .then((rows) => rows.map((r) => ({ ...r, sponsored: !!Number(r.sponsored), active: !!Number(r.active), clics: Number(r.clics), clics_30j: Number(r.clics_30j) })));
     }, { auth: true }],
-    ['POST', /^\/api\/admin\/portail\/annonces$/, async (db, req, a) => {
+    ['POST', /^\/api\/admin\/portail\/annonces$/, async (db, req, a, _m, ctx) => {
       const b = req.body || {}; const o = readAd(b);
       const id = await db.tx(async (t) => {
         const imageId = b.image ? await saveImage(t, b.image, { created_by_admin: a.id }) : null;
@@ -495,6 +499,7 @@ function adminRoutes({ log }) {
         return nid;
       });
       bump();
+      if (o.active !== 0) notify(db, req, ctx, 'annonce', id);
       return { id };
     }, { auth: true, write: true }],
     ['PUT', /^\/api\/admin\/portail\/annonces\/(\d+)$/, async (db, req, a, [id]) => {
@@ -510,11 +515,12 @@ function adminRoutes({ log }) {
       bump();
       return { id: prev.id };
     }, { auth: true, write: true }],
-    ['POST', /^\/api\/admin\/portail\/annonces\/(\d+)\/(activer|desactiver)$/, async (db, req, a, [id, op]) => {
+    ['POST', /^\/api\/admin\/portail\/annonces\/(\d+)\/(activer|desactiver)$/, async (db, req, a, [id, op], ctx) => {
       const r = await db.run('UPDATE portal_ad SET active = ?, updated_at = ? WHERE id = ?', op === 'activer' ? 1 : 0, iso(), int(id));
       if (!r.changes) throw new HttpError(404, 'introuvable');
       await log(db, a, `admin.portail.annonce.${op}`, id, null, 'ok', req.ip);
       bump();
+      if (op === 'activer') notify(db, req, ctx, 'annonce', Number(id));
       return { id: Number(id), active: op === 'activer' };
     }, { auth: true, write: true }],
     ['GET', /^\/api\/admin\/portail\/partenaires$/, async (db) => (await db.all('SELECT id, slug, name, status, portal_partner_at, portal_logo_id FROM school WHERE portal_partner = 1 ORDER BY name'))

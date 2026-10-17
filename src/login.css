@@ -106,3 +106,4 @@ body.adm-open{background:#f2f3f1}body.adm-open [hidden]{display:none!important}.
 .adm-tab{width:100%;border-collapse:collapse;font-size:13px}.adm-tab td{padding:6px 4px;border-bottom:1px solid var(--line,#e3e5e4);vertical-align:top;overflow-wrap:anywhere}
 .adm-warn td{background:#fff4e5}.adm-ok{color:#145c3b}.adm-ko{color:#b42318}.adm-soon{border-style:dashed!important}
 @media (max-width:699px){.adm-list{grid-template-columns:1fr}}
+.login-reg { text-align: center; padding-top: 12px; }

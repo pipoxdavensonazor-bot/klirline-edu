@@ -8,25 +8,28 @@ const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==
 const T={
   fr:{title:"Administration de la plateforme",login:"Connexion administrateur",email:"E-mail",pw:"Mot de passe",next:"Continuer",code:"Code à 6 chiffres",codeSent:"Un code vient d'être envoyé (SMS ou e-mail). Valable 10 minutes.",verify:"Valider",
     bad:"Identifiants invalides.",badCode:"Code invalide ou expiré.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable.",logout:"Se déconnecter",back:"Retour à NORIA",
-    tabs:{ecoles:"Écoles",comptes:"Comptes",journal:"Journal global",etat:"État du serveur",echecs:"Connexions échouées",assistant:"Assistant sécurité",portail:"Portail public",ministere:"Ministère"},
+    tabs:{ecoles:"Écoles",comptes:"Comptes",journal:"Journal global",etat:"État du serveur",echecs:"Connexions échouées",assistant:"Assistant sécurité",demandes:"Demandes",portail:"Portail public",ministere:"Ministère"},
     readOnly:"Lecture seule par défaut : chaque consultation est journalisée. Les modifications (écoles, actions de l'assistant sécurité) exigent un motif ou une confirmation explicite.",
     slug:"Identifiant (ex. college-saint-pierre)",name:"Nom",initials:"Initiales (facultatif)",reason:"Motif (obligatoire)",create:"Créer l'école",suspend:"Suspendre",reactivate:"Réactiver",
     active:"Active",suspended:"Suspendue",students:"élèves",accounts:"comptes",search:"Rechercher (nom ou e-mail)",noPw:"sans mot de passe",
     dbSize:"Taille de la base",backups:"Sauvegardes",noBackup:"Dossier de sauvegarde non configuré (BACKUP_DIR).",last:"Dernière",migrations:"Migrations",uptime:"En service depuis",memory:"Mémoire",sessions:"Sessions ouvertes",ok:"OK",ko:"En panne",
     attempts:"Tentatives refusées (15 min)",schoolFails:"Écoles (7 derniers jours)",adminFails:"Administration",none:"Rien à signaler.",
+    dep:"Département",anyDep:"—",commune:"Commune",invite:"Inviter la direction",invEmail:"E-mail de la direction",invName:"Nom de la direction",invSent:"Invitation envoyée.",invLink:"Lien (à transmettre si l'e-mail n'arrive pas) :",
     done:"Enregistré.",err:"Refusé : "},
   ht:{title:"Administrasyon platfòm nan",login:"Koneksyon administratè",email:"Imèl",pw:"Modpas",next:"Kontinye",code:"Kòd 6 chif",codeSent:"Yon kòd fèk pati (SMS oswa imèl). Li bon pou 10 minit.",verify:"Valide",
     bad:"Idantifyan yo pa bon.",badCode:"Kòd la pa bon oswa li ekspire.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn.",logout:"Dekonekte",back:"Retounen nan NORIA",
-    tabs:{ecoles:"Lekòl yo",comptes:"Kont yo",journal:"Jounal jeneral",etat:"Eta sèvè a",echecs:"Koneksyon ki echwe",assistant:"Asistan sekirite",portail:"Pòtay piblik",ministere:"Ministè"},
+    tabs:{ecoles:"Lekòl yo",comptes:"Kont yo",journal:"Jounal jeneral",etat:"Eta sèvè a",echecs:"Koneksyon ki echwe",assistant:"Asistan sekirite",demandes:"Demann yo",portail:"Pòtay piblik",ministere:"Ministè"},
     readOnly:"Pa defo se lekti sèlman : chak konsiltasyon anrejistre nan jounal la. Chanjman yo (lekòl, aksyon asistan sekirite a) mande yon rezon oswa yon konfimasyon klè.",
     slug:"Idantifyan (egz. college-saint-pierre)",name:"Non",initials:"Inisyal (si ou vle)",reason:"Rezon (obligatwa)",create:"Kreye lekòl la",suspend:"Sispann",reactivate:"Reaktive",
     active:"Aktif",suspended:"Sispann",students:"elèv",accounts:"kont",search:"Chèche (non oswa imèl)",noPw:"san modpas",
     dbSize:"Gwosè baz done a",backups:"Sovgad",noBackup:"Dosye sovgad la pa konfigire (BACKUP_DIR).",last:"Dènye",migrations:"Migrasyon",uptime:"Ap mache depi",memory:"Memwa",sessions:"Sesyon ki louvri",ok:"OK",ko:"An pann",
     attempts:"Eseye ki refize (15 min)",schoolFails:"Lekòl yo (7 dènye jou)",adminFails:"Administrasyon",none:"Pa gen anyen pou siyale.",
+    dep:"Depatman",anyDep:"—",commune:"Komin",invite:"Envite direksyon an",invEmail:"Imèl direksyon an",invName:"Non direksyon an",invSent:"Envitasyon an pati.",invLink:"Lyen (pou voye si imèl la pa rive) :",
     done:"Anrejistre.",err:"Refize : "},
 };
 const t=k=>T[lang()][k];
 let TAB="ecoles", Q="", TICKET=null;
+const DEPS=[["artibonite","Artibonite"],["centre","Centre"],["grand-anse","Grand’Anse"],["nippes","Nippes"],["nord","Nord"],["nord-est","Nord-Est"],["nord-ouest","Nord-Ouest"],["ouest","Ouest"],["sud","Sud"],["sud-est","Sud-Est"]];
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});
   let b=null; try{ b=await r.json(); }catch(e){} return {status:r.status,body:b};
@@ -80,6 +83,11 @@ async function panel(){
       try{ await NORIA_ECO.load("src/admin-ministere.js"); if(document.getElementById("admMin")===el) window.NORIA_ADM_MIN.render(el); }
       catch(e){ el.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; } },0);
     return `<div id="admMin"><p class="mut">…</p></div>`; }
+  if(TAB==="demandes"){ // Bloc 8 : demandes d'inscription des écoles, module séparé chargé à la demande.
+    setTimeout(async()=>{ const el=document.getElementById("admDem"); if(!el) return;
+      try{ await NORIA_ECO.load("src/admin-demandes.js"); if(document.getElementById("admDem")===el) window.NORIA_ADM_DEM.render(el); }
+      catch(e){ el.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; } },0);
+    return `<div id="admDem"><p class="mut">…</p></div>`; }
   if(TAB==="portail"){ // Bloc 5 : modération du portail public, module séparé chargé à la demande.
     setTimeout(async()=>{ const el=document.getElementById("admPortail"); if(!el) return;
       try{ await NORIA_ECO.load("src/admin-portail.js"); if(document.getElementById("admPortail")===el) window.NORIA_PORT_ADM.render(el); }
@@ -92,12 +100,15 @@ async function panel(){
   const d=r.body;
   if(TAB==="ecoles") return `<div class="card"><form id="admNew" class="adm-new" data-action-submit="NORIA_ADM.create" novalidate>
       <label class="fld">${esc(t("slug"))}<input name="slug" required pattern="[a-z0-9-]+"></label><label class="fld">${esc(t("name"))}<input name="name" required></label>
-      <label class="fld">${esc(t("initials"))}<input name="initials" maxlength="6"></label><label class="fld">${esc(t("reason"))}<input name="reason" required></label>
+      <label class="fld">${esc(t("initials"))}<input name="initials" maxlength="6"></label>
+      <label class="fld">${esc(t("dep"))}<select name="department"><option value="">${esc(t("anyDep"))}</option>${DEPS.map(d=>`<option value="${d[0]}">${esc(d[1])}</option>`).join("")}</select></label>
+      <label class="fld">${esc(t("commune"))}<input name="commune" maxlength="80"></label><label class="fld">${esc(t("reason"))}<input name="reason" required></label>
       <button type="submit">${esc(t("create"))}</button></form></div>
     <div class="adm-list">${d.map(s=>`<div class="card adm-school ${s.status==="active"?"":"adm-off"}"><div class="row sp"><span class="row">${NORIA_ECO.mark({initials:s.initials||"?"},"eco-sm")}<span><b>${esc(s.name)}</b><br><small class="mut">${esc(s.slug)} · ${Number(s.students)} ${esc(t("students"))} · ${Number(s.accounts)} ${esc(t("accounts"))}</small></span></span>
       <span class="badge ${s.status==="active"?"b-paid":"b-unpaid"}">${esc(s.status==="active"?t("active"):t("suspended"))}</span></div>
       ${s.status_reason?`<p class="small mut">${esc(s.status_reason)}</p>`:""}
-      <form class="adm-act" data-action-submit="NORIA_ADM.toggle" data-a0="n:${s.id}" data-a1="s:${s.status==="active"?"suspendre":"reactiver"}" data-a2="e:"><input name="reason" required placeholder="${esc(t("reason"))}" aria-label="${esc(t("reason"))}"><button type="submit" class="${s.status==="active"?"danger":""}">${esc(s.status==="active"?t("suspend"):t("reactivate"))}</button></form></div>`).join("")}</div>`;
+      <form class="adm-act" data-action-submit="NORIA_ADM.toggle" data-a0="n:${s.id}" data-a1="s:${s.status==="active"?"suspendre":"reactiver"}" data-a2="e:"><input name="reason" required placeholder="${esc(t("reason"))}" aria-label="${esc(t("reason"))}"><button type="submit" class="${s.status==="active"?"danger":""}">${esc(s.status==="active"?t("suspend"):t("reactivate"))}</button></form>
+      ${s.status==="active"?`<details class="adm-inv"><summary>${esc(t("invite"))}</summary><form class="adm-act" data-action-submit="NORIA_ADM.invite" data-a0="n:${s.id}" data-a1="e:"><input name="name" required placeholder="${esc(t("invName"))}" aria-label="${esc(t("invName"))}" maxlength="80"><input name="email" type="email" required placeholder="${esc(t("invEmail"))}" aria-label="${esc(t("invEmail"))}" maxlength="254"><button type="submit">${esc(t("invite"))}</button></form><p class="small mut adm-inv-out" hidden></p></details>`:""}</div>`).join("")}</div>`;
   if(TAB==="comptes") return `<form class="row" data-action-submit="NORIA_ADM.search"><input id="admQ" value="${esc(Q)}" placeholder="${esc(t("search"))}" aria-label="${esc(t("search"))}"><button type="submit">OK</button></form>
     <div class="card"><table class="adm-tab">${d.map(p=>`<tr><td><b>${esc(p.display_name)}</b><br><small>${esc(p.email)}${p.has_password?"":" · "+esc(t("noPw"))}</small></td><td>${p.ecoles.map(e=>`<div>${esc(e.school)} <small class="mut">${esc(e.roles.join(", "))} · ${esc(e.state)}</small></div>`).join("")}</td></tr>`).join("")||`<tr><td>${esc(t("none"))}</td></tr>`}</table></div>`;
   if(TAB==="journal") return `<div class="card"><table class="adm-tab">${[...d.plateforme.map(x=>({at:x.created_at,who:"admin",what:x.action,on:x.target,why:x.detail,out:x.outcome})),...d.ecoles.map(x=>({at:x.created_at,who:x.school,what:x.action,on:`${x.record_type} ${x.record_id||""}`,why:x.reason,out:x.outcome}))]
@@ -125,7 +136,7 @@ async function dash(){
 }
 async function create(f){
   const form=document.getElementById("admNew");
-  const b={slug:form.slug.value.trim(),name:form.name.value.trim(),initials:form.initials.value.trim(),reason:form.reason.value.trim(),lang:lang()};
+  const b={slug:form.slug.value.trim(),name:form.name.value.trim(),initials:form.initials.value.trim(),department:form.department.value||undefined,commune:form.commune.value.trim()||undefined,reason:form.reason.value.trim(),lang:lang()};
   const r=await post("/api/admin/ecoles",b).catch(()=>null);
   toast(r&&r.status===200?t("done"):t("err")+((r&&r.body&&r.body.error)||t("net"))); if(r&&r.status===200) dash();
 }
@@ -135,8 +146,14 @@ async function toggle(id,op,ev){
   const r=await post(`/api/admin/ecoles/${id}/${op}`,{reason}).catch(()=>null);
   toast(r&&r.status===200?t("done"):t("err")+((r&&r.body&&r.body.error)||t("net"))); if(r&&r.status===200) dash();
 }
+async function invite(id,ev){
+  const form=ev&&ev.target&&ev.target.closest?ev.target.closest("form"):null; if(!form) return;
+  const r=await post(`/api/admin/ecoles/${id}/inviter-direction`,{name:form.name.value.trim(),email:form.email.value.trim(),lang:lang()}).catch(()=>null);
+  if(r&&r.status===200){ toast(t("invSent")); const o=form.parentNode.querySelector(".adm-inv-out"); if(o){ o.hidden=false; o.textContent=`${t("invLink")} ${location.origin}${r.body.link} (${r.body.envoi})`; } form.reset(); }
+  else toast(t("err")+((r&&r.body&&r.body.error)||t("net")));
+}
 function toast(m){ let c=document.getElementById("toasts"); if(!c) return; const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3500); }
 async function logout(){ await post("/api/admin/logout",{}).catch(()=>null); loginView(); }
 function start(){ document.documentElement.dataset.backend="server"; const c=document.getElementById("loginScreen"); if(c) c.hidden=true; dash(); }
-window.NORIA_ADM=Object.freeze({start,submitPw,submitCode,tab:k=>{TAB=k;dash();},lang:setLang,create,toggle:(id,op,...r)=>toggle(id,op,r[r.length-1]),search:()=>{Q=document.getElementById("admQ").value;dash();},logout});
+window.NORIA_ADM=Object.freeze({start,submitPw,submitCode,tab:k=>{TAB=k;dash();},lang:setLang,create,toggle:(id,op,...r)=>toggle(id,op,r[r.length-1]),invite:(id,...r)=>invite(id,r[r.length-1]),search:()=>{Q=document.getElementById("admQ").value;dash();},logout});
 })();

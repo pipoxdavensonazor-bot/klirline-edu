@@ -4,6 +4,7 @@
    seul, avec l'application en cache comme page de secours hors ligne).
    VERSION et ASSETS sont remplis par le serveur (server/src/static.js) à partir de index.html. */
 "use strict";
+// Révision du gabarit : 8 (bloc 8 : icônes et favicon régénérés à partir du logo, portail ouvert aux écoles et au public).
 const VERSION = "__NORIA_VERSION__";
 const ASSETS = __NORIA_ASSETS__;
 const CACHE = "noria-ui-" + VERSION;
