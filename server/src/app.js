@@ -18,6 +18,11 @@ const { createSecurity } = require('./securite');
 const { createPortal } = require('./portail-pages');
 const ministere = require('./ministere');
 const emailsEleves = require('./emails-eleves');
+// Bloc 9 : codes de connexion gratuits (WhatsApp inversé, bot Telegram, appareils de confiance, codes de l'école).
+const appareils = require('./appareils');
+const whatsapp = require('./whatsapp');
+const telegram = require('./telegram');
+const activation = require('./activation');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -136,6 +141,16 @@ const routes = [
     ministere: ministere.enabled(ctx) || undefined,
     // Bloc 7 : présent seulement quand les adresses e-mail des élèves sont activées (NORIA_EMAIL_ELEVES=1).
     emailsEleves: emailsEleves.enabled(ctx) || undefined,
+    // Bloc 9 : canaux gratuits activés (WhatsApp et Telegram seulement s'ils sont configurés) ; SMS seulement si un
+    // fournisseur réel est réglé (jamais par défaut) ou en démonstration (envoi simulé).
+    canaux: {
+      whatsapp: whatsapp.enabled(ctx) || undefined,
+      telegram: telegram.enabled(ctx) ? telegram.botName(ctx) : undefined,
+      email: true, ecole: true,
+      sms: ctx.demo || !ctx.notifier.adapter('sms').simulated || undefined,
+    },
+    // Appareil de confiance valable : l'interface rouvre la session sans code (POST /api/login/appareil).
+    appareil: (!u && Boolean(await appareils.current(db, req))) || undefined,
   }), { public: true, optionalUser: true }],
   ['POST', /^\/api\/login$/, async (db, req, _u, _m, ctx) => {
     const { school, password, method = 'password' } = req.body || {};
@@ -157,9 +172,10 @@ const routes = [
     return startSession(db, req, ctx, user);
   }, { public: true }],
   // Code de connexion à 6 chiffres envoyé par SMS (téléphone) ou e-mail ; réponse identique que le compte existe ou non.
-  ['POST', /^\/api\/login\/code$/, async (db, req, _u, _m, ctx) => otp.request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLang }), { public: true }],
-  ['POST', /^\/api\/logout$/, async (db, req) => {
+  ['POST', /^\/api\/login\/code$/, async (db, req, _u, _m, ctx) => otp.request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLang, telegram }), { public: true }],
+  ['POST', /^\/api\/logout$/, async (db, req, _u, _m, ctx) => {
     await destroySession(db, req.token);
+    await appareils.forgetCurrent(db, req, ctx); // cet appareil cesse d'être de confiance
     req.setCookie(`${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
     return { ok: true };
   }, { public: true }],
@@ -488,6 +504,12 @@ routes.push(...portail.schoolRoutes());
 // Bloc 6 : déclaration annuelle au ministère (direction). Routes 404 tant que NORIA_MINISTERE ne vaut pas 1.
 routes.push(...ministere.schoolRoutes());
 routes.push(...emailsEleves.schoolRoutes(), ...emailsEleves.inboundRoutes());
+// Bloc 9 : codes de connexion gratuits. WhatsApp et Telegram : routes 404 tant qu'ils ne sont pas configurés.
+const dev = appareils.createRoutes({ startSession });
+const tg = telegram.createRoutes();
+const act = activation.createRoutes({ startSession });
+routes.push(...dev.routes, ...dev.publicRoutes, ...whatsapp.createRoutes({ findUser, parseIdentifier, startSession }),
+  ...tg.routes, ...tg.publicRoutes, ...act.routes, ...act.publicRoutes);
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
@@ -612,10 +634,12 @@ function parseCookies(h) {
 }
 
 // choisir : la personne a plusieurs écoles et s'est connectée sans en préciser une → l'interface lui fait choisir.
+// trust: true (case « Faire confiance à cet appareil ») : cookie noria_appareil de 30 jours (bloc 9).
 function startSession(db, req, ctx, user) {
   return createSession(db, user).then(async (token) => {
     if (ctx.sec) await ctx.sec.loginOk(req, { user }).catch(() => {});
     setSessionCookie(req, ctx, token);
+    if (req.body && req.body.trust === true) await appareils.trust(db, req, ctx, user);
     return { token, ecoles: user.ecoles || 1, choisir: !(req.body && req.body.school) && (user.ecoles || 1) > 1 };
   });
 }
@@ -641,7 +665,10 @@ function createServer(db, options = {}) {
     trustProxy: !!options.trustProxy,
     env: options.env || process.env,
     emailFetch: options.emailFetch || null, // bloc 7 : faux fetch des tests (aucun appel réseau)
+    channelFetch: options.channelFetch || null, // bloc 9 : faux fetch des tests (API WhatsApp et Telegram)
   };
+  // Bloc 9 : codes d'activation saisis, par école (en plus de la limite par IP) : 50 échecs par 15 min.
+  ctx.activationLimit = options.activationLimit || createLimiter({ db, max: 50, windowMs: 15 * 60 * 1000 });
   // Vérification d'un élève entre écoles : limite dédiée par compte et par école (fenêtre de 15 min, comme la connexion).
   ctx.searchLimit = options.searchLimit || {
     user: createLimiter({ db, max: 15, windowMs: 15 * 60 * 1000 }),
@@ -696,6 +723,8 @@ function createServer(db, options = {}) {
         if (!url.pathname.startsWith('/api/') && portal && /text\/html/.test(req.headers.accept || '')) return portal.notFound(req, res, url, SECURITY_HEADERS);
         throw new HttpError(404, 'introuvable');
       }
+      // Bloc 9 : WhatsApp inversé et bot Telegram désactivés tant qu'ils ne sont pas configurés → routes inexistantes.
+      if ((!whatsapp.enabled(ctx) && whatsapp.GATED.test(url.pathname)) || (!telegram.enabled(ctx) && telegram.GATED.test(url.pathname))) throw new HttpError(404, 'introuvable');
       // Page publique de vérification d'une adresse de destination (formulaire HTML, hors JSON).
       if (url.pathname === '/email/verifier' || url.pathname === '/email/verifier/') return emailsEleves.serveVerify(db, req, res, url, ctx, SECURITY_HEADERS);
       // Sonde de santé (Docker, Caddy, hébergeur) : la base répond-elle ? Aucune donnée, aucun journal.
@@ -716,9 +745,12 @@ function createServer(db, options = {}) {
         if (ctx.sec && await ctx.sec.isBlocked(clientIp(req, ctx.trustProxy))) throw new HttpError(403, 'adresse temporairement bloquée');
         if (await portal.post(req, res, url, SECURITY_HEADERS, clientIp(req, ctx.trustProxy))) return;
       }
-      let raw = '';
-      for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) throw new HttpError(413, 'trop volumineux'); }
-      req.rawBody = raw; // signature HMAC du webhook entrant (bloc 7)
+      // Corps lu en octets (signature HMAC des webhooks : bloc 7, WhatsApp du bloc 9), puis décodé en UTF-8 d'un bloc.
+      const parts = []; let size = 0;
+      for await (const chunk of req) { size += chunk.length; if (size > 1e6) throw new HttpError(413, 'trop volumineux'); parts.push(chunk); }
+      req.rawBuffer = Buffer.concat(parts);
+      const raw = req.rawBuffer.toString('utf8');
+      req.rawBody = raw;
       try { req.body = raw ? JSON.parse(raw) : {}; } catch { throw new HttpError(400, 'JSON invalide'); }
       const authz = req.headers.authorization || '';
       req.token = authz.startsWith('Bearer ') ? authz.slice(7) : null;

@@ -217,6 +217,9 @@ NORIA_CLE_MAITRE=…                 # openssl rand -hex 32 — à garder AUSSI 
 NORIA_OTP_SECRET=…                 # openssl rand -hex 32
 NORIA_SMS_PROVIDER=…               # twilio | http (sinon simulé)
 NORIA_EMAIL_PROVIDER=…             # resend | smtp (sinon simulé)
+# Bloc 9, codes gratuits (facultatif, voir docs/codes-connexion.md) : WhatsApp inversé et bot Telegram
+# NORIA_WHATSAPP_NUMBER=+509…  NORIA_WHATSAPP_VERIFY_TOKEN=…  NORIA_WHATSAPP_APP_SECRET=…  NORIA_WHATSAPP_TOKEN=…  NORIA_WHATSAPP_PHONE_ID=…
+# NORIA_TELEGRAM_BOT_TOKEN=…  NORIA_TELEGRAM_BOT_USERNAME=…  NORIA_TELEGRAM_WEBHOOK_SECRET=…
 ```
 
 Fixés par `docker-compose.yml`, à ne pas mettre dans `.env` : `NODE_ENV=production`, `NORIA_TRUST_PROXY=1` (l'application lit l'adresse du client dans `X-Forwarded-For`, que Caddy réécrit toujours avec l'adresse réelle), `NORIA_PUBLIC_URL=https://noriaedu.com`, `DATABASE_URL`. La clé des sauvegardes (`NORIA_BACKUP_AGE_RECIPIENT`, ou `NORIA_BACKUP_KEY`) va dans `/etc/noria/sauvegarde.env` (section 6 et 9.8).

@@ -35,3 +35,12 @@ test('menu : sections FR/HT, modules récents présents, « Échanges » visible
   assert.match(src, /m==="emails"\|\|m==="monemail"\)\s*return[^;]*dataset\.emailsEleves==="1"/, 'seulement si NORIA_EMAIL_ELEVES=1');
   assert.deepEqual(Object.keys(LBL.fr).sort(), Object.keys(LBL.ht).sort(), 'libellés du menu FR = HT');
 });
+
+test('menu (bloc 9) : « Connexion et appareils » pour tous, « Codes d’activation » pour direction et secrétariat, serveur seulement', () => {
+  const MODULES = grab('MODULES').map((x) => x[0]), SPACE = grab('SPACE'), ROLES = grab('ROLE_MODULES');
+  assert.ok(MODULES.includes('connexion') && MODULES.includes('codesActivation'));
+  assert.equal(SPACE.connexion, 'Administration'); assert.equal(SPACE.codesActivation, 'Administration');
+  for (const r of Object.keys(ROLES)) assert.ok(ROLES[r].includes('connexion'), `connexion pour ${r}`);
+  for (const r of Object.keys(ROLES)) assert.equal(ROLES[r].includes('codesActivation'), ['direction', 'secretariat'].includes(r), `codes d'activation : ${r}`);
+  assert.match(src, /m==="connexion"\|\|m==="codesActivation"\)\s*return !!SERVER/, 'serveur seulement');
+});

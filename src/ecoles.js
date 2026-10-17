@@ -89,8 +89,9 @@ function view(m){
     // Bloc 4 (transferts entre écoles) et bloc 5 (propositions pour le portail public) : idem.
     // Bloc 6 (déclaration annuelle au ministère) : idem.
     // Bloc 7 (adresses e-mail des élèves) : deux modules, direction et élève/parent.
-    const b2=m==="scan"||m==="badges"||m==="releves", b4=m==="transferts", b5=m==="portail", b6=m==="declaration", b7=m==="emails", b7m=m==="monemail";
-    try{ await load(b7?"src/emails-eleves.js":b7m?"src/mon-email.js":b6?"src/declaration.js":b5?"src/portail-ecole.js":b4?"src/transferts.js":b2?"src/badges.js":"src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) (b7?window.NORIA_EMAILS:b7m?window.NORIA_MYMAIL:b6?window.NORIA_DECL:b5?window.NORIA_PORT:b4?window.NORIA_TRF:b2?window.NORIA_BAD:window.NORIA_ECOG).render(m,el,C); }
+    // Bloc 9 (connexion et appareils, codes d'activation) : idem.
+    const b2=m==="scan"||m==="badges"||m==="releves", b4=m==="transferts", b5=m==="portail", b6=m==="declaration", b7=m==="emails", b7m=m==="monemail", b9=m==="connexion"||m==="codesActivation";
+    try{ await load(b9?"src/connexion.js":b7?"src/emails-eleves.js":b7m?"src/mon-email.js":b6?"src/declaration.js":b5?"src/portail-ecole.js":b4?"src/transferts.js":b2?"src/badges.js":"src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) (b9?window.NORIA_CNX:b7?window.NORIA_EMAILS:b7m?window.NORIA_MYMAIL:b6?window.NORIA_DECL:b5?window.NORIA_PORT:b4?window.NORIA_TRF:b2?window.NORIA_BAD:window.NORIA_ECOG).render(m,el,C); }
     catch(e){ el.innerHTML=`<div class="badbox">${esc(t("loadErr"))}</div>`; }
   },0);
   return `<div id="ecoView" data-view="${esc(m)}"><p class="mut">${esc(t("wait"))}</p></div>`;

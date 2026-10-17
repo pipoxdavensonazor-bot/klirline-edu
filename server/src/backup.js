@@ -28,7 +28,9 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   // Bloc 7 : adresses e-mail des élèves (réglages par école, destinations vérifiées, adresses, journal).
   'school_email_settings', 'student_email_dest', 'student_email', 'student_email_event',
   // Bloc 8 : demandes d'inscription des écoles, comptes grand public et leurs abonnements, journal des envois groupés.
-  'school_request', 'public_account', 'public_digest'];
+  'school_request', 'public_account', 'public_digest',
+  // Bloc 9 : liaisons Telegram (conversation du bot reliée à un compte ; jetons de lien expirés en 15 min).
+  'telegram_link'];
 
 // Tables volontairement exclues : rien de métier, et rien qu'il soit souhaitable de remettre en service.
 const EXCLUDED = {
@@ -43,6 +45,9 @@ const EXCLUDED = {
   public_session: 'sessions des comptes grand public, éphémères : reconnexion par code',
   public_code: 'codes à usage unique du portail (10 min) et formulaires non vérifiés',
   outbox: 'boîte d’envoi simulée : contient des liens et codes en clair',
+  login_challenge: 'demandes de connexion WhatsApp en attente (10 min), sans valeur après coup',
+  trusted_device: 'appareils de confiance : équivalent de sessions longues, nouvelle connexion après restauration',
+  activation_code: 'codes d’activation imprimés : identifiants à usage unique, l’école en imprime de nouveaux',
 };
 
 // Tables sans colonne id : ordre de sortie stable par clé primaire.

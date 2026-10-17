@@ -163,7 +163,7 @@ Sauvegarde logique (JSON compressé, fichier en droits 600) de **toutes** les ta
 - **Adaptateurs** (`src/notify.js`, sans dépendance) : interface `send({ to, subject, text })`. SMS : `console` (défaut), `twilio`, `http` (passerelle générique). E-mail : `console` (défaut), `smtp` (client intégré, STARTTLS ou TLS direct, AUTH PLAIN), `resend`. Une configuration incomplète arrête le démarrage ; `console` en production affiche un avertissement.
 - **Trace** : `outbox` garde destinataire, langue, adaptateur, état (`simule`, `en_attente`, `envoye`, `echec`), identifiant fournisseur et erreur (migration 007). Hors mode simulé, lien et code sont **masqués** dans la trace. Un échec d'envoi n'interrompt pas la requête.
 - **Messages** (`src/messages.js`) en français et en kreyòl (`lang` de la requête, sinon `school.default_lang`) ; SMS d'un segment (code : ~70 caractères ; invitation et récupération : < 100 caractères hors lien). Les liens sont absolus (`NORIA_PUBLIC_URL`, sinon l'hôte de la requête).
-- **Code à 6 chiffres** (`src/otp.js`) : `POST /api/login/code { school, identifier, lang }` puis `POST /api/login { method: 'code', school, identifier, code }`. Code tiré par `crypto.randomInt`, valable **10 min**, **usage unique**, stocké en **HMAC-SHA256 salé** (poivre `NORIA_OTP_SECRET` conseillé), **5 essais** comptés atomiquement avant la comparaison (**temps constant**, `timingSafeEqual`), puis brûlé. **Renvoi** : 60 s minimum entre deux codes, 5 codes par heure et par compte, un nouveau code annule le précédent, plus le limiteur persistant (IP + compte). Réponse identique que le compte existe ou non. SMS si l'identifiant est un téléphone, e-mail sinon.
+- **Code à 6 chiffres** (`src/otp.js`) : `POST /api/login/code { school, identifier, lang }` puis `POST /api/login { method: 'code', school, identifier, code }`. Code tiré par `crypto.randomInt`, valable **10 min**, **usage unique**, stocké en **HMAC-SHA256 salé** (poivre `NORIA_OTP_SECRET` conseillé), **5 essais** comptés atomiquement avant la comparaison (**temps constant**, `timingSafeEqual`), puis brûlé. **Renvoi** : 60 s minimum entre deux codes, 5 codes par heure et par compte, un nouveau code annule le précédent, plus le limiteur persistant (IP + compte). Réponse identique que le compte existe ou non. SMS si l'identifiant est un téléphone, e-mail sinon. Bloc 9 : `channel` (`auto`, `email`, `telegram`), WhatsApp inversé, appareils de confiance (30 jours) et codes d'activation imprimés par l'école — **sans SMS payant**, voir [`docs/codes-connexion.md`](../docs/codes-connexion.md).
 
 | Variable | Rôle |
 |---|---|
@@ -177,6 +177,8 @@ Sauvegarde logique (JSON compressé, fichier en droits 600) de **toutes** les ta
 | `RESEND_API_KEY` | Resend |
 | `NORIA_OTP_SECRET` | poivre du hachage des codes (recommandé en production) |
 | `NORIA_PUBLIC_URL` | adresse publique pour les liens d'invitation / récupération et le QR |
+| `NORIA_WHATSAPP_NUMBER`, `NORIA_WHATSAPP_VERIFY_TOKEN`, `NORIA_WHATSAPP_APP_SECRET` (+ `NORIA_WHATSAPP_TOKEN`, `NORIA_WHATSAPP_PHONE_ID` facultatifs) | bloc 9 : connexion par WhatsApp inversé (gratuit), désactivée sans ces variables — voir `docs/codes-connexion.md` |
+| `NORIA_TELEGRAM_BOT_TOKEN`, `NORIA_TELEGRAM_BOT_USERNAME`, `NORIA_TELEGRAM_WEBHOOK_SECRET` | bloc 9 : codes par bot Telegram (gratuit), désactivés sans ces variables |
 
 Vérification navigateur : `scripts/verif-otp.js` (captures `otp-<sujet>-<appareil>.png`) et `scripts/verif-bareme.js` (`bareme-<appareil>.png`).
 

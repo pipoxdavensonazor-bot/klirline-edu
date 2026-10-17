@@ -28,8 +28,15 @@ function checkCode(code, userId, stored) {
 const iso = (ms = 0) => new Date(Date.now() + ms).toISOString();
 const generic = { ok: true, message: 'Si ce compte existe, un code vient d’être envoyé.', minutes: TTL_MIN, resendIn: RESEND_SECONDS };
 
-async function request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLang }) {
+// Canal (bloc 9) : absent ou « auto » = comportement d'origine (SMS pour un téléphone, e-mail sinon) ; « email » = adresse
+// e-mail du compte même si l'identifiant est un téléphone ; « telegram » = conversation reliée au bot (deps.telegram).
+// Sans canal utilisable (pas d'e-mail réel, Telegram non relié), rien n'est envoyé et la réponse reste la même.
+const CHANNELS = ['auto', 'email', 'telegram'];
+const realEmail = (e) => !!e && e.includes('@') && !/@telephone\.invalid$/i.test(e);
+async function request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLang, telegram = null }) {
   const { school } = req.body || {};
+  const channel = CHANNELS.includes(req.body && req.body.channel) ? req.body.channel : 'auto';
+  if (channel === 'telegram' && !(telegram && telegram.enabled(ctx))) throw new HttpError(400, 'canal indisponible');
   const ident = parseIdentifier(req.body && req.body.identifier);
   const keys = [`code-ip:${req.ip}`, `code:${String(school || '')}|${ident.value}`];
   const wait = await ctx.limiter.blocked(keys);
@@ -37,6 +44,9 @@ async function request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLan
   await ctx.limiter.fail(keys); // chaque demande compte : le renvoi est limité même pour un compte inconnu
   const user = await findUser(db, school, ident);
   if (!user) return generic;
+  const chat = channel === 'telegram' ? await telegram.chatFor(db, user) : null;
+  if (channel === 'telegram' && !chat) return generic;
+  if (channel === 'email' && !realEmail(user.email)) return generic;
   const last = await db.get('SELECT created_at FROM login_code WHERE school_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1', user.school_id, user.id);
   if (last && last.created_at > iso(-RESEND_SECONDS * 1000)) return generic; // renvoi trop rapproché : rien n'est envoyé
   const hour = await db.get('SELECT COUNT(*) AS n FROM login_code WHERE school_id = ? AND user_id = ? AND created_at > ?', user.school_id, user.id, iso(-3600e3));
@@ -49,8 +59,13 @@ async function request(db, req, ctx, { findUser, parseIdentifier, outbox, reqLan
       user.school_id, user.id, hashCode(code, user.id), iso(TTL_MIN * 60e3), iso());
   });
   const sch = await db.get('SELECT default_lang FROM school WHERE id = ?', user.school_id);
-  const to = ident.field === 'phone' ? user.phone : user.email;
-  const sent = await outbox(db, ctx, user.school_id, to, 'code', reqLang(req, sch.default_lang), { code, minutes: TTL_MIN }, [code]);
+  const lang = reqLang(req, sch.default_lang);
+  let sent;
+  if (chat) sent = await telegram.sendCode(ctx, chat, code, TTL_MIN, lang);
+  else {
+    const to = channel === 'email' ? user.email : ident.field === 'phone' ? user.phone : user.email;
+    sent = await outbox(db, ctx, user.school_id, to, 'code', lang, { code, minutes: TTL_MIN }, [code]);
+  }
   await audit(db, user, 'login.code.request', 'user', user.id, `${sent.channel} ${sent.envoi}`);
   return generic;
 }
@@ -87,4 +102,4 @@ async function verifyLogin(db, req, ctx, { findUser, parseIdentifier, startSessi
   return startSession(db, req, ctx, user);
 }
 
-module.exports = { request, verifyLogin, hashCode, checkCode, newCode, DIGITS, TTL_MIN, MAX_ATTEMPTS, RESEND_SECONDS, MAX_PER_HOUR };
+module.exports = { request, verifyLogin, CHANNELS, realEmail, hashCode, checkCode, newCode, DIGITS, TTL_MIN, MAX_ATTEMPTS, RESEND_SECONDS, MAX_PER_HOUR };

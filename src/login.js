@@ -5,7 +5,7 @@
 "use strict";
 const T={
   fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",forgot:"Mot de passe oublié ?",
-      back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:"Recevoir un code par SMS ou e-mail",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:"Nous envoyons un code à 6 chiffres au téléphone ou à l'e-mail du compte.",enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
+      back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:"Se connecter avec un code (WhatsApp, Telegram, e-mail)",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:"Choisissez comment recevoir votre code. WhatsApp et Telegram sont gratuits.",enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
       reg:"Votre école n’est pas encore sur NORIA ? Inscrire mon école",demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
       logout:"Se déconnecter",invTitle:"Activer votre compte",resTitle:"Nouveau mot de passe",newPw:"Nouveau mot de passe (10 caractères minimum)",
@@ -15,9 +15,15 @@ const T={
       rOk:"Reçu authentique",xOk:"Certificat de transfert authentique",xMod:"Certificat modifié : signature invalide",xTo:"École d'accueil",xFrom:"École d'origine",xNote:"Cette page confirme les deux écoles, l'élève et la date du transfert. Aucune note n'est affichée.",rRev:"Reçu annulé",rNo:"Reçu n°",rAmt:"Montant",rNote:"Cette page confirme l'école, l'élève, le numéro et le montant du reçu. Aucune autre donnée n'est affichée.",vTitle:"Vérification d'un bulletin ou d'un reçu",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce document n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",bOk:"Badge valide",bExp:"Badge expiré",bRev:"Badge révoqué",bYear:"Année scolaire",bNote:"Cette page confirme seulement l'école, le prénom, l'année et le statut du badge. Aucune photo n'est affichée.",tOk:"Relevé de notes officiel authentique",tRev:"Relevé annulé",tMod:"Relevé modifié : signature invalide",tDoc:"Document",tFile:"Contrôler le fichier PDF reçu",tAuth:"✓ Fichier authentique : identique au document signé.",tAlt:"✕ Fichier modifié : il ne correspond pas au document signé.",tNote:"Cette page confirme l'école, l'élève, le type de document, la date et le statut. Les notes ne sont jamais affichées ici.",
       anySchool:"Toutes mes écoles",schoolOpt:"École (facultatif si vous n'en avez qu'une)",chooseTitle:"Choisissez une école",chooseHelp:"Votre compte est relié à plusieurs écoles. Vous pourrez changer d'école dans l'en-tête.",
       invBy:"vous invite à rejoindre NORIA",invAs:"Rôle",invHello:"Bonjour",existing:"Vous avez déjà un compte NORIA : saisissez votre mot de passe actuel pour relier cette école.",
+      trust:"Faire confiance à cet appareil pendant 30 jours (pas sur un ordinateur partagé)",chan:"Recevoir le code par",chWa:"WhatsApp — vous envoyez un message (gratuit)",chTg:"Telegram (gratuit, compte relié)",chEmail:"E-mail",chSms:"SMS",
+      tgHelp:"Telegram : reliez d'abord votre compte dans « Connexion et appareils ».",waPhone:"Téléphone du compte (celui de votre WhatsApp)",useSchool:"J'ai un code de mon école",
+      actTitle:"Code remis par l'école",actHelp:"Saisissez l'école et le code imprimé (10 caractères). Il ne sert qu'une fois.",actCode:"Code d'activation",actSchool:"Indiquez l'école (par exemple ecole-a).",actBad:"Code invalide, expiré ou déjà utilisé.",
+      waTitle:"Connexion par WhatsApp",waS1:"Appuyez sur le bouton : WhatsApp s'ouvre avec le message prêt.",waS2:"Envoyez le message sans le changer, depuis le WhatsApp du téléphone du compte.",waS3:"Revenez ici : la connexion se fait toute seule.",
+      waOpen:"Ouvrir WhatsApp",waManual:(c,n)=>`Sinon, envoyez « NORIA ${c} » au ${n} sur WhatsApp.`,waWait:"En attente de votre message…",waExpired:"Délai dépassé. Demandez un nouveau code.",waRetry:"Nouveau code",
+      waNote:"Gratuit pour vous et pour l'école. Personne de l'école ne vous demandera ce code : ne l'envoyez qu'au numéro NORIA.",resume:"Reconnexion sur cet appareil de confiance…",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
-      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Resevwa yon kòd pa SMS oswa imèl",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"N ap voye yon kòd 6 chif sou telefòn oswa imèl kont la.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
+      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Konekte ak yon kòd (WhatsApp, Telegram, imèl)",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"Chwazi kijan pou w resevwa kòd ou. WhatsApp ak Telegram gratis.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       reg:"Lekòl ou poko sou NORIA ? Enskri lekòl mwen",demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
       logout:"Dekonekte",invTitle:"Aktive kont ou",resTitle:"Nouvo modpas",newPw:"Nouvo modpas (10 karaktè minimòm)",
@@ -27,6 +33,12 @@ const T={
       rOk:"Resi otantik",xOk:"Sètifika transfè otantik",xMod:"Sètifika a chanje : siyati a pa valab",xTo:"Lekòl k ap resevwa l",xFrom:"Lekòl orijin",xNote:"Paj sa a konfime de lekòl yo, elèv la ak dat transfè a. Li pa montre okenn nòt.",rRev:"Resi anile",rNo:"Resi nimewo",rAmt:"Montan",rNote:"Paj sa a konfime lekòl la, elèv la, nimewo ak montan resi a sèlman. Okenn lòt enfòmasyon pa parèt.",vTitle:"Verifikasyon bilten oswa resi",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd sa a enkoni : se pa NORIA ki bay dokiman sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",bOk:"Badj valab",bExp:"Badj ekspire",bRev:"Badj revoke",bYear:"Ane lekòl",bNote:"Paj sa a konfime lekòl la, prenon an, ane a ak eta badj la sèlman. Okenn foto pa parèt.",tOk:"Relve nòt ofisyèl otantik",tRev:"Relve anile",tMod:"Relve a chanje : siyati a pa bon",tDoc:"Dokiman",tFile:"Kontwole fichye PDF ou resevwa a",tAuth:"✓ Fichye otantik : li menm jan ak dokiman ki siyen an.",tAlt:"✕ Fichye a chanje : li pa koresponn ak dokiman ki siyen an.",tNote:"Paj sa a konfime lekòl la, elèv la, kalite dokiman an, dat la ak eta a. Nòt yo pa janm parèt la.",
       anySchool:"Tout lekòl mwen yo",schoolOpt:"Lekòl (ou pa oblije mete l si se yon sèl ou genyen)",chooseTitle:"Chwazi yon lekòl",chooseHelp:"Kont ou konekte ak plizyè lekòl. W ap ka chanje lekòl nan antèt la.",
       invBy:"envite w antre nan NORIA",invAs:"Wòl",invHello:"Bonjou",existing:"Ou gen yon kont NORIA deja : antre modpas ou genyen kounye a pou konekte lekòl sa a.",
+      trust:"Fè aparèy sa a konfyans pandan 30 jou (pa sou yon òdinatè plizyè moun itilize)",chan:"Resevwa kòd la pa",chWa:"WhatsApp — se ou ki voye yon mesaj (gratis)",chTg:"Telegram (gratis, kont konekte)",chEmail:"Imèl",chSms:"SMS",
+      tgHelp:"Telegram : konekte kont ou anvan nan « Koneksyon ak aparèy ».",waPhone:"Telefòn kont lan (sa ki gen WhatsApp ou a)",useSchool:"Mwen gen yon kòd lekòl mwen ban mwen",
+      actTitle:"Kòd lekòl la ba ou",actHelp:"Antre lekòl la ak kòd ki enprime a (10 karaktè). Li sèvi yon sèl fwa.",actCode:"Kòd aktivasyon",actSchool:"Mete lekòl la (pa egzanp ecole-a).",actBad:"Kòd la pa bon, li ekspire oswa li deja sèvi.",
+      waTitle:"Koneksyon ak WhatsApp",waS1:"Peze bouton an : WhatsApp ap louvri ak mesaj la tou pare.",waS2:"Voye mesaj la jan l ye a, depi WhatsApp telefòn kont lan.",waS3:"Retounen la a : koneksyon an ap fèt pou kont li.",
+      waOpen:"Louvri WhatsApp",waManual:(c,n)=>`Sinon, voye « NORIA ${c} » bay ${n} sou WhatsApp.`,waWait:"N ap tann mesaj ou…",waExpired:"Tan an fini. Mande yon nouvo kòd.",waRetry:"Nouvo kòd",
+      waNote:"Gratis pou ou ak pou lekòl la. Pèsonn nan lekòl la p ap mande w kòd sa a : voye l sèlman bay nimewo NORIA a.",resume:"N ap rekonekte sou aparèy konfyans sa a…",
       roles:{direction:"Direksyon",secretariat:"Sekretarya",enseignant:"Pwofesè",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",parent:"Paran",eleve:"Elèv"}},
 };
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
@@ -55,12 +67,16 @@ function screen(html){
     ${CONFIG&&CONFIG.demo?`<p class="login-demo">${esc(t("demo"))}</p>`:""}${html}
     <div class="login-lang"><button type="button" data-lang="fr" aria-pressed="${lang()==="fr"}">FR</button><button type="button" data-lang="ht" aria-pressed="${lang()==="ht"}">HT</button></div></div>`;
   el.hidden=false; document.body.classList.add("login-open"); background(true);
-  el.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{ window.KL&&KL.lang(b.dataset.lang); const cur=el.dataset.view; if(cur==="verify") views.verify(views.verify.code); else if(cur==="enterView") views.enter({...views.enter.st,note:null}); else views[cur]&&views[cur](); }));
+  el.querySelectorAll("[data-lang]").forEach(b=>b.addEventListener("click",()=>{ window.KL&&KL.lang(b.dataset.lang); const cur=el.dataset.view; if(cur==="verify") views.verify(views.verify.code); else if(cur==="enterView") views.enter({...views.enter.st,note:null}); else if(cur==="waView") views.wa(views.wa.st); else views[cur]&&views[cur](); }));
   const first=el.querySelector("input,select"); if(first) setTimeout(()=>first.focus(),30);
   return el;
 }
 function closeScreen(){ const el=document.getElementById("loginScreen"); if(el){ el.hidden=true; el.innerHTML=""; } document.body.classList.remove("login-open"); background(false); }
 
+// Case « appareil de confiance » (décochée par défaut) et canaux gratuits (bloc 9).
+const trustBox=on=>`<label class="login-trust"><input type="checkbox" id="lgTrust"${on?" checked":""}> ${esc(t("trust"))}</label>`;
+const trusted=el=>{ const c=el.querySelector("#lgTrust"); return !!(c&&c.checked); };
+const chans=()=>{ const c=(CONFIG&&CONFIG.canaux)||{email:true}; return [c.whatsapp&&"whatsapp",c.telegram&&"telegram",c.email!==false&&"email",c.sms&&"sms"].filter(Boolean); };
 function schoolField(){
   // Identité globale : l'école est facultative (« Toutes mes écoles ») ; avec plusieurs écoles, un choix suit la connexion.
   if(CONFIG.ecoles&&CONFIG.ecoles.length) return `<label class="fld">${esc(t("school"))}<select id="lgSchool" autocomplete="organization">${CONFIG.ecoles.map(e=>`<option value="${esc(e.slug)}">${esc(e.name)}</option>`).join("")}<option value="">${esc(t("anySchool"))}</option></select></label>`;
@@ -74,23 +90,25 @@ const views={
       <form id="lgForm" novalidate>${schoolField()}
         <label class="fld">${esc(t("ident"))}<input id="lgId" required autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email"></label>
         <label class="fld">${esc(t("pw"))}<input id="lgPw" type="password" required autocomplete="current-password"></label>
-        <p id="lgErr" class="login-err" role="alert"></p>
+        ${trustBox()}<p id="lgErr" class="login-err" role="alert"></p>
         <button type="submit" class="login-main">${esc(t("login"))}</button>
       </form>
       ${(CONFIG.methods||[]).includes("code6")?`<button type="button" class="login-alt" id="lgCode">${esc(t("useCode"))}</button>`:""}
+      ${CONFIG.canaux&&CONFIG.canaux.ecole?`<button type="button" class="login-alt" id="lgAct">${esc(t("useSchool"))}</button>`:""}
       <button type="button" class="login-link" id="lgForgot">${esc(t("forgot"))}</button>
       <a class="login-link login-reg" href="${lang()==="ht"?"/ht":""}/inscrire-ecole">${esc(t("reg"))}</a>
       ${CONFIG.demo?`<details class="login-demo-acc"><summary>${esc(t("demoAcc"))}</summary><p class="small">${esc(t("demoPw"))} : <code>demo-fictif-2026</code></p><div class="login-acc">${["direction","secretariat","prof1","compta","biblio","parent1","eleve1"].map(h=>`<button type="button" data-acc="${h}">${h}</button>`).join("")}</div></details>`:""}`);
     el.dataset.view="login";
     el.querySelector("#lgForgot").addEventListener("click",views.forgot);
     const lc=el.querySelector("#lgCode"); if(lc) lc.addEventListener("click",()=>views.code());
+    const la=el.querySelector("#lgAct"); if(la) la.addEventListener("click",()=>views.act());
     el.querySelectorAll("[data-acc]").forEach(b=>b.addEventListener("click",()=>{ const sc=el.querySelector("#lgSchool").value||"ecole-a"; el.querySelector("#lgId").value=`${b.dataset.acc}@${sc.replace(/^ecole-/,"")}.exemple.invalid`; el.querySelector("#lgPw").focus(); }));
     el.querySelector("#lgForm").addEventListener("submit",async e=>{
       e.preventDefault(); const err=el.querySelector("#lgErr"); err.textContent="";
       const btn=el.querySelector(".login-main"); btn.disabled=true;
       try{
         const school=el.querySelector("#lgSchool").value.trim();
-        const r=await post("/api/login",{school,identifier:el.querySelector("#lgId").value,password:el.querySelector("#lgPw").value});
+        const r=await post("/api/login",{school,identifier:el.querySelector("#lgId").value,password:el.querySelector("#lgPw").value,trust:trusted(el)});
         if(r.status===200){ try{localStorage.setItem("noria_ecole",school);}catch(x){} return afterLogin(r.body); }
         err.textContent=r.status===429?t("many"):t("bad");
       }catch(x){ err.textContent=t("net"); }
@@ -112,18 +130,25 @@ const views={
   code(pre){
     const el=screen(`<h1 id="loginTitle">${esc(t("codeTitle"))}</h1><p class="small mut">${esc(t("codeHelp"))}</p><form id="cdForm" novalidate>${schoolField()}
       <label class="fld">${esc(t("ident"))}<input id="cdId" required autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="tel" value="${esc(pre&&pre.identifier||"")}"></label>
+      <fieldset class="login-chans"><legend>${esc(t("chan"))}</legend>${chans().map((c,i)=>`<label class="login-chan"><input type="radio" name="cdChan" value="${c}"${(pre&&pre.channel?pre.channel===c:i===0)?" checked":""}> ${esc(t({whatsapp:"chWa",telegram:"chTg",email:"chEmail",sms:"chSms"}[c]))}</label>`).join("")}</fieldset>
+      <p class="small mut" id="cdTg" hidden>${esc(t("tgHelp"))}</p>${trustBox(pre&&pre.trust)}
       <p id="cdErr" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("getCode"))}</button></form>
       <button type="button" class="login-link" id="cdBack">${esc(t("usePw"))}</button>`);
     el.dataset.view="code";
     if(pre&&pre.school){ const s=el.querySelector("#lgSchool"); if(s) s.value=pre.school; }
     el.querySelector("#cdBack").addEventListener("click",views.login);
+    const chan=()=>{ const c=el.querySelector('input[name="cdChan"]:checked'); return c?c.value:"email"; };
+    const hint=()=>{ el.querySelector("#cdTg").hidden=chan()!=="telegram"; };
+    el.querySelectorAll('input[name="cdChan"]').forEach(x=>x.addEventListener("change",hint)); hint();
     el.querySelector("#cdForm").addEventListener("submit",async e=>{ e.preventDefault();
       const school=el.querySelector("#lgSchool").value.trim(), identifier=el.querySelector("#cdId").value.trim(); const err=el.querySelector("#cdErr");
       if(!identifier){ err.textContent=t("bad"); return; }
+      const channel=chan(), trust=trusted(el);
+      if(channel==="whatsapp") return views.wa({school,identifier,trust});
       const btn=el.querySelector(".login-main"); btn.disabled=true;
-      const r=await post("/api/login/code",{school,identifier,lang:lang()}).catch(()=>null); btn.disabled=false;
+      const r=await post("/api/login/code",{school,identifier,lang:lang(),channel:channel==="sms"?"auto":channel}).catch(()=>null); btn.disabled=false;
       if(!r){ err.textContent=t("net"); return; } if(r.status===429){ err.textContent=t("many"); return; }
-      views.enter({school,identifier,minutes:(r.body&&r.body.minutes)||10,resendIn:(r.body&&r.body.resendIn)||60});
+      views.enter({school,identifier,channel,trust,minutes:(r.body&&r.body.minutes)||10,resendIn:(r.body&&r.body.resendIn)||60});
     });
   },
   enter(st){
@@ -131,7 +156,7 @@ const views={
     const el=screen(`<h1 id="loginTitle">${esc(t("enterTitle"))}</h1>
       <p class="login-ok" id="cdSent" role="status">${esc(st.note||t("codeSent")(st.minutes))}</p><p class="small mut">${esc(t("codeTo"))} : <b>${esc(st.identifier)}</b></p>
       <form id="otpForm" novalidate><label class="fld">${esc(t("code"))}<input id="otpCode" class="otp-in" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="••••••" aria-describedby="cdSent"></label>
-      <p id="otpErr" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("verify"))}</button></form>
+      ${trustBox(st.trust)}<p id="otpErr" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("verify"))}</button></form>
       <button type="button" class="login-alt" id="otpResend" disabled></button>
       <button type="button" class="login-link" id="otpChange">${esc(t("change"))}</button>`);
     el.dataset.view="enterView";
@@ -140,7 +165,7 @@ const views={
     clearInterval(views.enter.tm); if(!st.until) st.until=Date.now()+st.resendIn*1000; const tick=()=>{ if(!document.body.contains(rs)){ clearInterval(views.enter.tm); return; } const left=Math.ceil((st.until-Date.now())/1000); rs.disabled=left>0; rs.textContent=left>0?t("resendIn")(left):t("resend"); };
     tick(); views.enter.tm=setInterval(tick,1000);
     rs.addEventListener("click",async()=>{ rs.disabled=true;
-      const r=await post("/api/login/code",{school:st.school,identifier:st.identifier,lang:lang()}).catch(()=>null);
+      const r=await post("/api/login/code",{school:st.school,identifier:st.identifier,lang:lang(),channel:!st.channel||st.channel==="sms"?"auto":st.channel}).catch(()=>null);
       if(!r){ el.querySelector("#otpErr").textContent=t("net"); rs.disabled=false; return; }
       if(r.status===429){ el.querySelector("#otpErr").textContent=t("many"); return; }
       views.enter({...st,note:t("resent"),until:0,resendIn:(r.body&&r.body.resendIn)||60}); });
@@ -151,12 +176,65 @@ const views={
       if(!/^\d{6}$/.test(code)){ err.textContent=t("digits"); return; }
       busy=true; const btn=el.querySelector(".login-main"); btn.disabled=true;
       try{
-        const r=await post("/api/login",{school:st.school,identifier:st.identifier,method:"code",code});
+        const r=await post("/api/login",{school:st.school,identifier:st.identifier,method:"code",code,trust:trusted(el)});
         if(r.status===200){ clearInterval(views.enter.tm); try{localStorage.setItem("noria_ecole",st.school);}catch(x){} return afterLogin(r.body); }
         err.textContent=r.status===429?t("many"):t("badCode"); inp.value=""; inp.focus();
       }catch(x){ err.textContent=t("net"); }
       finally{ busy=false; btn.disabled=false; }
     });
+  },
+  // WhatsApp inversé : la personne ENVOIE le code affiché au numéro NORIA ; la page interroge le serveur toutes les 3 s
+  // (pause quand l'onglet est caché, reprise au retour) jusqu'à l'expiration.
+  async wa(st){
+    views.wa.st=st; clearTimeout(views.wa.tm);
+    const el=screen(`<h1 id="loginTitle">${esc(t("waTitle"))}</h1><p class="small">…</p>`); el.dataset.view="waView";
+    let d=st.data;
+    if(!d){ const r=await post("/api/login/whatsapp",{school:st.school,identifier:st.identifier,lang:lang(),trust:!!st.trust}).catch(()=>null);
+      if(!r||r.status!==200){ const box=screen(`<h1 id="loginTitle">${esc(t("waTitle"))}</h1><p class="login-err" role="alert">${esc(!r?t("net"):r.status===429?t("many"):t("bad"))}</p><button type="button" class="login-link" id="waBack">${esc(t("back"))}</button>`);
+        box.dataset.view="waView"; box.querySelector("#waBack").addEventListener("click",()=>views.code(st)); return; }
+      d=st.data={...r.body,until:Date.now()+r.body.minutes*60e3}; }
+    const box=screen(`<h1 id="loginTitle">${esc(t("waTitle"))}</h1>
+      <p class="login-wa-code" aria-label="${esc(t("code"))}">NORIA ${esc(d.code)}</p>
+      <ol class="login-steps small"><li>${esc(t("waS1"))}</li><li>${esc(t("waS2"))}</li><li>${esc(t("waS3"))}</li></ol>
+      <a class="login-main login-wa" id="waOpen" href="${esc(d.link)}" target="_blank" rel="noopener noreferrer">${esc(t("waOpen"))}</a>
+      <p class="small mut">${esc(t("waManual")(d.code,d.number))}</p>
+      <p class="login-ok" id="waStat" role="status">${esc(t("waWait"))}</p><p class="small mut">${esc(t("waNote"))}</p>
+      <button type="button" class="login-alt" id="waRetry" hidden>${esc(t("waRetry"))}</button>
+      <button type="button" class="login-link" id="waBack">${esc(t("change"))}</button>`);
+    box.dataset.view="waView";
+    const stat=box.querySelector("#waStat"), retry=box.querySelector("#waRetry");
+    const stop=()=>{ clearTimeout(views.wa.tm); document.removeEventListener("visibilitychange",vis); };
+    const expired=()=>{ stop(); stat.className="login-err"; stat.textContent=t("waExpired"); retry.hidden=false; };
+    let busy=false;
+    const poll=async()=>{
+      if(!document.body.contains(stat)) return stop();
+      if(Date.now()>d.until) return expired();
+      if(document.hidden||busy){ views.wa.tm=setTimeout(poll,(d.pollSeconds||3)*1000); return; }
+      busy=true; const r=await post("/api/login/whatsapp/statut",{ticket:d.ticket}).catch(()=>null); busy=false;
+      if(r&&r.status===200&&r.body&&r.body.statut==="ok"){ stop(); try{localStorage.setItem("noria_ecole",st.school);}catch(x){} return afterLogin(r.body); }
+      views.wa.tm=setTimeout(poll,(d.pollSeconds||3)*1000);
+    };
+    const vis=()=>{ if(!document.hidden){ clearTimeout(views.wa.tm); poll(); } };
+    document.addEventListener("visibilitychange",vis);
+    retry.addEventListener("click",()=>{ stop(); views.wa({...st,data:null}); });
+    box.querySelector("#waBack").addEventListener("click",()=>{ stop(); views.code({...st,channel:"whatsapp"}); });
+    views.wa.tm=setTimeout(poll,(d.pollSeconds||3)*1000);
+  },
+  // Code d'activation imprimé par l'école (élèves et parents sans e-mail ni messagerie).
+  act(){
+    const el=screen(`<h1 id="loginTitle">${esc(t("actTitle"))}</h1><p class="small mut">${esc(t("actHelp"))}</p><form id="acForm" novalidate>${schoolField()}
+      <label class="fld">${esc(t("actCode"))}<input id="acCode" required autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="14" placeholder="XXXX-XXX-XXX" class="login-act-in"></label>
+      ${trustBox()}<p id="acErr" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("login"))}</button></form>
+      <button type="button" class="login-link" id="acBack">${esc(t("back"))}</button>`);
+    el.dataset.view="act";
+    el.querySelector("#acBack").addEventListener("click",views.login);
+    el.querySelector("#acForm").addEventListener("submit",async e=>{ e.preventDefault();
+      const err=el.querySelector("#acErr"), school=el.querySelector("#lgSchool").value.trim(), code=el.querySelector("#acCode").value.trim();
+      if(!school){ err.textContent=t("actSchool"); return; }
+      const btn=el.querySelector(".login-main"); btn.disabled=true;
+      const r=await post("/api/login/activation",{school,code,trust:trusted(el)}).catch(()=>null); btn.disabled=false;
+      if(r&&r.status===200){ try{localStorage.setItem("noria_ecole",school);}catch(x){} return afterLogin(r.body); }
+      err.textContent=!r?t("net"):r.status===429?t("many"):t("actBad"); });
   },
   async verify(code){
     const el=screen(`<h1 id="loginTitle">${esc(t("vTitle"))}</h1><p class="small">…</p>`); el.dataset.view="verify"; views.verify.code=code;
@@ -312,6 +390,12 @@ async function init(){
   if(vm) return views.verify(vm[1]);
   const m=location.hash.match(/^#(invitation|recuperation)=([\w-]{20,})$/);
   if(m) return views.token(m[1],m[2]);
+  // Appareil de confiance (bloc 9) : session rouverte sans code ; sinon, écran de connexion.
+  if(!CONFIG.session&&CONFIG.appareil){
+    screen(`<p class="login-ok" role="status">${esc(t("resume"))}</p>`).dataset.view="login";
+    const r=await post("/api/login/appareil",{}).catch(()=>null);
+    if(r&&r.status===200) return afterLogin(r.body);
+  }
   if(!CONFIG.session){ if(window.NORIA_OFF) await NORIA_OFF.clearCache(); return views.login(); }
   try{ await start(); }catch(e){ views.login(); }
 }

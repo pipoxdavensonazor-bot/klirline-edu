@@ -56,6 +56,8 @@ async function loadSession(db, token) {
 // Révoque toutes les sessions d'un compte (récupération, désactivation).
 async function destroyUserSessions(db, userId) {
   await db.run('DELETE FROM session WHERE user_id = ?', userId);
+  // Bloc 9 : les appareils de confiance du compte cessent aussi de rouvrir une session.
+  await db.run('UPDATE trusted_device SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', new Date().toISOString(), userId);
 }
 
 async function destroySession(db, token) {

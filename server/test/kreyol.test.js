@@ -42,6 +42,7 @@ const DICTS = [
   ['portail-ecole.js', 'const T={'], ['admin-portail.js', 'const T={'],
   ['ministere.js', 'const T={'], ['declaration.js', 'const T={'], ['admin-ministere.js', 'const T={'],
   ['emails-eleves.js', 'const T={'], ['mon-email.js', 'const T={'],
+  ['connexion.js', 'const T={'],
 ];
 
 test('KL_I18N (i18n.js + addons-i18n.js) : chaque clé FR existe en HT', () => {
