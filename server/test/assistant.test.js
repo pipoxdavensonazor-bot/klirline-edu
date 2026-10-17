@@ -127,6 +127,7 @@ test('règle volume anormal : exports, PDF et fiches par compte', async () => {
   // La consultation réelle d'une fiche est bien observée.
   const tok = (await call(null, 'POST', '/api/login', { school: 'ecole-a', identifier: 'direction@a.exemple.invalid', password: DEMO_PASSWORD })).json.token;
   assert.equal((await call(tok, 'GET', `/api/students/${ids.A.students[0]}`)).status, 200);
+  await sec.flush();
   assert.ok(await db.get("SELECT id FROM security_event WHERE kind = 'fiche' AND user_id = ?", ids.A.users.direction));
 });
 
