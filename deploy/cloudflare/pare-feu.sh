@@ -68,8 +68,9 @@ for p in "${V4[@]}" "${V6[@]}"; do
 done
 
 # 4. Ports publiés par Docker : bloc géré dans after.rules / after6.rules (chaîne DOCKER-USER).
+# ASCII seulement dans ce bloc : ufw relit et réécrit ces fichiers en ASCII (UnicodeEncodeError sinon).
 bloc() { # $1 = liste de plages
-  echo "# BEGIN NORIA-CLOUDFLARE (géré par deploy/cloudflare/pare-feu.sh — ne pas modifier à la main)"
+  echo "# BEGIN NORIA-CLOUDFLARE (gere par deploy/cloudflare/pare-feu.sh - ne pas modifier a la main)"
   echo "*filter"
   echo ":DOCKER-USER - [0:0]"
   echo "-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN"

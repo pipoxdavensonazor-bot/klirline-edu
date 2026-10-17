@@ -155,7 +155,7 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   assert.equal(sw.status, 200); assert.equal(sw.headers['cache-control'], 'no-cache');
   const swText = sw.body.toString();
   assert.doesNotMatch(swText, /__NORIA_(VERSION|ASSETS)__/);
-  assert.match(swText, /"\/src\/app\.js"/); assert.match(swText, /"\/src\/offline\.js"/);
+  assert.match(swText, /"\/src\/app\.js\?v=[0-9a-f]{10}"/); assert.match(swText, /"\/src\/offline\.js\?v=[0-9a-f]{10}"/); // mêmes URL versionnées que la page
   assert.match(swText, /startsWith\("\/api\/"\)/, 'les réponses API ne sont jamais mises en cache');
   const mf = await raw('/manifest.webmanifest');
   assert.equal(mf.status, 200); assert.match(mf.headers['content-type'], /manifest\+json/);
