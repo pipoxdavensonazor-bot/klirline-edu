@@ -86,9 +86,9 @@ function view(m){
   setTimeout(async()=>{
     const el=document.getElementById("ecoView"); if(!el) return;
     // Bloc 2 (recherche et scan, badges, relevés) : module séparé, lui aussi chargé à la demande.
-    // Bloc 4 (transferts entre écoles) : idem.
-    const b2=m==="scan"||m==="badges"||m==="releves", b4=m==="transferts";
-    try{ await load(b4?"src/transferts.js":b2?"src/badges.js":"src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) (b4?window.NORIA_TRF:b2?window.NORIA_BAD:window.NORIA_ECOG).render(m,el,C); }
+    // Bloc 4 (transferts entre écoles) et bloc 5 (propositions pour le portail public) : idem.
+    const b2=m==="scan"||m==="badges"||m==="releves", b4=m==="transferts", b5=m==="portail";
+    try{ await load(b5?"src/portail-ecole.js":b4?"src/transferts.js":b2?"src/badges.js":"src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) (b5?window.NORIA_PORT:b4?window.NORIA_TRF:b2?window.NORIA_BAD:window.NORIA_ECOG).render(m,el,C); }
     catch(e){ el.innerHTML=`<div class="badbox">${esc(t("loadErr"))}</div>`; }
   },0);
   return `<div id="ecoView" data-view="${esc(m)}"><p class="mut">${esc(t("wait"))}</p></div>`;

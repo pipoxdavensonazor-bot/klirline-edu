@@ -39,12 +39,19 @@ const DICTS = [
   ['scolaire.js', 'const T={'], ['login.js', 'const T={'], ['gestion.js', 'const T={'],
   ['offline.js', 'const L={'], ['mobile-nav.js', 'const L = {'],
   ['ecoles.js', 'const T={'], ['ecoles-gestion.js', 'const T={'], ['admin.js', 'const T={'], ['badges.js', 'const T={'], ['admin-securite.js', 'const T={'], ['transferts.js', 'const T={'],
+  ['portail-ecole.js', 'const T={'], ['admin-portail.js', 'const T={'],
 ];
 
 test('KL_I18N (i18n.js + addons-i18n.js) : chaque clé FR existe en HT', () => {
   const ctx = { window: {} }; vm.createContext(ctx);
   vm.runInContext(read('i18n.js'), ctx); vm.runInContext(read('addons-i18n.js'), ctx);
   const errors = []; compare(ctx.window.KL_I18N.fr, ctx.window.KL_I18N.ht, 'KL_I18N', errors);
+  assert.deepStrictEqual(errors, []);
+});
+
+test('portail public (server/src/portail-pages.js) : chaque clé FR existe en HT', () => {
+  const { T } = require('../src/portail-pages');
+  const errors = []; compare(T.fr, T.ht, 'portail-pages', errors);
   assert.deepStrictEqual(errors, []);
 });
 

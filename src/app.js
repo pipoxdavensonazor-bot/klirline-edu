@@ -21,12 +21,12 @@ const toCSV=window.NORIA_U.toCSV;
 window.KL={};
 KL.t=t;
 
-const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["accounts",""],["ecole",""],["importEleves",""],["scan",""],["badges",""],["releves",""],["transferts",""],["settings",""]];
-const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",accounts:"École",ecole:"École",importEleves:"École",scan:"École",badges:"École",releves:"École",transferts:"École",settings:"École"};
+const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["accounts",""],["ecole",""],["importEleves",""],["scan",""],["badges",""],["releves",""],["transferts",""],["portail",""],["settings",""]];
+const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",accounts:"École",ecole:"École",importEleves:"École",scan:"École",badges:"École",releves:"École",transferts:"École",portail:"École",settings:"École"};
 const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi"};
 function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
 const ROLE_MODULES={
-  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","ecole","importEleves","scan","badges","releves","transferts","settings"],
+  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","ecole","importEleves","scan","badges","releves","transferts","portail","settings"],
   secretariat:["dashboard","students","classes","attendance","academic","comms","library","reports","accounts","importEleves","scan","badges","releves","transferts"],
   enseignant:["dashboard","classes","attendance","academic","comms"],
   comptable:["dashboard","students","finance","reports"],
@@ -36,7 +36,7 @@ const ROLE_MODULES={
 };
 function can(m){
   if(m==="accounts"&&!SERVER) return false; // invitations : seulement avec le serveur
-  if(m==="ecole"||m==="importEleves"||m==="scan"||m==="badges"||m==="releves"||m==="transferts") return !!SERVER&&!!window.NORIA_ECO&&(ROLE_MODULES[S.role]||[]).includes(m); // profil d'école, import : serveur seulement
+  if(m==="ecole"||m==="importEleves"||m==="scan"||m==="badges"||m==="releves"||m==="transferts"||m==="portail") return !!SERVER&&!!window.NORIA_ECO&&(ROLE_MODULES[S.role]||[]).includes(m); // profil d'école, import : serveur seulement
   if(m==="academic"&&S.role==="secretariat"&&!SERVER) return false;
   const base=(ROLE_MODULES[S.role]||[]).includes(m);
   if(SERVER&&(m==="accounts"||m==="academic"||m==="finance"||m==="library")) return base; // modules serveur : droits vérifiés par l'API, pas par la config locale des portails
@@ -72,7 +72,7 @@ function render(){
   renderShell();
   const v=$("#view");
   if(!can(ROUTE)) ROUTE="dashboard";
-  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet,ecole:()=>NORIA_ECO.view("ecole"),importEleves:()=>NORIA_ECO.view("importEleves"),scan:()=>NORIA_ECO.view("scan"),badges:()=>NORIA_ECO.view("badges"),releves:()=>NORIA_ECO.view("releves"),transferts:()=>NORIA_ECO.view("transferts")}[ROUTE];
+  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet,ecole:()=>NORIA_ECO.view("ecole"),importEleves:()=>NORIA_ECO.view("importEleves"),scan:()=>NORIA_ECO.view("scan"),badges:()=>NORIA_ECO.view("badges"),releves:()=>NORIA_ECO.view("releves"),transferts:()=>NORIA_ECO.view("transferts"),portail:()=>NORIA_ECO.view("portail")}[ROUTE];
   // Écran d'accueil après connexion : l'école (logo ou initiales, nom, devise, coordonnées) et, pour un parent, ses enfants.
   v.innerHTML=(SERVER&&ROUTE==="dashboard"&&window.NORIA_ECO?NORIA_ECO.banner():"")+fn();
   const fb={students:bStu,attendance:bAtt,academic:bAcad,comms:bComms,finance:bFin,library:bLib,settings:bSet}[ROUTE];

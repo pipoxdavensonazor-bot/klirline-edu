@@ -1,6 +1,6 @@
 /* NORIA — administration de la plateforme (super-admin), ouverte par /#admin. Chargée à la demande.
    Connexion : mot de passe puis code à 6 chiffres (2FA obligatoire). Tableau de bord : écoles (créer, suspendre,
-   réactiver avec motif), comptes, journal global, état du serveur, connexions échouées, « Assistant sécurité » (src/admin-securite.js, chargé à la demande). */
+   réactiver avec motif), comptes, journal global, état du serveur, connexions échouées, « Assistant sécurité » (src/admin-securite.js, chargé à la demande), « Portail public » (src/admin-portail.js, idem). */
 (function(){
 "use strict";
 const esc=window.NORIA_U.esc;
@@ -8,7 +8,7 @@ const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==
 const T={
   fr:{title:"Administration de la plateforme",login:"Connexion administrateur",email:"E-mail",pw:"Mot de passe",next:"Continuer",code:"Code à 6 chiffres",codeSent:"Un code vient d'être envoyé (SMS ou e-mail). Valable 10 minutes.",verify:"Valider",
     bad:"Identifiants invalides.",badCode:"Code invalide ou expiré.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable.",logout:"Se déconnecter",back:"Retour à NORIA",
-    tabs:{ecoles:"Écoles",comptes:"Comptes",journal:"Journal global",etat:"État du serveur",echecs:"Connexions échouées",assistant:"Assistant sécurité"},
+    tabs:{ecoles:"Écoles",comptes:"Comptes",journal:"Journal global",etat:"État du serveur",echecs:"Connexions échouées",assistant:"Assistant sécurité",portail:"Portail public"},
     readOnly:"Lecture seule par défaut : chaque consultation est journalisée. Les modifications (écoles, actions de l'assistant sécurité) exigent un motif ou une confirmation explicite.",
     slug:"Identifiant (ex. college-saint-pierre)",name:"Nom",initials:"Initiales (facultatif)",reason:"Motif (obligatoire)",create:"Créer l'école",suspend:"Suspendre",reactivate:"Réactiver",
     active:"Active",suspended:"Suspendue",students:"élèves",accounts:"comptes",search:"Rechercher (nom ou e-mail)",noPw:"sans mot de passe",
@@ -17,7 +17,7 @@ const T={
     done:"Enregistré.",err:"Refusé : "},
   ht:{title:"Administrasyon platfòm nan",login:"Koneksyon administratè",email:"Imèl",pw:"Modpas",next:"Kontinye",code:"Kòd 6 chif",codeSent:"Yon kòd fèk pati (SMS oswa imèl). Li bon pou 10 minit.",verify:"Valide",
     bad:"Idantifyan yo pa bon.",badCode:"Kòd la pa bon oswa li ekspire.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn.",logout:"Dekonekte",back:"Retounen nan NORIA",
-    tabs:{ecoles:"Lekòl yo",comptes:"Kont yo",journal:"Jounal jeneral",etat:"Eta sèvè a",echecs:"Koneksyon ki echwe",assistant:"Asistan sekirite"},
+    tabs:{ecoles:"Lekòl yo",comptes:"Kont yo",journal:"Jounal jeneral",etat:"Eta sèvè a",echecs:"Koneksyon ki echwe",assistant:"Asistan sekirite",portail:"Pòtay piblik"},
     readOnly:"Pa defo se lekti sèlman : chak konsiltasyon anrejistre nan jounal la. Chanjman yo (lekòl, aksyon asistan sekirite a) mande yon rezon oswa yon konfimasyon klè.",
     slug:"Idantifyan (egz. college-saint-pierre)",name:"Non",initials:"Inisyal (si ou vle)",reason:"Rezon (obligatwa)",create:"Kreye lekòl la",suspend:"Sispann",reactivate:"Reaktive",
     active:"Aktif",suspended:"Sispann",students:"elèv",accounts:"kont",search:"Chèche (non oswa imèl)",noPw:"san modpas",
@@ -75,6 +75,11 @@ async function panel(){
       try{ await NORIA_ECO.load("src/admin-securite.js"); if(document.getElementById("admAssistant")===el) window.NORIA_SEC.render(el); }
       catch(e){ el.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; } },0);
     return `<div id="admAssistant"><p class="mut">…</p></div>`; }
+  if(TAB==="portail"){ // Bloc 5 : modération du portail public, module séparé chargé à la demande.
+    setTimeout(async()=>{ const el=document.getElementById("admPortail"); if(!el) return;
+      try{ await NORIA_ECO.load("src/admin-portail.js"); if(document.getElementById("admPortail")===el) window.NORIA_PORT_ADM.render(el); }
+      catch(e){ el.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; } },0);
+    return `<div id="admPortail"><p class="mut">…</p></div>`; }
   const path={ecoles:"/api/admin/ecoles",comptes:"/api/admin/comptes?q="+encodeURIComponent(Q),journal:"/api/admin/journal",etat:"/api/admin/etat",echecs:"/api/admin/echecs"}[TAB];
   const r=await api(path).catch(()=>null);
   if(!r) return `<div class="badbox">${esc(t("net"))}</div>`;
