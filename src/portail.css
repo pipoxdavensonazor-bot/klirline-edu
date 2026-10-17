@@ -123,3 +123,8 @@ main{padding-bottom:32px;outline:0}
 .btn-d{background:#b42318}
 @media (max-width:480px){.hd-in{gap:4px}.brand img{height:28px;padding:1px 3px;border-radius:6px}.lang a{min-width:26px;padding:5px 3px;font-size:.8rem}.hd .btn-reg,.hd .btn-in{padding:6px 8px;min-height:36px;font-size:.76rem;letter-spacing:-.01em}}
 @media (max-width:359px){.lang{display:none}}
+.pv-doc{max-width:46rem}
+.pv-doc p{margin:.5em 0}
+.pv h2{margin-bottom:6px}
+.pv-li{padding-left:1.1em;text-indent:-.8em}
+.pv-li::before{content:"• "}

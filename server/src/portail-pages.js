@@ -11,6 +11,7 @@ const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const Pt = require('./portail');
 const PP = require('./portail-public');
+const PV = require('./confidentialite');
 
 // CSP du portail : plus stricte que celle de l'application (aucune connexion sortante, aucun cadre, aucun formulaire externe).
 const PORTAL_CSP = ["default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self'", "base-uri 'none'",
@@ -140,7 +141,7 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
 <nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav><a class="btn btn-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a><a class="btn btn-in" href="/app" title="${esc(t.loginTitle)}">${esc(t.login)}</a></div>
 <nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}<a class="nav-acc" href="${href(L, 'compte')}"${page === 'compte' ? ' aria-current="page"' : ''}>${esc(PP.X[L].account)}</a></div></nav></header>
 <main id="contenu" class="wrap" tabindex="-1">${body}</main>
-<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="/app">${esc(t.ctaSchools)}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
+<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="/app">${esc(t.ctaSchools)}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
 </body></html>`;
 }
 
@@ -296,6 +297,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
     else if (page === 'communaute' && !rest) r = await community(pub, L, q);
     else if (page === 'communaute' && /^\d{1,9}$/.test(rest)) { r = await postDetail(pub, L, rest); canon = `communaute/${rest}`; }
     else if (page === 'annonces' && !rest) r = await ads(pub, L);
+    else if (page === PV.SLUG && !rest) r = { title: PV.C[L].title, desc: PV.C[L].desc, body: PV.body(L, esc) };
     if (!r) return notFoundPage(L, base);
     // Adresse canonique : sans paramètres de pagination ni filtres non reconnus ; les filtres reconnus restent.
     const keep = new URLSearchParams();
@@ -320,7 +322,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
   const t0 = (L) => T[L];
   async function sitemap(base) {
     const rows = await pub.sitemap();
-    const urls = PAGES.map((p) => ({ p, mod: null })).concat(rows.map((r) => ({ p: `${r.kind === 'evenement' ? 'evenements' : 'communaute'}/${r.id}`, mod: String(r.updated_at || r.published_at || '').slice(0, 10) })));
+    const urls = PAGES.concat(PV.SLUG).map((p) => ({ p, mod: p === PV.SLUG ? PV.UPDATED : null })).concat(rows.map((r) => ({ p: `${r.kind === 'evenement' ? 'evenements' : 'communaute'}/${r.id}`, mod: String(r.updated_at || r.published_at || '').slice(0, 10) })));
     const u = (p) => esc(`${base}${p === '' ? '/' : `/${p}`}`); const uh = (p) => esc(`${base}${href('ht', p)}`);
     const one = (loc, p, mod) => `<url><loc>${loc}</loc>${mod ? `<lastmod>${esc(mod)}</lastmod>` : ''}<xhtml:link rel="alternate" hreflang="fr" href="${u(p)}"/><xhtml:link rel="alternate" hreflang="ht" href="${uh(p)}"/></url>`;
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls.map(({ p, mod }) => one(u(p), p, mod) + one(uh(p), p, mod)).join('')}</urlset>\n`;
@@ -365,7 +367,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
       res.writeHead(302, { ...baseHeaders, location: to || '/annonces', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex' }); res.end(); return true;
     }
     m = p.match(/^\/(?:(ht)(?:\/|$))?([a-z]*)(?:\/([^/]*))?\/?$/);
-    if (!m || !PAGES.includes(m[2]) || (p.length > 1 && p.endsWith('/') && p !== '/ht/')) return false;
+    if (!m || !(PAGES.includes(m[2]) || m[2] === PV.SLUG) || (p.length > 1 && p.endsWith('/') && p !== '/ht/')) return false;
     const L = m[1] ? 'ht' : 'fr'; const page = m[2]; const rest = m[3] || '';
     if (m[1] && p === '/ht/') { res.writeHead(301, { ...baseHeaders, location: `/ht${url.search}`, 'cache-control': 'public, max-age=86400' }); res.end(); return true; }
     const base = baseOf(req);

@@ -142,3 +142,4 @@ a.login-main.login-wa { display: flex; align-items: center; justify-content: cen
   body.cnx-printing .cnx-cards { grid-template-columns: repeat(2, 1fr); }
 }
 .login-card input.login-act-in { font: 600 18px/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
+.login-priv { text-align: center; margin: 10px 0 0; font-size: .85rem; } .login-priv a { color: #0e5a4f; }

@@ -117,7 +117,7 @@ Aucune de ces étapes ne coûte d'argent. Ne jamais envoyer de « modèles » (t
 7. **Choisir le jeton de vérification** : `openssl rand -hex 24` → `NORIA_WHATSAPP_VERIFY_TOKEN`.
 8. **Mettre ces variables sur le serveur et redémarrer NORIA** (déploiement de la branche — étape faite avec l'équipe, pas automatiquement).
 9. **Brancher le webhook** : dans l'app Meta → WhatsApp → *Configuration* → Webhook → **Modifier** : URL de rappel `https://noriaedu.com/api/whatsapp/webhook`, jeton de vérification = la valeur de l'étape 7 → **Vérifier et enregistrer** (NORIA doit déjà tourner avec les variables). Puis, dans *Champs du webhook*, **s'abonner à `messages`**.
-10. **Passer l'app en mode « Live »** (en haut de la page de l'app) : Meta demande l'adresse d'une **politique de confidentialité** publique. Le portail NORIA n'a pas encore de page dédiée : il faudra en publier une (par ex. `https://noriaedu.com/confidentialite`) avant cette étape.
+10. **Passer l'app en mode « Live »** (en haut de la page de l'app) : Meta demande l'adresse d'une **politique de confidentialité** publique : indiquer `https://noriaedu.com/confidentialite` (version kreyòl : `https://noriaedu.com/ht/confidentialite`, voir `docs/confidentialite.md`).
 11. **Essai** : sur un téléphone dont le numéro WhatsApp est celui d'un compte NORIA, choisir « WhatsApp » à la connexion, appuyer sur **Ouvrir WhatsApp**, envoyer le message : la page doit se connecter en quelques secondes et le message recevoir ✅.
 
 ### 4.2 Telegram (bot créé avec BotFather)
