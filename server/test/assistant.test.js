@@ -67,6 +67,7 @@ test('règle force brute : échecs par IP et par compte (vraies requêtes de con
   // Les échecs de code (OTP) comptent aussi.
   const before = Number((await db.get("SELECT COUNT(*) AS n FROM security_event WHERE kind = 'otp.fail'")).n);
   await call(null, 'POST', '/api/login', { method: 'code', school: 'ecole-a', identifier: 'prof1@a.exemple.invalid', code: '000000' });
+  await sec.flush(); // l'observation n'attend pas la réponse HTTP : on attend l'écriture avant de compter
   assert.equal(Number((await db.get("SELECT COUNT(*) AS n FROM security_event WHERE kind = 'otp.fail'")).n), before + 1);
 });
 
