@@ -2,7 +2,7 @@
 (function(){
 const LSX = "klirline_ext_v1";
 const LSO = "klirline_school_v1";
-function readOld(){ try{ const o = JSON.parse(localStorage.getItem(LSO)); if(o && o.v===1 && o.students) return o; }catch(e){} return null; }
+function readOld(){ const sv=window.KL&&window.KL.serverState&&window.KL.serverState(); if(sv) return sv; try{ const o = JSON.parse(localStorage.getItem(LSO)); if(o && o.v===1 && o.students) return o; }catch(e){} return null; }
 function seedRes(){
   const R = (id,title,org,url,lang,levels,subjects,licence,access,type,fmt,off,note,costs,plus)=>({id,title,org,url,verified:"2026-10-01",lang,levels,subjects,licence,attrib:org,access,type,fmt,offline:off,size:"—",version:"web",status:"toCheck",note:note||"",costs:costs||null,...(plus||{}),hist:[{at:"2026-10-01",by:"seed",info:"fiche créée (source candidate PRD, à vérifier)"}]});
   return [
@@ -21,7 +21,7 @@ function seedRes(){
 function defaults(){
   return {
     v:1, queue:[],
-    homework:[], movements:[], emergency:{}, sibX:[],
+    homework:[{id:"hw-demo",classId:"c7a",subject:"Mathématiques",title:"Exercice : fractions équivalentes",instructions:"Écrivez deux fractions égales à 1/2 et expliquez en une phrase.",due:"2026-10-20",file:"",at:"2026-10-15 08:30",by:"enseignant",st:"synced",subs:[]}], movements:[], emergency:{}, sibX:[],
     attCorr:[], prefs:{}, avis:[],
     sched:[], channels:[
       {id:"papier",label:"Papier",cost:"Impression",consent:0},
@@ -52,6 +52,8 @@ function loadX(){
     defaults().resources.forEach(r=>{ if(!have.has(r.id)) o.resources.push(r); });
     // complète les fiches cours existantes (champs émetteur/évaluation/reconnaissance) sans toucher le reste
     defaults().resources.filter(r=>r.issuer).forEach(r=>{ const cur=(o.resources||[]).find(x=>x.id===r.id); if(cur){ ["eval","badge","ident","issuer","recog","duree","session","age","prerequis"].forEach(k=>{ if(cur[k]===undefined) cur[k]=r[k]; }); } });
+    if(!Array.isArray(o.homework)) o.homework=[];
+    if(!o.homework.some(h=>h&&h.id==="hw-demo")) o.homework.push(defaults().homework[0]);
     if(!Array.isArray(o.calProp)) o.calProp=[];
     if(!o.drafts||typeof o.drafts!=="object") o.drafts={};
     return o; } }catch(e){}

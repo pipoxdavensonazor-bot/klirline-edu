@@ -4,7 +4,7 @@
 (function(){
 "use strict";
 const XD = window.KLXD;
-const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const {esc,safeUrl}=window.NORIA_U;
 const lang = ()=>{ const o=XD.readOld(); return (o&&o.lang)||"fr"; };
 const L = o=>o[lang()]||o.fr;
 function toast(m){ const c=document.querySelector("#toasts"); if(!c) return; const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),3400); }
@@ -14,7 +14,7 @@ const W = {
   next:{fr:"Suivant",ht:"Apre"}, prev:{fr:"Retour",ht:"Tounen"}, quit:{fr:"Quitter",ht:"Kite"},
   tours:{fr:"Parcours guidés",ht:"Pakou gide"},
   done:{fr:"Parcours terminé ✓ — merci !",ht:"Pakou fini ✓ — mèsi !"},
-  notYet:{fr:"Pas encore — suivez l'instruction ci-dessus puis réessayez.",ht:"Poko — swiv enstriksyon an epi re-eseye."},
+  notYet:{fr:"Pas encore — suivez l'instruction ci-dessus puis réessayez.",ht:"Poko — swiv enstriksyon ki anwo a epi eseye ankò."},
 };
 
 /* ---------- définition des 3 parcours ---------- */
@@ -23,13 +23,13 @@ const TOURS = [
   title:{fr:"1. Faire l'appel",ht:"1. Fè apèl"},
   steps:[
     { run:()=>window.KL.go("dashboard"), wait:"#nav",
-      t:{fr:"Départ : tableau de bord",ht:"Depa : tablo bò"},
+      t:{fr:"Départ : tableau de bord",ht:"Depa : tablo jeneral"},
       x:{fr:"Ouvrez le module Présences pour commencer l'appel du jour.",ht:"Louvri modil Prezans pou kòmanse apèl jodi a."} },
     { run:()=>window.KL.go("attendance"), wait:".attbtn",
       t:{fr:"Marquer les absences",ht:"Make absans yo"},
       x:{fr:"Cliquez sur « A » pour un élève absent (ou « R » retard, « E » excusé).",ht:"Klike sou « A » pou yon elèv absan (oswa « R » anreta, « E » eskize)."} },
     { t:{fr:"Enregistrer",ht:"Anrejistre"},
-      x:{fr:"Cliquez sur « Enregistrer ». Hors ligne, la saisie part en file « en attente ».",ht:"Klike sou « Anrejistre ». Deyò liy, sa ou ekri a prale nan fil « annatant »."},
+      x:{fr:"Cliquez sur « Enregistrer ». Hors ligne, la saisie part en file « en attente ».",ht:"Klike sou « Anrejistre ». Deyò liy, sa ou ekri a prale nan fil « ap tann » nan."},
       verify:{fr:"Appel bien enregistré dans l'historique.",ht:"Apèl byen anrejistre nan istwa a."},
       check:()=>{ const o=XD.readOld(); return o&&o.attLog&&o.attLog.length>0; } },
   ]},
@@ -41,7 +41,7 @@ const TOURS = [
       x:{fr:"Chaque carte = un enfant relié à votre compte. Repérez présences, solde et relevés.",ht:"Chak kat = yon pitit ki lye ak kont ou. Gade prezans, sold ak bilten."} },
     { t:{fr:"Ouvrir le relevé",ht:"Louvri bilten an"},
       x:{fr:"Cliquez sur « Relevé / Imprimer » sur la carte de l'enfant.",ht:"Klike sou « Relevé / Imprimer » sou kat pitit la."},
-      verify:{fr:"Relevé ouvert : seules les notes publiées sont visibles.",ht:"Bilten ouvri : se nòt pibliye yo vizib."},
+      verify:{fr:"Relevé ouvert : seules les notes publiées sont visibles.",ht:"Bilten ouvri : se sèlman nòt ki pibliye yo ki parèt."},
       check:()=>!!document.querySelector(".modal") },
     { t:{fr:"Refermer",ht:"Fèmen"},
       x:{fr:"Fermez avec « Fermer ». Le parcours est terminé.",ht:"Fèmen ak « Fermer ». Pakou a fini."} },
@@ -55,7 +55,7 @@ const TOURS = [
       verify:{fr:"Boîte de rédaction ouverte.",ht:"Bwat redaksyon ouvri."},
       check:()=>!!document.querySelector("#anModal .modal") },
     { t:{fr:"Rédiger et publier",ht:"Ekri epi pibliye"},
-      x:{fr:"Titre + message, cible et canal, puis « Publier ». L'annonce apparaît en tête avec son bilan d'envoi.",ht:"Tit + mesaj, sib ak kanal, apre « Publier ». Anons lan parèt anlè ak bilan li."},
+      x:{fr:"Titre + message, cible et canal, puis « Publier ». L'annonce apparaît en tête avec son bilan d'envoi.",ht:"Tit + mesaj, sib ak kanal, apre « Publier ». Anons la parèt anlè ak bilan li."},
       verify:{fr:"Annonce publiée et visible dans le fil.",ht:"Anons pibliye epi vizib nan fil la."},
       check:(T)=>{ const o=XD.readOld(); return o&&o.announces.length>(T.startCount||0); } },
   ]},
@@ -63,8 +63,8 @@ const TOURS = [
 
 /* ---------- moteur ---------- */
 let T = null, tok = 0;
-function clearHi(){ document.querySelectorAll("[data-tourhi]").forEach(e=>{ e.style.outline=""; e.removeAttribute("data-tourhi"); }); const o=document.querySelector("#tourSheet"); if(o) o.remove(); }
-function sheet(html){ clearHi(); const d=document.createElement("div"); d.id="tourSheet"; d.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;z-index:80;max-width:560px;margin:0 auto;background:#0f1f3d;color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 10px 40px #0008"; d.innerHTML=html; document.body.appendChild(d); }
+function clearHi(){ document.querySelectorAll("[data-tourhi]").forEach(e=>{ e.removeAttribute("data-tourhi"); }); const o=document.querySelector("#tourSheet"); if(o) o.remove(); }
+function sheet(html){ clearHi(); const d=document.createElement("div"); d.id="tourSheet"; d.innerHTML=html; document.body.appendChild(d); }
 function el(sel){ if(typeof sel==="function"){ try{ return sel(); }catch(e){ return null; } } return document.querySelector(sel); }
 async function show(){
   if(!T) return; const my=++tok; const s=T.tour.steps[T.i];
@@ -72,15 +72,15 @@ async function show(){
   let tgt=null;
   if(s.wait){ for(let k=0;k<26;k++){ if(tok!==my||!T) return; tgt=el(s.wait); if(tgt) break; await new Promise(r=>setTimeout(r,300)); } }
   if(tok!==my||!T) return;
-  if(tgt){ tgt.setAttribute("data-tourhi","1"); tgt.style.outline="3px solid #ff6b57"; tgt.style.outlineOffset="2px"; try{ tgt.scrollIntoView({block:"center"}); }catch(e){} }
+  if(tgt){ tgt.setAttribute("data-tourhi","1"); try{ tgt.scrollIntoView({block:"center"}); }catch(e){} }
   const n=T.tour.steps.length;
-  sheet(`<div style="font-size:13px;color:#9fb2d8">${esc(L(T.tour.title))} — étape ${T.i+1}/${n}</div>
-    <div style="font-weight:800;font-size:16px;margin:2px 0 4px">${esc(L(s.t))}</div>
-    <div style="font-size:14px;color:#dbe4f7">${esc(L(s.x))}</div>
-    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      ${T.i>0?`<button data-ta="prev" style="background:#ffffff22"> ${esc(W.prev[lang()]||W.prev.fr)}</button>`:""}
+  sheet(`<div class="u40">${esc(L(T.tour.title))} — étape ${T.i+1}/${n}</div>
+    <div class="u41">${esc(L(s.t))}</div>
+    <div class="u42">${esc(L(s.x))}</div>
+    <div class="u43">
+      ${T.i>0?`<button data-ta="prev" class="u44"> ${esc(W.prev[lang()]||W.prev.fr)}</button>`:""}
       ${T.i<n-1?`<button data-ta="next">${esc(W.next[lang()]||W.next.fr)} </button>`:`<button data-ta="finish">Terminer</button>`}
-      <button data-ta="quit" style="background:none;border:1px solid #ffffff55">${esc(W.quit[lang()]||W.quit.fr)}</button>
+      <button data-ta="quit" class="u45">${esc(W.quit[lang()]||W.quit.fr)}</button>
     </div>`);
   d_actions();
 }
@@ -94,7 +94,7 @@ function act(a){
     const s=T.tour.steps[T.i]; let ok=true;
     if(s.check){ try{ ok=!!s.check(T); }catch(e){ ok=false; } }
     if(ok){ mut(x=>{ x.toursDone=x.toursDone||{}; x.toursDone[T.tour.id]={at:new Date().toLocaleString()}; x.audit.unshift({at:new Date().toLocaleString(),by:(XD.readOld()||{}).role||"?",action:"parcours."+T.tour.id,detail:"parcours guidé terminé"}); XD.saveX(x); });
-      sheet(`<div style="font-weight:800">✓ ${esc(W.done[lang()]||W.done.fr)}</div><div style="margin-top:10px"><button data-ta="quit">OK</button></div>`); d_actions();
+      sheet(`<div class="u46">✓ ${esc(W.done[lang()]||W.done.fr)}</div><div class="u8"><button data-ta="quit">OK</button></div>`); d_actions();
     } else { toast(W.notYet[lang()]||W.notYet.fr); }
     return;
   }

@@ -1,0 +1,13 @@
+/* NORIA — bloc 7 : page publique de vérification d'une adresse de destination (sans script). */
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f7;color:#1f2a37;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.ev{max-width:520px;margin:6vh auto;background:#fff;border-radius:14px;padding:24px 22px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.ev-brand{font-weight:800;letter-spacing:.12em;color:#1f6feb;margin:0 0 8px}
+h1{font-size:1.35rem;margin:.2rem 0 .8rem}
+strong{word-break:break-all}
+.ev-ht{color:#4b5563;border-left:3px solid #e5e7eb;padding-left:10px}
+.ev-small{font-size:.85rem;color:#5b6573}
+button{background:#1f6feb;color:#fff;border:0;border-radius:10px;padding:12px 20px;font:inherit;font-weight:600;cursor:pointer;width:100%;margin:.6rem 0}
+button:focus-visible,a:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+a{color:#1f6feb}
+@media (max-width:560px){.ev{margin:16px 12px}}

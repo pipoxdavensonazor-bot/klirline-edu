@@ -2,45 +2,57 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="src/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="src/icon-192.png">
   <meta name="theme-color" content="#0e1218">
   <meta name="description" content="NORIA, prototype de gestion scolaire : portails de démonstration pour les écoles, les enseignants, les familles et les élèves. Produit de Klirline Inc.">
   <title>NORIA — Une école, une famille et un avenir</title>
   <link rel="stylesheet" href="src/styles.css">
   <link rel="stylesheet" href="src/addons.css">
   <link rel="stylesheet" href="src/design-refresh.css">
+  <link rel="stylesheet" href="src/mobile-nav.css">
+  <link rel="stylesheet" href="src/login.css">
+  <script defer src="src/util.js"></script>
   <script defer src="src/i18n.js"></script>
   <script defer src="src/seed.js"></script>
+  <script defer src="src/offline.js"></script>
+  <script defer src="src/scolaire.js"></script>
+  <script defer src="src/gestion.js"></script>
   <script defer src="src/app.js"></script>
   <script defer src="src/addons-i18n.js"></script>
   <script defer src="src/addons-data.js"></script>
   <script defer src="src/addons.js"></script>
   <script defer src="src/tours.js"></script>
+  <script defer src="src/mobile-nav.js"></script>
+  <script defer src="src/ecoles.js"></script>
+  <script defer src="src/login.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#view">Aller au contenu principal</a>
   <header class="topbar">
     <div class="brand"><img class="brand-mark" src="src/noria-logo.png" alt="NORIA — Une école, une famille et un avenir"></div>
     <label class="sr-only" for="roleSel">Profil de démonstration</label>
-    <select id="roleSel" onchange="KL.role(this.value)" aria-label="Profil de démonstration">
+    <select id="roleSel" data-action-change="KL.role" data-a0="v" aria-label="Profil de démonstration" title="Profil de démonstration. Ce menu ne protège pas les dossiers.">
       <option value="direction">Direction</option><option value="secretariat">Secrétariat</option>
       <option value="enseignant">Enseignant</option><option value="comptable">Comptabilité</option>
       <option value="bibliothecaire">Bibliothèque</option><option value="parent">Parent</option>
       <option value="eleve">Élève</option>
     </select>
     <label class="sr-only" for="langSel">Langue</label>
-    <select id="langSel" onchange="KL.lang(this.value)" aria-label="Langue"><option value="fr">Français</option><option value="ht">Kreyòl</option></select>
-    <button id="connBtn" class="pill" onclick="KL.conn()" aria-label="Changer l'état de connexion">État de connexion</button>
-    <button id="syncBtn" class="pill" onclick="KL.sync()" aria-label="Synchroniser les données locales">Synchroniser<span id="syncBadge"></span></button>
+    <select id="langSel" class="lang-compact" data-action-change="KL.lang" data-a0="v" aria-label="Langue / Lang (FR : français, HT : kreyòl)" title="Langue : FR français, HT kreyòl"><option value="fr" title="Français">FR</option><option value="ht" title="Kreyòl">HT</option></select>
+    <button id="connBtn" class="pill demo-badge" data-action="KL.conn" aria-label="Simuler une file d'attente sur cet appareil">Démo locale</button>
+    <button id="syncBtn" class="pill" data-action="KL.sync" aria-label="Vider la file de démonstration sur cet appareil">Vider la file<span id="syncBadge"></span></button>
   </header>
   <div class="layout">
     <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
     <main class="main" id="view" tabindex="-1">
-      <p class="small mut" style="margin-top:16px">NORIA est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
+      <p class="u1 small mut">NORIA est un prototype de cadrage alimenté par des données fictives. Il n'est relié ni au MENFP/SIGEEE, ni à un service de paiement ou de messagerie. Les accès et les données sont simulés dans ce navigateur.</p>
     </main>
   </div>
   <nav class="mnav" id="mnav" aria-label="Navigation mobile"></nav>
-  <footer class="site-foot">NORIA est un produit de <strong>Klirline Inc.</strong></footer>
+  <footer class="site-foot">NORIA est un produit de <strong>Klirline Inc.</strong><br>Démonstration : données fictives enregistrées sur cet appareil. Aucune synchronisation avec une école.</footer>
   <div class="toast" id="toasts" role="status" aria-live="polite"></div>
 </body>
 </html>

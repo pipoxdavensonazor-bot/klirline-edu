@@ -1,0 +1,36 @@
+/* NORIA — bloc 5 (portail public) : écrans de la direction et du super-admin, chargés à la demande. */
+.pt-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.pt-tabs button{flex:1 1 auto;min-height:40px}
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:end}
+.pt-full{grid-column:1/-1}
+.pt-grid .fld{margin:0}
+.pt-grid textarea{width:100%;min-height:96px;font:inherit}
+.pt-minor{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:grid;gap:6px}
+.pt-minor legend{font-weight:700;font-size:14px;padding:0 4px}
+.pt-check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.pt-check input{width:auto;margin-top:3px}
+.pt-consent{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:6px}
+.pt-img .fld input[type=file]{padding:6px 0}
+.pt-prev{max-width:180px;max-height:140px;width:auto;height:auto;border-radius:8px;display:block;margin:6px 0;border:1px solid var(--line)}
+.pt-logo{width:64px;height:64px;object-fit:contain;border:1px solid var(--line);border-radius:8px;vertical-align:middle}
+.pt-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.pt-item p{margin:4px 0}
+.pt-acts{gap:10px;align-items:center;flex-wrap:wrap}
+.pt-chip{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:800;background:#eef1f6;color:#3b4456;white-space:nowrap}
+.pt-publie,.pt-on{background:#e3f4ea;color:#145c3b}
+.pt-en_attente{background:#fff3df;color:#8a4b06}
+.pt-refuse,.pt-depublie,.pt-off{background:#fde8e8;color:#9b1c1c}
+.pt-retire{background:#eef1f6;color:#5b6573}
+.pt-sp{background:#fff3e0;color:#7a3e00;border:1px solid #f0c890}
+.pt-thumb{width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--line);float:right;margin:0 0 6px 8px}
+.pt-mod{display:grid;gap:6px;margin-top:6px}
+.pt-mod input{width:100%}
+.pt-kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;font-size:13px;margin:6px 0}
+.pt-kv dt{color:var(--mut)}
+.pt-kv dd{margin:0;word-break:break-word}
+.pt-body{white-space:pre-wrap;font-size:14px;max-height:220px;overflow:auto;background:#fafaf8;border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.pt-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:10px}
+.pt-filters .fld{margin:0;min-width:150px}
+.pt-stats{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.pt-stats span{background:#eef1f6;border-radius:8px;padding:6px 10px;font-size:13px}
+@media (max-width:420px){.pt-tabs button{flex:1 1 45%;font-size:13px}.pt-kv{grid-template-columns:1fr}.pt-thumb{float:none;display:block}}

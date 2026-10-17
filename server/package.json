@@ -1,0 +1,22 @@
+{
+  "name": "noria-server",
+  "version": "1.0.0",
+  "description": "Socle serveur NORIA (démonstration, données fictives)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/",
+    "admin:creer": "node scripts/admin-creer.js",
+    "audit:rapport": "node scripts/audit-rapport.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "pg": "^8.23.1",
+    "qrcode-generator": "^1.5.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

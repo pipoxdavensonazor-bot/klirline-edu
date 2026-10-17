@@ -1,0 +1,21 @@
+/* Assistant sécurité (super-admin) — chargé à la demande avec src/admin-securite.js. */
+.sec-head{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:stretch}
+.sec-scorebox{text-align:center;min-width:110px}.sec-score{font-size:40px;font-weight:800;line-height:1.1}
+.sec-good{color:#1d7a3e}.sec-mid{color:#9a5b00}.sec-bad{color:#b42318}
+.sec-counts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.sec-counts p{flex-basis:100%;margin:4px 0 0}
+.sec-tools{display:flex;flex-direction:column;gap:6px;justify-content:center}.sec-tools button{min-height:44px}
+.sec-rule{border-left:4px solid #0e1218;background:#fff;padding:8px 10px;border-radius:8px}
+.sec-sev{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12.5px;font-weight:700}
+.sec-critique{background:#fdeeee;color:#b42318}.sec-attention{background:#fef6e8;color:#9a5b00}.sec-info{background:#eaf1fb;color:#1f4f8f}
+.sec-filters{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}.sec-filters .fld{flex:1 1 160px}
+.sec-list{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.sec-alert{border-left:5px solid #c9ccc9}.sec-alert h4{margin:8px 0 4px}.sec-alert h3{margin:8px 0}
+.sec-b-critique{border-left-color:#b42318}.sec-b-attention{border-left-color:#d68a00}.sec-b-info{border-left-color:#3d72b8}
+.sec-evidence{padding-left:18px;margin:4px 0}.sec-evidence li{margin:3px 0;overflow-wrap:anywhere}.sec-evidence code{font-size:12.5px;white-space:normal}
+.sec-actions,.sec-q{display:flex;flex-wrap:wrap;gap:8px}.sec-actions button,.sec-q button{min-height:44px}
+.sec-crit-btn{background:#b42318!important;color:#fff!important}
+.sec-confirm{margin-top:12px;border:2px solid #0e1218;border-radius:10px;padding:12px;background:#fafbfa}
+.sec-answer{min-height:1.5em;background:#f2f3f1;border-radius:8px;padding:8px 10px;margin:8px 0}
+.sec-answer:empty{display:none}.sec-undone{opacity:.65}
+.okbox{border-left:4px solid #1d7a3e;background:#e6f6ec;padding:10px 12px;border-radius:8px;margin:10px 0}
+@media (max-width:640px){.sec-head{grid-template-columns:1fr 1fr}.sec-tools{grid-column:1/-1;flex-direction:row}.sec-tools button{flex:1}.sec-list{grid-template-columns:1fr}}

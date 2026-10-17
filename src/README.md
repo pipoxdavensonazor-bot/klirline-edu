@@ -1,6 +1,8 @@
-# Klirline Édu — prototype de gestion scolaire
+# NORIA — prototype de gestion scolaire
 
-Version de démonstration destinée à illustrer des parcours scolaires et recueillir les commentaires d'écoles pilotes. Les données fournies sont fictives. Le nom et la disponibilité de la marque ne sont pas vérifiés.
+Produit de Klirline Inc. Version de démonstration destinée à illustrer des parcours scolaires et recueillir les commentaires d'écoles pilotes. Les données fournies sont fictives. Le nom et la disponibilité de la marque ne sont pas vérifiés.
+
+Le socle visé (plusieurs écoles, comptes, autorisations côté serveur, bibliothèque contrôlée, pilote) est décrit dans `docs/noria-socle.md`. Cette maquette ne réalise pas ce socle.
 
 ## Ouvrir la démonstration
 
@@ -11,16 +13,18 @@ Ouvrir `index.html` dans un navigateur récent. Les modifications sont conservé
 - Profils de démonstration : direction, secrétariat, enseignant, comptabilité, bibliothèque, parent et élève.
 - Registres de démonstration pour les élèves, classes, présences, notes, communications, paiements, livres et calendrier.
 - Extensions pour les devoirs, les ressources pédagogiques, les rapports, les prêts, l'installation de l'école et la continuité scolaire.
-- Espace « Classe virtuelle » pour planifier un cours, indiquer son lien Zoom, présenter les consignes et partager une ressource HTTPS.
+- Espace « Classe virtuelle » pour planifier un cours, puis l'ouvrir dans la salle : cours en direct, tableau, présence, discussion et devoirs.
 - Interface en français et en créole haïtien, affichage adaptatif, impressions et exports CSV selon les modules.
 
-## Ce que la classe virtuelle fait réellement
+## Ce que la salle de classe fait réellement
 
-L'enseignant peut enregistrer une séance et un lien de réunion Zoom déjà créé. Les personnes associées à la classe peuvent consulter le cours et ouvrir le lien sur Zoom. La plateforme ne crée pas de réunion Zoom et n'intègre pas la vidéo, le microphone, le chat, les inscriptions, l'enregistrement ou la présence Zoom.
+L'enseignant planifie un cours (classe, matière, titre, date, consignes, ressource HTTPS optionnelle). « Entrer dans la salle » ouvre la classe visuelle dans NORIA : le tableau du jour, la présence par prénom, la discussion de la classe et les devoirs de cette classe.
 
-Une intégration directe au Meeting SDK de Zoom nécessite une application Zoom configurée et un serveur qui génère les signatures à partir de secrets conservés côté serveur. Aucun secret ne doit être placé dans ce prototype ou dans le navigateur. Voir la documentation officielle : https://developers.zoom.us/docs/meeting-sdk/auth/ et https://developers.zoom.us/docs/meeting-sdk/web/.
+Le cours en direct utilise [Jitsi Meet](https://jitsi.org/jitsi-meet/) sur le serveur public gratuit [meet.systemli.org](https://meet.systemli.org/). Le serveur officiel `meet.jit.si` demande un compte pour ouvrir une salle, et cette connexion ne fonctionne pas dans une page intégrée. systemli laisse démarrer la salle sans compte. Aucune clé n'est demandée. La salle charge la vidéo seulement après un clic, micro et caméra coupés au départ, avec l'écran d'accueil Jitsi. Le nom affiché est le rôle (enseignant, élève), jamais le nom d'un élève. Le nom de la salle vient de l'identifiant du cours. Jitsi apporte la caméra, le micro, le partage d'écran et son tableau. La discussion scolaire et les devoirs restent dans le stockage local de NORIA ; le chat Jitsi n'y est pas copié.
 
-Les autres outils de classe présentés sont des renvois vers les modules Devoirs & leçons, Présences + et Bibliothèque. Ils ne constituent pas une salle de classe collaborative complète : pas de chat interne, de partage d'écran, de tableau blanc, de dépôt de fichier sécurisé, de modération en direct ni de présence automatique.
+Ce serveur public convient à une démonstration. Il ne convient pas à de vrais dossiers d'enfants : les flux passent par un service tiers, et les données de la maquette restent dans le navigateur. Aucun secret n'est placé dans le JavaScript. La visioconférence reste un module optionnel, à décider après le socle serveur. Tant que cette décision n'est pas prise, aucun élève réel ne doit être envoyé vers ce serveur public.
+
+La présence se marque à la main. Il n'y a pas d'enregistrement du cours, de salles de sous-groupes, de dépôt de fichier sécurisé ni de paiement.
 
 ## Limites importantes
 
@@ -47,7 +51,7 @@ Les résultats et limites des vérifications réalisées sont consignés dans `s
 
 ## Historique des portées appliquées et vérifiées (maquette)
 
-- **Accueils « Aujourd'hui » par rôle** : ce qui se passe, ce qui demande attention, la prochaine action, l'état de synchro et l'âge des données locales. Parent : pastilles par enfant (un dossier à la fois).
+- **Accueils « Aujourd'hui » par rôle** : ce qui se passe, ce qui demande attention, la prochaine action et l'âge des données locales. Le bandeau rappelle que les données fictives restent sur l'appareil. Parent : pastilles par enfant (un dossier à la fois).
 - **Données minimales par rôle** : bibliothèque = code/nom/classe ; comptable = + solde ; fiche/relevé/reçu refusés hors périmètre (enseignant = classes assignées, bibliothécaire = jamais, comptable = reçus seuls). Finances et exports CSV/MENFP réservés.
 - **Notes** : brouillon → soumis → publié ; professeur prépare/soumet, direction publie/corrige avec motif et historique ; saisie bornée au barème de chaque évaluation.
 - **Devoirs (§15 P0)** : éditeur texte simple (titre, gras/italique/listes/liens, aperçu, export .txt, impression) avec brouillon autosauvegardé et reprise ; remises versionnées (remis/en retard/retourné/noté), corbeille de correction avec retour commenté et note, modération par masquage ; nouvelles versions après correction sans écraser les précédentes.
@@ -55,7 +59,7 @@ Les résultats et limites des vérifications réalisées sont consignés dans `s
 - **Impressions** : périmètre de l'enseignant appliqué à l'aperçu comme au CSV ; chaque document porte école, année, module, classe, date, auteur et mention « sans valeur officielle » ; exports CSV verrouillés par rôle et journalisés.
 - **Prêts** : échéance = sortie + durée configurable (14 j par défaut), prolongation +7 j, déclaration de perte (sans retour au stock), rappels avec canal consenti et statut préparé/remis/échec ; carte à référence opaque unique sans faux QR (identifiant de prêt uniquement, jamais d'accès portail).
 - **Comptes** : codes uniques, parcours créer → remettre → activer, chaque étape journalisée ; désactivation/réactivation, nouveau code d'assistance (l'ancien n'est jamais réutilisé), suppression confirmée ; un compte = une personne, comptes partagés interdits.
-- **Classe virtuelle** : séances avec lien Zoom externe validé (HTTPS + domaine), ressources HTTPS, périmètre par classe ; création/suppression direction et enseignant uniquement. Vérifié en prévisualisation : rejets HTTP, faux domaines et `javascript:`, filtrages et gardes.
+- **Classe virtuelle** : cours planifié sans compte externe, salle NORIA (Jitsi public en démonstration, tableau, présence, discussion, devoirs), ressource HTTPS optionnelle, périmètre par classe ; création et suppression réservées à la direction et à l'enseignant.
 - **Continuité scolaire (§16 P1)** : événement brouillon → publié → terminé/annulé (direction seule), copie calendrier, annonce liée, plans de reprise par classe avec agrégats sans noms d'élèves.
 - **Validation pilote** : checklist mesurable + protocole de test terrain ; seuils web.dev affichés comme cibles, pas comme résultats.
 
@@ -65,4 +69,19 @@ Une revue du ZIP de suivi a renforcé les vérifications de consentement des rap
 
 ## Direction visuelle — interface v1
 
-La feuille `src/design-refresh.css` modernise l'enveloppe visuelle sans modifier les parcours métier : navigation latérale sur grand écran, barre de navigation horizontale sur téléphone, contrastes renforcés, composants plus lisibles et palette inspirée des couleurs haïtiennes (bleu profond, rouge, or et turquoise). Les références culturelles restent subtiles afin de garder une interface scolaire sobre et accueillante.
+La feuille `src/design-refresh.css` modernise l'enveloppe visuelle sans modifier les parcours métier : navigation latérale sur ordinateur (à partir de 1100 px), navigation horizontale sur tablette et téléphone, contrastes renforcés, composants plus lisibles et palette inspirée des couleurs haïtiennes (bleu profond, rouge, or et turquoise). Les références culturelles restent subtiles afin de garder une interface scolaire sobre et accueillante. Les téléphones gardent une barre compacte (logo, profil, langue, connexion) et des zones tactiles d'au moins 44 px, y compris avec l'encoche iPhone.
+
+## CSP stricte : pas de JS ni de style en ligne
+
+La page est servie avec `script-src 'self'; style-src 'self'` (sans `unsafe-inline`), plus `object-src 'none'`,
+`base-uri 'none'`, `frame-ancestors 'none'` et `form-action 'self'`. Dans le HTML et les gabarits JS :
+
+- pas d'attribut `onclick`, `onchange`… : `data-action="KL.go"` (clic), `data-action-change`, `data-action-input`,
+  `data-action-submit` (le `preventDefault` est automatique) ; arguments `data-a0`, `data-a1`… préfixés
+  `s:` texte (échappé avec `esc`), `n:` nombre, `j:` null/true/false, ou `v` valeur, `c` coché, `k` coché en 1/0,
+  `t` l'élément, `e` l'événement. Seuls `KL`, `KLX`, `NORIA_SCO` et `print`, `vider`, `retirer` sont appelables (src/util.js) ;
+- pas d'attribut `style` : classes (`.u1`… dans styles.css pour les anciens styles ponctuels). Les propriétés
+  posées par le DOM (`el.style.setProperty`) restent permises par la CSP.
+
+`server/test/csp.test.js` échoue si un attribut `on*` ou `style` réapparaît ; `scripts/verif-csp.js` vérifie dans Chrome
+qu'aucune violation n'est signalée.

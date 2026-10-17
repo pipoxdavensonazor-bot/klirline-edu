@@ -1,0 +1,135 @@
+name: Serveur NORIA — tests et audit
+
+on:
+  pull_request:
+  push:
+    branches: ["cursor/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  serveur:
+    runs-on: ubuntu-latest
+    # PostgreSQL : les mêmes tests tournent contre une vraie base (RLS, migrations, sauvegarde).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-local-fictif
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - name: Tests (SQLite)
+        run: npm test
+      - name: Tests (PostgreSQL 16)
+        run: npm test
+        env:
+          NORIA_TEST_PG: postgres://postgres:ci-local-fictif@127.0.0.1:5432/postgres
+      # Rapport lu par l'assistant sécurité (règle « dépendances ») : à déposer sur le serveur (NORIA_AUDIT_RAPPORT).
+      - name: Rapport npm audit (assistant sécurité)
+        run: npm run audit:rapport -- npm-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit
+          path: server/npm-audit.json
+          retention-days: 30
+      - run: npm audit --audit-level=moderate
+
+  sauvegardes:
+    # Sauvegarde pg_dump chiffrée → restauration dans une base vide → comparaison ; rotation ; envoi S3 (serveur moto).
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-local-fictif
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - name: Outils (client PostgreSQL 16, age)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-client-16 age
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Stockage compatible S3 de test (moto)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/moto" && "$RUNNER_TEMP/moto/bin/pip" install -q 'moto[server]'
+          "$RUNNER_TEMP/moto/bin/moto_server" -H 127.0.0.1 -p 9000 > "$RUNNER_TEMP/moto.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fs -o /dev/null http://127.0.0.1:9000/ && break; sleep 1; done
+          printf 'user = "ci-fictif:ci-fictif-secret"\n' | curl -fsS -K - --aws-sigv4 "aws:amz:us-east-1:s3" -X PUT http://127.0.0.1:9000/noria-ci
+      - name: Sauvegarde, restauration, comparaison, rotation
+        run: bash deploy/sauvegarde/test-ci.sh
+        env:
+          NORIA_TEST_PG: postgres://postgres:ci-local-fictif@127.0.0.1:5432/postgres
+          S3_ENDPOINT: http://127.0.0.1:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: noria-ci
+          S3_ACCESS_KEY_ID: ci-fictif
+          S3_SECRET_ACCESS_KEY: ci-fictif-secret
+      - name: ShellCheck
+        run: shellcheck -x -S warning deploy/sauvegarde/*.sh
+
+  image:
+    # Image Docker + pile complète (app, PostgreSQL, Caddy) : HTTPS, en-têtes, sauvegarde via le conteneur, arrêt propre.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construction et démarrage
+        run: |
+          printf 'NORIA_DOMAIN=localhost\nPOSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env
+          docker compose up -d --build --wait --wait-timeout 180
+          docker compose ps
+      - name: Contrôles HTTPS
+        run: |
+          set -e
+          test "$(docker compose exec -T app id -u)" != 0
+          h="$(curl -skI --compressed https://localhost/)"; echo "$h"
+          echo "$h" | grep -qi '^HTTP/2 200'
+          echo "$h" | grep -qi '^strict-transport-security: max-age=31536000'
+          curl -sk -o /dev/null -w '%{http_code}' https://localhost/healthz | grep -q 404
+          curl -s -o /dev/null -w '%{http_code}' http://localhost/ | grep -q 308
+          curl -skI https://localhost/manifest.webmanifest | grep -qi 'cache-control: public, max-age=86400'
+          curl -skI https://localhost/sw.js | grep -qi 'cache-control: no-cache'
+          curl -skI -H 'accept-encoding: gzip' https://localhost/ | grep -qi 'content-encoding: gzip'
+          curl -sk -o /dev/null -w '%{http_code}' https://localhost/app | grep -q 200
+          curl -sk https://localhost/robots.txt | grep -q 'Disallow: /app'
+          docker compose exec -T app node -e "fetch('http://127.0.0.1:3100/healthz').then(r=>r.json()).then(j=>{if(!j.ok||j.db!=='pg')process.exit(1)})"
+      - name: Sauvegarde et restauration par le conteneur db
+        run: |
+          set -e
+          export NORIA_BACKUP_ENV=/dev/null BACKUP_DIR="$RUNNER_TEMP/sauv" NORIA_BACKUP_KEY="$(openssl rand -hex 32)"
+          bash deploy/sauvegarde/noria-sauvegarde.sh
+          docker compose exec -T db createdb -U noria noria_restau
+          POSTGRES_DB=noria_restau bash deploy/sauvegarde/noria-restauration.sh dernier
+          a="$(docker compose exec -T db psql -U noria -d noria -tAc 'SELECT version FROM schema_migrations ORDER BY 1')"
+          b="$(docker compose exec -T db psql -U noria -d noria_restau -tAc 'SELECT version FROM schema_migrations ORDER BY 1')"
+          test -n "$a" && test "$a" = "$b"
+      - name: Arrêt propre
+        run: |
+          docker compose stop app
+          docker compose logs app | tee app.log
+          grep -q 'Arrêt terminé' app.log
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq app)")" = 0
+      - if: always()
+        run: docker compose down -v

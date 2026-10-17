@@ -1,0 +1,21 @@
+CREATE TRIGGER grade_hist_append_only BEFORE UPDATE OR DELETE ON grade_history FOR EACH ROW EXECUTE FUNCTION noria_append_only();
+CREATE TRIGGER grade_conflict_append_only BEFORE UPDATE OR DELETE ON grade_conflict FOR EACH ROW EXECUTE FUNCTION noria_append_only();
+-- Cloisonnement par école (voir 004_rls.pg.sql).
+ALTER TABLE term ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON term USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE evaluation ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON evaluation USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE grade ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON grade USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE grade_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON grade_history USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE grade_conflict ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON grade_conflict USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE report_card ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON report_card USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE announcement ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON announcement USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+ALTER TABLE school_event ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ecole ON school_event USING (school_id = noria_school()) WITH CHECK (school_id = noria_school());
+GRANT SELECT, INSERT, UPDATE, DELETE ON term, evaluation, grade, grade_history, grade_conflict, report_card, announcement, school_event TO noria_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO noria_app;
