@@ -116,12 +116,14 @@ test('invitation et récupération envoyées par l’adaptateur, lien absolu, FR
     const inv = await post('/api/invitations', { phone: '+50900000777', display_name: 'Prof fictif', role: 'enseignant', lang: 'ht' }, tok);
     assert.equal(inv.status, 200); assert.equal(inv.json.envoi, 'envoyé'); assert.equal(inv.json.channel, 'sms');
     const sms = sent.pop();
-    assert.match(sms.text, /^NORIA : École fictive A envite w\. Aktive kont ou \(72 è\) : https:\/\/noria\.exemple\.invalid\/#invitation=[\w-]{40,}$/);
+    assert.match(sms.text, /^\[EFA\] École fictive A envite w\. Aktive kont ou \(72 è\) : https:\/\/noria\.exemple\.invalid\/#invitation=[\w-]{40,}$/);
     assert.ok(sms.text.replace(/https:\S+/, '').length <= 100, 'SMS court hors lien');
     const ob = await db.get("SELECT body, status, lang FROM outbox WHERE kind = 'invitation' ORDER BY id DESC LIMIT 1");
     assert.ok(!/#invitation=[\w-]{20}/.test(ob.body)); assert.equal(ob.status, 'envoye'); assert.equal(ob.lang, 'ht');
     await post('/api/invitations', { email: 'nouveau@exemple.invalid', display_name: 'Compta fictive', role: 'comptabilite' }, tok);
-    const mail = sent.pop(); assert.equal(mail.channel, 'email'); assert.match(mail.subject, /^Invitation NORIA — École fictive A$/); assert.match(mail.text, /Bonjour Compta fictive/);
+    const mail = sent.pop(); assert.equal(mail.channel, 'email'); assert.match(mail.subject, /^\[EFA\] Invitation NORIA — École fictive A$/); assert.match(mail.text, /^EFA — École fictive A\n[\s\S]*Bonjour Compta fictive/);
+    // Version HTML : initiales de l'école (pas de logo) et lien d'activation.
+    assert.match(mail.html, />EFA<\/div>/); assert.match(mail.html, /#invitation=/);
     assert.equal((await post('/api/recovery/request', { school: 'ecole-a', identifier: '+50900000103' })).status, 200);
     const rec = sent.pop(); assert.equal(rec.channel, 'sms'); assert.match(rec.text, /^NORIA : nouveau mot de passe \(60 min\) : https:\/\/noria\.exemple\.invalid\/#recuperation=/);
   } finally { server.close(); await db.cleanup(); }

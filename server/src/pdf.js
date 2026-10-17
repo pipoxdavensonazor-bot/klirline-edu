@@ -30,6 +30,13 @@ class Page {
   }
   line(x1, y1, x2, y2, w = 0.5, gray = 0.6) { this.ops.push(`${n(gray)} G ${n(w)} w ${n(x1)} ${n(y1)} m ${n(x2)} ${n(y2)} l S`); return this; }
   rect(x, y, w, h, gray = 0.95) { this.ops.push(`${n(gray)} g ${n(x)} ${n(y)} ${n(w)} ${n(h)} re f`); return this; }
+  image(x, y, w, h, img) {
+    this.images = this.images || [];
+    const name = `Im${this.images.length + 1}`;
+    this.images.push({ name, ...img });
+    this.ops.push(`q ${n(w)} 0 0 ${n(h)} ${n(x)} ${n(y)} cm /${name} Do Q`);
+    return this;
+  }
   // QR code : un rectangle par suite de modules noirs sur une ligne.
   qr(x, y, size, data) {
     const q = qrcode(0, 'M'); q.addData(data); q.make();
@@ -52,21 +59,25 @@ class Page {
 
 function build(page, { title = 'NORIA' } = {}) {
   const content = zlib.deflateSync(Buffer.from(page.ops.join('\n'), 'latin1'), { level: 9 });
+  const imgs = page.images || [];
+  // Objets : 1 catalogue, 2 pages, 3 page, 4-5 polices, 6 contenu, 7 infos, 8… images (XObject JPEG, DCTDecode).
+  const xobj = imgs.length ? ` /XObject << ${imgs.map((im, i) => `/${im.name} ${8 + i} 0 R`).join(' ')} >>` : '';
   const objs = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >>${xobj} >> /Contents 6 0 R >>`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-    null, // flux
+    { stream: content, dict: '/Filter /FlateDecode' },
     `<< /Title ${pdfString(title)} /Producer (NORIA) >>`,
+    ...imgs.map((im) => ({ stream: im.data, dict: `/Type /XObject /Subtype /Image /Width ${im.width} /Height ${im.height} /ColorSpace /${im.components === 1 ? 'DeviceGray' : 'DeviceRGB'} /BitsPerComponent 8 /Filter /DCTDecode` })),
   ];
   const chunks = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];
   const offsets = []; let pos = chunks[0].length;
   objs.forEach((o, i) => {
     const head = Buffer.from(`${i + 1} 0 obj\n`, 'latin1');
-    const body = o === null
-      ? Buffer.concat([Buffer.from(`<< /Length ${content.length} /Filter /FlateDecode >>\nstream\n`, 'latin1'), content, Buffer.from('\nendstream', 'latin1')])
+    const body = typeof o === 'object'
+      ? Buffer.concat([Buffer.from(`<< /Length ${o.stream.length} ${o.dict} >>\nstream\n`, 'latin1'), o.stream, Buffer.from('\nendstream', 'latin1')])
       : Buffer.from(o, 'latin1');
     const tail = Buffer.from('\nendobj\n', 'latin1');
     offsets.push(pos); chunks.push(head, body, tail); pos += head.length + body.length + tail.length;
@@ -76,19 +87,59 @@ function build(page, { title = 'NORIA' } = {}) {
   return Buffer.concat(chunks);
 }
 
+// En-tête commun à TOUS les documents PDF (bulletins, reçus, futurs relevés) : logo de l'école (ou ses initiales),
+// nom, adresse, e-mail, téléphone et devise. school : { name, initials, address, email, phone, motto, logo (Buffer JPEG) }.
+// Renvoie l'ordonnée sous l'en-tête.
+function schoolHeader(p, school) {
+  const sc = typeof school === 'string' ? { name: school } : (school || {});
+  const L = 50, R = 545, top = 812;
+  const dim = sc.logo ? jpegSize(sc.logo) : null;
+  if (dim) {
+    const k = Math.min(64 / dim.width, 64 / dim.height); const w = dim.width * k, h = dim.height * k;
+    p.image(L + (64 - w) / 2, top - 64 + (64 - h) / 2, w, h, { data: sc.logo, ...dim });
+  } else {
+    p.rect(L, top - 64, 64, 64, 0.12);
+    const ini = String(sc.initials || '').slice(0, 4);
+    p.text(L + 32 - ini.length * (ini.length > 3 ? 6.2 : 7.6), top - 39, ini, { size: ini.length > 3 ? 15 : 19, bold: true, gray: 1 });
+  }
+  const x = L + 78;
+  p.text(x, top - 14, sc.name || '', { size: 15, bold: true });
+  let y = top - 30;
+  if (sc.address) { p.text(x, y, sc.address, { size: 9, gray: 0.25 }); y -= 12; }
+  const contact = [sc.email, sc.phone].filter(Boolean).join('   ·   ');
+  if (contact) { p.text(x, y, contact, { size: 9, gray: 0.25 }); y -= 12; }
+  if (sc.motto) p.text(x, y, `« ${sc.motto} »`, { size: 9, gray: 0.4 });
+  p.text(R - 34, top - 6, 'NORIA', { size: 7, bold: true, gray: 0.55 });
+  p.line(L, top - 74, R, top - 74, 1, 0.2);
+  return top - 74;
+}
+
+// Taille d'une image JPEG (marqueur SOF) : largeur, hauteur, composantes.
+function jpegSize(buf) {
+  if (!buf || buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) return null;
+    const m = buf[i + 1];
+    if (m === 0xd8 || (m >= 0xd0 && m <= 0xd7) || m === 0x01) { i += 2; continue; }
+    if ((m >= 0xc0 && m <= 0xc3) || (m >= 0xc5 && m <= 0xc7) || (m >= 0xc9 && m <= 0xcb) || (m >= 0xcd && m <= 0xcf))
+      return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7), components: buf[i + 9] };
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return null;
+}
+
 // Bulletin : en-tête école, élève, période, tableau des moyennes, moyenne générale, QR de vérification.
-function reportCardPdf(snap, verifyUrl) {
+function reportCardPdf(snap, verifyUrl, school) {
   const p = new Page();
   const L = 50, R = 545;
-  p.rect(0, 800, 595, 42, 0.07);
-  p.text(L, 815, 'NORIA', { size: 16, bold: true, gray: 1 });
-  p.text(130, 816, snap.school, { size: 11, gray: 1 });
-  p.text(L, 770, 'Bulletin scolaire / Bilten', { size: 18, bold: true });
-  p.text(L, 750, `${snap.term} - ${snap.year}`, { size: 11, gray: 0.25 });
-  p.text(L, 722, 'Élève / Elèv :', { size: 10, gray: 0.35 }); p.text(140, 722, snap.student, { size: 11, bold: true });
-  p.text(L, 706, 'Code :', { size: 10, gray: 0.35 }); p.text(140, 706, snap.studentCode, { size: 10 });
-  p.text(L, 690, 'Classe / Klas :', { size: 10, gray: 0.35 }); p.text(140, 690, snap.className || '-', { size: 10 });
-  let y = 655;
+  schoolHeader(p, school || snap.school);
+  p.text(L, 708, 'Bulletin scolaire / Bilten', { size: 17, bold: true });
+  p.text(L, 690, `${snap.term} - ${snap.year}`, { size: 11, gray: 0.25 });
+  p.text(L, 666, 'Élève / Elèv :', { size: 10, gray: 0.35 }); p.text(140, 666, snap.student, { size: 11, bold: true });
+  p.text(L, 651, 'Code :', { size: 10, gray: 0.35 }); p.text(140, 651, snap.studentCode, { size: 10 });
+  p.text(L, 636, 'Classe / Klas :', { size: 10, gray: 0.35 }); p.text(140, 636, snap.className || '-', { size: 10 });
+  let y = 604;
   p.rect(L, y - 6, R - L, 22, 0.92);
   p.text(L + 8, y, 'Matière / Matyè', { bold: true }); p.text(330, y, 'Coef.', { bold: true });
   p.text(390, y, 'Évaluations', { bold: true }); p.text(480, y, `Moyenne /${snap.scale}`, { bold: true });
@@ -117,7 +168,7 @@ function reportCardPdf(snap, verifyUrl) {
   return build(p, { title: `Bulletin ${snap.student} - ${snap.term}` });
 }
 
-module.exports = { reportCardPdf, pdfString };
+module.exports = { reportCardPdf, pdfString, schoolHeader, jpegSize, Page, build };
 
 // Reçu de paiement : une demi-page A4 utile, numéro séquentiel de l'école, montant en HTG, mode et référence,
 // solde après paiement, QR vers la page publique de vérification (la même que les bulletins).
@@ -126,14 +177,12 @@ const money = (v) => `${Number(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' 
 function receiptPdf(r, verifyUrl) {
   const p = new Page();
   const L = 50, R = 545;
-  p.rect(0, 800, 595, 42, 0.07);
-  p.text(L, 815, 'NORIA', { size: 16, bold: true, gray: 1 });
-  p.text(130, 816, r.school, { size: 11, gray: 1 });
-  p.text(L, 770, 'Reçu de paiement / Resi peman', { size: 18, bold: true });
-  p.text(L, 750, `N° ${r.number}`, { size: 12, bold: true, gray: 0.2 });
+  schoolHeader(p, r.schoolProfile || r.school);
+  p.text(L, 708, 'Reçu de paiement / Resi peman', { size: 17, bold: true });
+  p.text(L, 690, `N° ${r.number}`, { size: 12, bold: true, gray: 0.2 });
   if (r.cancelledAt) {
-    p.rect(330, 740, 215, 40, 0.15);
-    p.text(345, 756, 'ANNULÉ / ANILE', { size: 16, bold: true, gray: 1 });
+    p.rect(330, 682, 215, 36, 0.15);
+    p.text(345, 696, 'ANNULÉ / ANILE', { size: 16, bold: true, gray: 1 });
   }
   const rows = [
     ['Élève / Elèv', `${r.student} (${r.studentCode})`],
@@ -143,7 +192,7 @@ function receiptPdf(r, verifyUrl) {
     ['Date du paiement / Dat peman', r.paidOn],
     ['Objet / Pou kisa', r.label || 'Frais scolaires / Frè lekòl'],
   ];
-  let y = 712;
+  let y = 660;
   for (const [k, v] of rows) { p.text(L, y, k, { size: 10, gray: 0.35 }); p.text(230, y, v, { size: 11, bold: k.startsWith('Montant') }); p.line(L, y - 7, R, y - 7, 0.4, 0.88); y -= 24; }
   y -= 8;
   p.rect(L, y - 30, R - L, 46, 0.93);

@@ -11,6 +11,9 @@ const scolaire = require('./scolaire');
 const { createNotifier } = require('./notify');
 const messages = require('./messages');
 const otp = require('./otp');
+const I = require('./identite');
+const ecoles = require('./ecoles');
+const plateforme = require('./plateforme');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -30,10 +33,41 @@ function parseIdentifier(v) {
   const p = normalizePhone(s);
   return p ? { field: 'phone', value: p } : { field: 'email', value: s.toLowerCase() };
 }
-function findUser(db, school, ident) {
+// Compte (adhésion à une école) correspondant à l'identifiant. Avec une école (slug) : l'adhésion de cette école.
+// Sans école : identité globale — par e-mail (personne), ou par téléphone (adhésions de même téléphone, une seule
+// personne) ; la première école active est ouverte et `ecoles` indique combien la personne en a (choix ensuite).
+async function findUser(db, school, ident) {
   const col = ident.field === 'phone' ? 'u.phone' : 'u.email';
-  return db.get(`SELECT u.* FROM app_user u JOIN school s ON s.id = u.school_id
-    WHERE s.slug = ? AND ${col} = ? AND u.state = 'actif'`, String(school || ''), ident.value);
+  const sel = `SELECT u.*, p.password_hash AS person_hash FROM app_user u JOIN school s ON s.id = u.school_id LEFT JOIN person p ON p.id = u.person_id`;
+  if (school) {
+    const u = await db.get(`${sel} WHERE s.slug = ? AND ${col} = ? AND u.state = 'actif' AND s.status = 'active'`, String(school), ident.value);
+    if (u) u.ecoles = u.person_id ? (await I.memberships(db, u.person_id)).length : 1;
+    return u;
+  }
+  const rows = ident.field === 'phone'
+    ? await db.all(`${sel} WHERE u.phone = ? AND u.state = 'actif' AND s.status = 'active' ORDER BY u.school_id`, ident.value)
+    : await db.all(`${sel} WHERE (p.email = ? OR (u.person_id IS NULL AND u.email = ?)) AND u.state = 'actif' AND s.status = 'active' ORDER BY u.school_id`, ident.value, ident.value);
+  if (!rows.length) return undefined;
+  const persons = new Set(rows.map((r) => r.person_id || `u${r.id}`));
+  if (persons.size !== 1) return undefined; // téléphone partagé par plusieurs personnes : préciser l'école
+  rows[0].ecoles = rows.length;
+  return rows[0];
+}
+// Mot de passe : celui de la personne s'il existe, sinon celui d'une de ses adhésions (comptes migrés) — le premier
+// vérifié devient alors celui de la personne, pour toutes ses écoles.
+async function checkUserPassword(db, user, password) {
+  if (!user) { await auth.verifyPassword(password, await auth.getDummyHash()); return false; }
+  if (user.person_hash) return auth.verifyPassword(password, user.person_hash);
+  const hashes = user.person_id
+    ? (await db.all('SELECT DISTINCT password_hash FROM app_user WHERE person_id = ? AND password_hash IS NOT NULL', user.person_id)).map((r) => r.password_hash)
+    : [user.password_hash];
+  for (const h of hashes.length ? hashes : [await auth.getDummyHash()]) {
+    if (await auth.verifyPassword(password, h)) {
+      if (user.person_id) await db.run('UPDATE person SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND password_hash IS NULL', h, user.person_id);
+      return true;
+    }
+  }
+  return false;
 }
 function newToken() { return crypto.randomBytes(32).toString('base64url'); }
 function checkPassword(pw) {
@@ -51,7 +85,7 @@ async function outbox(db, ctx, schoolId, recipient, kind, lang, vars, secrets = 
   const id = await db.insert('INSERT INTO outbox (school_id, channel, recipient, kind, body, lang, status, provider) VALUES (?,?,?,?,?,?,?,?)',
     schoolId, channel, recipient, kind, stored, messages.pick(lang), adapter.simulated ? 'simule' : 'en_attente', adapter.name);
   try {
-    const r = await adapter.send({ to: recipient, subject: msg.subject, text });
+    const r = await adapter.send({ to: recipient, subject: msg.subject, text, ...(channel === 'email' && msg.html ? { html: msg.html } : {}) });
     if (!adapter.simulated) await db.run("UPDATE outbox SET status = 'envoye', provider_id = ?, sent_at = ? WHERE id = ?", r.id || null, new Date().toISOString(), id);
     return { channel, envoi: adapter.simulated ? 'simulé' : 'envoyé' };
   } catch (e) {
@@ -104,8 +138,7 @@ const routes = [
     const wait = await ctx.limiter.blocked(keys);
     if (wait) throw new HttpError(429, 'trop de tentatives, réessayez plus tard', { 'retry-after': String(Math.ceil(wait / 1000)) });
     const user = await findUser(db, school, ident);
-    const stored = user ? user.password_hash : await auth.getDummyHash();
-    const ok = await auth.verifyPassword(String(password || ''), stored);
+    const ok = await checkUserPassword(db, user, String(password || ''));
     if (!user || !ok) {
       await ctx.limiter.fail(keys);
       if (user) await audit(db, user, 'login', 'user', user.id, null, 'refuse');
@@ -148,10 +181,11 @@ const routes = [
     const expires = new Date(Date.now() + INVITE_HOURS * 3600e3).toISOString();
     const id = await db.insert(`INSERT INTO account_token (school_id, kind, token_hash, email, phone, display_name, role, student_id, created_by, expires_at)
       VALUES (?,?,?,?,?,?,?,?,?,?)`, u.school_id, 'invitation', auth.sha256(token), mail, tel, String(display_name), role, sid, u.id, expires);
-    const school = await db.get('SELECT name, default_lang FROM school WHERE id = ?', u.school_id);
+    const school = await db.get('SELECT slug, name, initials, default_lang, logo_updated_at, (logo IS NOT NULL) AS has_logo FROM school WHERE id = ?', u.school_id);
     const link = `${linkBase(req, ctx)}/#invitation=${token}`;
+    const logoUrl = school.has_logo && linkBase(req, ctx) ? `${linkBase(req, ctx)}/api/ecoles/${school.slug}/logo` : null;
     const sent = await outbox(db, ctx, u.school_id, mail || tel, 'invitation', reqLang(req, school.default_lang),
-      { school: school.name, name: String(display_name), hours: INVITE_HOURS, link }, [token]);
+      { school: school.name, initials: I.schoolInitials(school), logoUrl, name: String(display_name), hours: INVITE_HOURS, link }, [token]);
     await audit(db, u, 'invitation.create', 'invitation', id, `${role} (${sent.channel} ${sent.envoi})`);
     // Le lien reste rendu à la personne qui invite : elle peut le transmettre elle-même si l'envoi est simulé ou a échoué.
     return { id, expiresAt: expires, link: `/#invitation=${token}`, channel: sent.channel, envoi: sent.envoi };
@@ -173,24 +207,61 @@ const routes = [
     await audit(db, u, 'invitation.revoke', 'invitation', id, null);
     return { ok: true };
   }],
-  ['POST', /^\/api\/invitations\/accept$/, async (db, req) => {
+  // Acceptation : la personne invitée devient membre de l'école. Si elle a déjà un compte NORIA (même e-mail, ou même
+  // téléphone dans une autre école), l'adhésion est reliée à son identité et son mot de passe ACTUEL est exigé.
+  ['POST', /^\/api\/invitations\/accept$/, async (db, req, _u, _m, ctx) => {
     const { token, password } = req.body || {};
     checkPassword(password);
     const inv = await useToken(db, 'invitation', token);
-    const hash = await auth.hashPassword(password);
+    const pending = inv.user_id ? await db.get('SELECT * FROM app_user WHERE id = ? AND school_id = ?', inv.user_id, inv.school_id) : null;
+    const email = String((pending && pending.email) || inv.email || `tel${inv.phone}@telephone.invalid`).toLowerCase();
+    const phone = (pending && pending.phone) || inv.phone;
+    let person = await db.get('SELECT id, password_hash FROM person WHERE email = ?', email);
+    if (!person && phone) {
+      const pid = await ecoles.personByPhone(db, phone);
+      if (pid) person = await db.get('SELECT id, password_hash FROM person WHERE id = ?', pid);
+    }
+    let hash;
+    if (person) {
+      const probe = { id: 0, person_id: person.id, person_hash: person.password_hash };
+      const keys = [`invit:${inv.id}`];
+      if (await ctx.limiter.blocked(keys)) throw new HttpError(429, 'trop de tentatives, réessayez plus tard');
+      if (!(await checkUserPassword(db, probe, String(password)))) {
+        await ctx.limiter.fail(keys);
+        throw new HttpError(401, 'compte NORIA existant : saisissez votre mot de passe actuel');
+      }
+      hash = (await db.get('SELECT password_hash FROM person WHERE id = ?', person.id)).password_hash;
+    } else hash = await auth.hashPassword(password);
     const userId = await db.tx(async (t) => {
       // Marqué utilisé dans la même transaction : un jeton ne crée qu'un seul compte.
       const mark = await t.run('UPDATE account_token SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL', inv.id);
       if (!mark.changes) throw new HttpError(400, 'lien invalide ou expiré');
-      const id = await t.insert('INSERT INTO app_user (school_id, email, phone, display_name, password_hash) VALUES (?,?,?,?,?)',
-        inv.school_id, inv.email || `tel${inv.phone}@telephone.invalid`, inv.phone, inv.display_name, hash);
-      await t.run('INSERT INTO user_role (school_id, user_id, role) VALUES (?,?,?)', inv.school_id, id, inv.role);
-      if (inv.role === 'parent') await t.run('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', inv.school_id, id, inv.student_id, 'invitation acceptée');
+      const personId = person ? person.id : await t.insert('INSERT INTO person (email, display_name, password_hash) VALUES (?,?,?)', email, inv.display_name, hash);
+      // Adhésion : celle préparée par l'import, ou celle que la personne a déjà dans cette école, ou une nouvelle.
+      const already = await t.get('SELECT id FROM app_user WHERE school_id = ? AND person_id = ?', inv.school_id, personId);
+      let id;
+      if (pending && (!already || already.id === pending.id)) {
+        id = pending.id;
+        await t.run("UPDATE app_user SET state = 'actif', person_id = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?", personId, hash, id, inv.school_id);
+      } else if (already) {
+        id = already.id;
+        if (pending) { // l'adhésion préparée par l'import est reportée sur l'adhésion existante
+          await t.run('UPDATE parent_link SET parent_user_id = ? WHERE parent_user_id = ? AND school_id = ? AND student_id NOT IN (SELECT student_id FROM parent_link WHERE parent_user_id = ?)', id, pending.id, inv.school_id, id);
+          await t.run("UPDATE app_user SET state = 'desactive', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?", pending.id, inv.school_id);
+        }
+      } else {
+        id = await t.insert('INSERT INTO app_user (school_id, email, phone, display_name, password_hash, person_id) VALUES (?,?,?,?,?,?)',
+          inv.school_id, email, phone, inv.display_name, hash, personId);
+      }
+      if (!(await t.get('SELECT 1 AS x FROM user_role WHERE user_id = ? AND role = ?', id, inv.role)))
+        await t.run('INSERT INTO user_role (school_id, user_id, role) VALUES (?,?,?)', inv.school_id, id, inv.role);
+      if (inv.role === 'parent' && !(await t.get('SELECT 1 AS x FROM parent_link WHERE parent_user_id = ? AND student_id = ?', id, inv.student_id)))
+        await t.run('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', inv.school_id, id, inv.student_id, 'invitation acceptée');
       if (inv.role === 'eleve') await t.run('UPDATE student SET user_id = ? WHERE id = ? AND school_id = ? AND user_id IS NULL', id, inv.student_id, inv.school_id);
-      await audit(t, { id, school_id: inv.school_id }, 'invitation.accept', 'user', id, inv.role);
+      await audit(t, { id, school_id: inv.school_id }, 'invitation.accept', 'user', id, `${inv.role}${person ? ' (identité existante reliée)' : ''}`);
       return id;
     });
-    return { ok: true, userId };
+    return { ok: true, userId, existing: !!person };
   }, { public: true }],
 
   // Récupération : réponse identique que le compte existe ou non ; jeton valable 60 min, déposé dans la boîte d'envoi.
@@ -222,6 +293,13 @@ const routes = [
       const mark = await t.run('UPDATE account_token SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL', row.id);
       if (!mark.changes) throw new HttpError(400, 'lien invalide ou expiré');
       await t.run('UPDATE app_user SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?', hash, row.user_id, row.school_id);
+      // Identité globale : le nouveau mot de passe vaut pour toutes les écoles ; toutes les sessions sont fermées.
+      const pu = await t.get('SELECT person_id FROM app_user WHERE id = ? AND school_id = ?', row.user_id, row.school_id);
+      if (pu && pu.person_id) {
+        await t.run('UPDATE person SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', hash, pu.person_id);
+        await t.run('UPDATE app_user SET password_hash = ? WHERE person_id = ?', hash, pu.person_id);
+        for (const m of await t.all('SELECT id FROM app_user WHERE person_id = ?', pu.person_id)) await auth.destroyUserSessions(t, m.id);
+      }
       await auth.destroyUserSessions(t, row.user_id);
       await audit(t, { id: row.user_id, school_id: row.school_id }, 'recovery.reset', 'user', row.user_id, 'sessions révoquées');
     });
@@ -242,7 +320,8 @@ const routes = [
       WHERE ${sc.sql} ORDER BY c.name`, ...sc.params);
   }],
   ['GET', /^\/api\/me$/, async (db, req, u) => {
-    const school = await db.get('SELECT slug, name FROM school WHERE id = ?', u.school_id);
+    const school = ecoles.publicProfile(await db.get('SELECT * FROM school WHERE id = ?', u.school_id));
+    school.initials = school.initials || I.deriveInitials(school.name);
     return { id: u.id, schoolId: u.school_id, school, name: u.display_name, roles: u.roles };
   }],
 
@@ -379,6 +458,11 @@ const routes = [
 // Jour civil de l'école (Haïti par défaut) : sert à la règle « correction le jour même ».
 const localDay = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.NORIA_TZ || 'America/Port-au-Prince' });
 routes.push(...scolaire.routes, ...scolaire.publicRoutes, ...require('./gestion').routes);
+function setSessionCookie(req, ctx, token) {
+  req.setCookie(`${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}${ctx.secureCookie ? '; Secure' : ''}`);
+}
+const eco = ecoles.createRoutes({ normalizePhone, outbox, linkBase, reqLang, newToken, INVITE_HOURS, setSessionCookie });
+routes.push(...eco.routes, ...eco.publicRoutes);
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
@@ -502,10 +586,11 @@ function parseCookies(h) {
   return out;
 }
 
+// choisir : la personne a plusieurs écoles et s'est connectée sans en préciser une → l'interface lui fait choisir.
 function startSession(db, req, ctx, user) {
   return createSession(db, user).then((token) => {
-    req.setCookie(`${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}${ctx.secureCookie ? '; Secure' : ''}`);
-    return { token };
+    setSessionCookie(req, ctx, token);
+    return { token, ecoles: user.ecoles || 1, choisir: !(req.body && req.body.school) && (user.ecoles || 1) > 1 };
   });
 }
 
@@ -539,6 +624,11 @@ function createServer(db, options = {}) {
       if (body && body.__pdf) {
         res.writeHead(status, withCookies({ ...SECURITY_HEADERS, ...extra, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${body.filename || 'document.pdf'}"`, 'content-length': body.__pdf.length }));
         return res.end(body.__pdf);
+      }
+      if (body && body.__file) {
+        res.writeHead(status, withCookies({ ...SECURITY_HEADERS, ...extra, ...(body.cache ? { 'cache-control': body.cache } : {}), 'content-type': body.type,
+          'content-disposition': body.inline ? 'inline' : `attachment; filename="${body.filename || 'fichier'}"`, 'content-length': body.__file.length }));
+        return res.end(body.__file);
       }
       if (body && body.__csv !== undefined) {
         res.writeHead(status, withCookies({ ...SECURITY_HEADERS, ...extra, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="export.csv"' }));
@@ -575,6 +665,8 @@ function createServer(db, options = {}) {
         }
       }
       req.ip = clientIp(req, ctx.trustProxy);
+      // Administration de la plateforme : routes et session séparées (cookie noria_admin), hors école.
+      if (url.pathname.startsWith('/api/admin/')) return send(200, await plateforme.dispatch(db, req, url, ctx, parseCookies));
       for (const [method, re, handler, opts = {}] of routes) {
         const m = url.pathname.match(re);
         if (!m || method !== req.method) continue;
@@ -582,7 +674,9 @@ function createServer(db, options = {}) {
         if (!opts.public) { user = await loadSession(db, req.token); if (!user) throw new HttpError(401, 'connexion requise'); }
         else if (opts.optionalUser && req.token) user = await loadSession(db, req.token);
         // Utilisateur connecté : tout passe par asSchool (en PostgreSQL, rôle noria_app + RLS sur son école).
-        const out = opts.public ? await handler(db, req, user, m.slice(1), ctx)
+        // Routes « system » (adhésions de la personne connectée) : connexion système, la lecture des données d'une école
+        // y repasse par db.asSchool. Toutes les autres : transaction RLS de l'école active.
+        const out = opts.public || opts.system ? await handler(db, req, user, m.slice(1), ctx)
           : await db.asSchool(user.school_id, (t) => handler(t, req, user, m.slice(1), ctx));
         return send(200, out);
       }

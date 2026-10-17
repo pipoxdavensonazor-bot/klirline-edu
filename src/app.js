@@ -21,13 +21,13 @@ const toCSV=window.NORIA_U.toCSV;
 window.KL={};
 KL.t=t;
 
-const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["accounts",""],["settings",""]];
-const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",accounts:"École",settings:"École"};
+const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["accounts",""],["ecole",""],["importEleves",""],["settings",""]];
+const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",accounts:"École",ecole:"École",importEleves:"École",settings:"École"};
 const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi"};
 function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
 const ROLE_MODULES={
-  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","settings"],
-  secretariat:["dashboard","students","classes","attendance","academic","comms","library","reports","accounts"],
+  direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","ecole","importEleves","settings"],
+  secretariat:["dashboard","students","classes","attendance","academic","comms","library","reports","accounts","importEleves"],
   enseignant:["dashboard","classes","attendance","academic","comms"],
   comptable:["dashboard","students","finance","reports"],
   bibliothecaire:["dashboard","students","library","reports"],
@@ -36,6 +36,7 @@ const ROLE_MODULES={
 };
 function can(m){
   if(m==="accounts"&&!SERVER) return false; // invitations : seulement avec le serveur
+  if(m==="ecole"||m==="importEleves") return !!SERVER&&!!window.NORIA_ECO&&(ROLE_MODULES[S.role]||[]).includes(m); // profil d'école, import : serveur seulement
   if(m==="academic"&&S.role==="secretariat"&&!SERVER) return false;
   const base=(ROLE_MODULES[S.role]||[]).includes(m);
   if(SERVER&&(m==="accounts"||m==="academic"||m==="finance"||m==="library")) return base; // modules serveur : droits vérifiés par l'API, pas par la config locale des portails
@@ -71,8 +72,9 @@ function render(){
   renderShell();
   const v=$("#view");
   if(!can(ROUTE)) ROUTE="dashboard";
-  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet}[ROUTE];
-  v.innerHTML=fn();
+  const fn={dashboard:vDash,students:vStudents,classes:vClasses,attendance:vAtt,academic:vAcad,comms:vComms,finance:vFin,library:vLib,reports:vRep,accounts:vAcc,settings:vSet,ecole:()=>NORIA_ECO.view("ecole"),importEleves:()=>NORIA_ECO.view("importEleves")}[ROUTE];
+  // Écran d'accueil après connexion : l'école (logo ou initiales, nom, devise, coordonnées) et, pour un parent, ses enfants.
+  v.innerHTML=(SERVER&&ROUTE==="dashboard"&&window.NORIA_ECO?NORIA_ECO.banner():"")+fn();
   const fb={students:bStu,attendance:bAtt,academic:bAcad,comms:bComms,finance:bFin,library:bLib,settings:bSet}[ROUTE];
   if(fb) try{fb();}catch(e){console.warn(e);}
   window.scrollTo(0,0);
@@ -445,11 +447,14 @@ KL.role=r=>{ if(SERVER){ toast(S.lang==="ht"?"Wòl la soti nan sèvè a.":"Le r�
 const ROLE_MAP={direction:"direction",secretariat:"secretariat",enseignant:"enseignant",comptabilite:"comptable",bibliotheque:"bibliothecaire",parent:"parent",eleve:"eleve"};
 const ROLE_ORDER=["direction","secretariat","enseignant","comptabilite","bibliotheque","parent","eleve"];
 // Reçoit les données du serveur et les met en mémoire (jamais dans localStorage).
+function stuFromServer(x,byId){ const c=byId[x.class_id]; return {id:"s"+x.id,serverId:x.id,code:x.code,firstName:x.first_name,lastName:x.last_name,sex:x.sex||"",birth:x.birth_date||"",level:c?c.level:"",classId:c?c.id:"",campus:c?c.campus:"",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}; }
+// Remplace la liste des élèves (après un import) sans changer d'écran.
+KL.setStudents=list=>{ if(!S||!Array.isArray(list)) return; const byId=Object.fromEntries(S.classes.filter(c=>c.serverId).map(c=>[c.serverId,c])); S.students=list.map(x=>stuFromServer(x,byId)); };
 KL.applyServer=d=>{
   if(!S) load();
   const cls=d.classes.map(c=>({id:"c"+c.id,serverId:c.id,name:c.name,level:c.level,campus:c.campus,teacherId:null,room:"—"}));
   const byId=Object.fromEntries(cls.map(c=>[c.serverId,c]));
-  const stu=d.students.map(x=>{ const c=byId[x.class_id]; return {id:"s"+x.id,serverId:x.id,code:x.code,firstName:x.first_name,lastName:x.last_name,sex:"",birth:x.birth_date||"",level:c?c.level:"",classId:c?c.id:"",campus:c?c.campus:"",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}; });
+  const stu=d.students.map(x=>stuFromServer(x,byId));
   const role=ROLE_ORDER.find(r=>d.me.roles.includes(r))||"eleve";
   SERVER={me:d.me}; if(window.NORIA_SCO) NORIA_SCO.reset(); if(window.NORIA_GES) NORIA_GES.reset();
   S.role=ROLE_MAP[role]; S.students=stu; S.classes=cls;

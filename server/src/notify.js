@@ -59,7 +59,7 @@ function resendAdapter(env) {
   return {
     name: 'resend',
     async send(m) {
-      const r = await postJson(`${base}/emails`, { body: { from, to: [m.to], subject: m.subject, text: m.text }, headers: { authorization: `Bearer ${key}` } });
+      const r = await postJson(`${base}/emails`, { body: { from, to: [m.to], subject: m.subject, text: m.text, ...(m.html ? { html: m.html } : {}) }, headers: { authorization: `Bearer ${key}` } });
       return { id: r.id || null };
     },
   };
@@ -113,9 +113,14 @@ function smtpSend(o, m) {
       await cmd('DATA', [354]);
       const id = `<${crypto.randomBytes(8).toString('hex')}@noria>`;
       const subj = `=?UTF-8?B?${Buffer.from(clean(m.subject || 'NORIA')).toString('base64')}?=`;
-      const body = Buffer.from(m.text, 'utf8').toString('base64').replace(/.{76}/g, '$&\r\n');
-      const msg = [`From: ${clean(o.from)}`, `To: <${clean(m.to)}>`, `Subject: ${subj}`, `Message-ID: ${id}`, `Date: ${new Date().toUTCString()}`,
-        'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: base64', '', body, '.'].join('\r\n');
+      const b64 = (s) => Buffer.from(s, 'utf8').toString('base64').replace(/.{76}/g, '$&\r\n');
+      const head = [`From: ${clean(o.from)}`, `To: <${clean(m.to)}>`, `Subject: ${subj}`, `Message-ID: ${id}`, `Date: ${new Date().toUTCString()}`, 'MIME-Version: 1.0'];
+      // Texte seul, ou texte + HTML (multipart/alternative) quand le message a une version HTML (invitation avec logo).
+      const bnd = `noria-${crypto.randomBytes(8).toString('hex')}`;
+      const msg = (m.html
+        ? [...head, `Content-Type: multipart/alternative; boundary="${bnd}"`, '', `--${bnd}`, 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: base64', '', b64(m.text),
+          `--${bnd}`, 'Content-Type: text/html; charset=utf-8', 'Content-Transfer-Encoding: base64', '', b64(m.html), `--${bnd}--`, '.']
+        : [...head, 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: base64', '', b64(m.text), '.']).join('\r\n');
       await cmd(msg, [250]);
       sock.write('QUIT\r\n'); done = true; clearTimeout(timer); sock.end();
       resolve({ id });

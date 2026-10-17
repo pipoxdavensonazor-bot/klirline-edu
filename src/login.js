@@ -13,6 +13,8 @@ const T={
       pendingOut:n=>`${n} saisie(s) pas encore envoyée(s). Elles partiront à la prochaine connexion de ce compte. Se déconnecter quand même ?`,
       offOut:"Hors ligne : vous ne pourrez pas vous reconnecter avant le retour du réseau. Se déconnecter ?",
       rOk:"Reçu authentique",rRev:"Reçu annulé",rNo:"Reçu n°",rAmt:"Montant",rNote:"Cette page confirme l'école, l'élève, le numéro et le montant du reçu. Aucune autre donnée n'est affichée.",vTitle:"Vérification d'un bulletin ou d'un reçu",vOk:"Bulletin authentique",vRev:"Bulletin annulé",vBad:"Code inconnu : ce document n'a pas été émis par NORIA.",vSchool:"École",vStudent:"Élève",vTerm:"Période",vDate:"Émis le",vWhy:"Motif",vNote:"Cette page confirme seulement l'école, l'élève et la période. Les notes ne sont jamais affichées ici.",
+      anySchool:"Toutes mes écoles",schoolOpt:"École (facultatif si vous n'en avez qu'une)",chooseTitle:"Choisissez une école",chooseHelp:"Votre compte est relié à plusieurs écoles. Vous pourrez changer d'école dans l'en-tête.",
+      invBy:"vous invite à rejoindre NORIA",invAs:"Rôle",invHello:"Bonjour",existing:"Vous avez déjà un compte NORIA : saisissez votre mot de passe actuel pour relier cette école.",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
       back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Resevwa yon kòd pa SMS oswa imèl",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"N ap voye yon kòd 6 chif sou telefòn oswa imèl kont la.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
@@ -23,6 +25,8 @@ const T={
       pendingOut:n=>`${n} antre poko pati. Y ap pati lè kont sa a rekonekte. Dekonekte kanmenm ?`,
       offOut:"San entènèt : ou p ap ka rekonekte toutotan rezo a pa tounen. Dekonekte ?",
       rOk:"Resi otantik",rRev:"Resi anile",rNo:"Resi nimewo",rAmt:"Montan",rNote:"Paj sa a konfime lekòl la, elèv la, nimewo ak montan resi a sèlman. Okenn lòt enfòmasyon pa parèt.",vTitle:"Verifikasyon bilten oswa resi",vOk:"Bilten otantik",vRev:"Bilten anile",vBad:"Kòd sa a enkoni : se pa NORIA ki bay dokiman sa a.",vSchool:"Lekòl",vStudent:"Elèv",vTerm:"Peryòd",vDate:"Bay le",vWhy:"Rezon",vNote:"Paj sa a konfime lekòl la, elèv la ak peryòd la sèlman. Nòt yo pa janm parèt la.",
+      anySchool:"Tout lekòl mwen yo",schoolOpt:"Lekòl (ou pa oblije mete l si se yon sèl ou genyen)",chooseTitle:"Chwazi yon lekòl",chooseHelp:"Kont ou konekte ak plizyè lekòl. W ap ka chanje lekòl nan antèt la.",
+      invBy:"envite w antre nan NORIA",invAs:"Wòl",invHello:"Bonjou",existing:"Ou gen yon kont NORIA deja : antre modpas ou genyen kounye a pou konekte lekòl sa a.",
       roles:{direction:"Direksyon",secretariat:"Sekretarya",enseignant:"Pwofesè",comptabilite:"Kontablite",bibliotheque:"Bibliyotèk",parent:"Paran",eleve:"Elèv"}},
 };
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
@@ -58,9 +62,10 @@ function screen(html){
 function closeScreen(){ const el=document.getElementById("loginScreen"); if(el){ el.hidden=true; el.innerHTML=""; } document.body.classList.remove("login-open"); background(false); }
 
 function schoolField(){
-  if(CONFIG.ecoles&&CONFIG.ecoles.length) return `<label class="fld">${esc(t("school"))}<select id="lgSchool" autocomplete="organization">${CONFIG.ecoles.map(e=>`<option value="${esc(e.slug)}">${esc(e.name)}</option>`).join("")}</select></label>`;
-  const last=localStorage.getItem("noria_ecole")||"";
-  return `<label class="fld">${esc(t("school"))}<input id="lgSchool" required autocomplete="organization" autocapitalize="none" spellcheck="false" value="${esc(last)}" placeholder="ecole-a"></label>`;
+  // Identité globale : l'école est facultative (« Toutes mes écoles ») ; avec plusieurs écoles, un choix suit la connexion.
+  if(CONFIG.ecoles&&CONFIG.ecoles.length) return `<label class="fld">${esc(t("school"))}<select id="lgSchool" autocomplete="organization">${CONFIG.ecoles.map(e=>`<option value="${esc(e.slug)}">${esc(e.name)}</option>`).join("")}<option value="">${esc(t("anySchool"))}</option></select></label>`;
+  let last=""; try{ last=localStorage.getItem("noria_ecole")||""; }catch(e){}
+  return `<label class="fld">${esc(t("schoolOpt"))}<input id="lgSchool" autocomplete="organization" autocapitalize="none" spellcheck="false" value="${esc(last)}" placeholder="ecole-a"></label>`;
 }
 
 const views={
@@ -78,14 +83,14 @@ const views={
     el.dataset.view="login";
     el.querySelector("#lgForgot").addEventListener("click",views.forgot);
     const lc=el.querySelector("#lgCode"); if(lc) lc.addEventListener("click",()=>views.code());
-    el.querySelectorAll("[data-acc]").forEach(b=>b.addEventListener("click",()=>{ const sc=el.querySelector("#lgSchool").value; el.querySelector("#lgId").value=`${b.dataset.acc}@${sc.replace(/^ecole-/,"")}.exemple.invalid`; el.querySelector("#lgPw").focus(); }));
+    el.querySelectorAll("[data-acc]").forEach(b=>b.addEventListener("click",()=>{ const sc=el.querySelector("#lgSchool").value||"ecole-a"; el.querySelector("#lgId").value=`${b.dataset.acc}@${sc.replace(/^ecole-/,"")}.exemple.invalid`; el.querySelector("#lgPw").focus(); }));
     el.querySelector("#lgForm").addEventListener("submit",async e=>{
       e.preventDefault(); const err=el.querySelector("#lgErr"); err.textContent="";
       const btn=el.querySelector(".login-main"); btn.disabled=true;
       try{
         const school=el.querySelector("#lgSchool").value.trim();
         const r=await post("/api/login",{school,identifier:el.querySelector("#lgId").value,password:el.querySelector("#lgPw").value});
-        if(r.status===200){ try{localStorage.setItem("noria_ecole",school);}catch(x){} closeScreen(); await start(); return; }
+        if(r.status===200){ try{localStorage.setItem("noria_ecole",school);}catch(x){} return afterLogin(r.body); }
         err.textContent=r.status===429?t("many"):t("bad");
       }catch(x){ err.textContent=t("net"); }
       finally{ btn.disabled=false; }
@@ -146,7 +151,7 @@ const views={
       busy=true; const btn=el.querySelector(".login-main"); btn.disabled=true;
       try{
         const r=await post("/api/login",{school:st.school,identifier:st.identifier,method:"code",code});
-        if(r.status===200){ clearInterval(views.enter.tm); try{localStorage.setItem("noria_ecole",st.school);}catch(x){} closeScreen(); await start(); return; }
+        if(r.status===200){ clearInterval(views.enter.tm); try{localStorage.setItem("noria_ecole",st.school);}catch(x){} return afterLogin(r.body); }
         err.textContent=r.status===429?t("many"):t("badCode"); inp.value=""; inp.focus();
       }catch(x){ err.textContent=t("net"); }
       finally{ busy=false; btn.disabled=false; }
@@ -167,26 +172,54 @@ const views={
     box.dataset.view="verify";
     box.querySelector("#vBack").addEventListener("click",()=>{ history.replaceState(null,"",location.pathname); location.reload(); });
   },
-  token(kind,token){
-    const el=screen(`<h1 id="loginTitle">${esc(kind==="invitation"?t("invTitle"):t("resTitle"))}</h1><form id="tkForm" novalidate>
+  // Choix de l'école après connexion (personne membre de plusieurs écoles).
+  async choose(){
+    const r=await api("/api/me/ecoles").catch(()=>null);
+    const list=r&&r.status===200?r.body:[];
+    if(list.length<2){ closeScreen(); return start(); }
+    const M=window.NORIA_ECO;
+    const el=screen(`<h1 id="loginTitle">${esc(t("chooseTitle"))}</h1><p class="small mut">${esc(t("chooseHelp"))}</p>
+      <div class="eco-choose">${list.map(e=>`<button type="button" class="eco-pick" data-id="${e.school_id}">${M?M.mark(e,"eco-sm"):""}<span><b>${esc(e.name)}</b><small>${esc(e.initials)}</small></span></button>`).join("")}</div>`);
+    el.dataset.view="choose";
+    el.querySelectorAll(".eco-pick").forEach(b=>b.addEventListener("click",async()=>{
+      const id=Number(b.dataset.id), cur=list.find(x=>x.active);
+      b.disabled=true;
+      if(!cur||cur.school_id!==id){ const s=await post("/api/session/ecole",{school_id:id}).catch(()=>null); if(!s||s.status!==200){ b.disabled=false; return; } }
+      closeScreen(); await start(); }));
+  },
+  async token(kind,token){
+    // Page d'arrivée d'une invitation : logo (ou initiales) et nom de l'école qui invite.
+    let head="";
+    if(kind==="invitation"){
+      const i=await post("/api/invitations/info",{token}).catch(()=>null);
+      if(i&&i.status===200){ const M=window.NORIA_ECO, v=i.body;
+        head=`<div class="eco-inv">${M?M.mark(v.school,"eco-lg"):""}<p><b>${esc(v.school.name)}</b> ${esc(t("invBy"))}</p><p class="small mut">${esc(t("invHello"))} ${esc(v.name)} · ${esc(t("invAs"))} : ${esc((t("roles")||{})[v.role]||v.role)}</p></div>`; }
+      else head=`<p class="login-err">${esc(t("invalid"))}</p>`;
+    }
+    const el=screen(`${head}<h1 id="loginTitle">${esc(kind==="invitation"?t("invTitle"):t("resTitle"))}</h1><form id="tkForm" novalidate>
       <label class="fld">${esc(t("newPw"))}<input id="tkPw" type="password" required minlength="10" autocomplete="new-password"></label>
       <p id="tkMsg" class="login-err" role="alert"></p><button type="submit" class="login-main">${esc(t("save"))}</button></form>`);
-    el.dataset.view="login";
+    el.dataset.view="tokenView"; views.tokenView=()=>views.token(kind,token);
     el.querySelector("#tkForm").addEventListener("submit",async e=>{ e.preventDefault();
       const pw=el.querySelector("#tkPw").value; const msg=el.querySelector("#tkMsg");
       if(pw.length<10){ msg.textContent=t("short"); return; }
       const r=await post(kind==="invitation"?"/api/invitations/accept":"/api/recovery/reset",{token,password:pw}).catch(()=>null);
       if(r&&r.status===200){ history.replaceState(null,"",location.pathname); views.login(); document.getElementById("lgErr").textContent=t("done"); }
-      else msg.textContent=r?t("invalid"):t("net"); });
+      else msg.textContent=!r?t("net"):r.status===401?t("existing"):t("invalid"); });
   },
 };
+
+async function afterLogin(body){
+  if(body&&body.choisir) return views.choose();
+  closeScreen(); await start();
+}
 
 function userChip(me){
   const top=document.querySelector(".topbar"); if(!top) return;
   let chip=document.getElementById("userChip");
   if(!chip){ chip=document.createElement("div"); chip.id="userChip"; chip.className="user-chip"; const rs=document.getElementById("roleSel"); top.insertBefore(chip,rs||top.firstChild); }
   const role=["direction","secretariat","enseignant","comptabilite","bibliotheque","parent","eleve"].find(r=>me.roles.includes(r));
-  chip.innerHTML=`<span class="user-name"><b>${esc(me.name)}</b><span class="user-role">${esc((t("roles")||{})[role]||role||"")}${CONFIG.demo?" · démo":""}</span></span><button type="button" id="lgOut" class="user-out">${esc(t("logout"))}</button>`;
+  chip.innerHTML=`<span class="user-name"><b>${esc(me.name)}</b><span class="user-role">${esc((t("roles")||{})[role]||role||"")}${me.school&&me.school.initials?" · "+esc(me.school.initials):""}${CONFIG.demo?" · démo":""}</span></span><button type="button" id="lgOut" class="user-out">${esc(t("logout"))}</button>`;
   chip.querySelector("#lgOut").addEventListener("click",async()=>{
     const off=window.NORIA_OFF; const n=off?off.state().pending:0;
     if(n&&!window.confirm(t("pendingOut")(n))) return;
@@ -201,10 +234,19 @@ async function start(){
   if(me.status!==200) return views.login();
   // Seulement les listes que le rôle peut lire (évite des refus 403 inutiles, par ex. pour la comptabilité).
   const R=me.body.roles||[], any=(...x)=>x.some(r=>R.includes(r)), none={status:204,body:[]};
-  const [st,cl]=await Promise.all([any("direction","secretariat","enseignant","parent","eleve")?api("/api/students"):none,any("direction","secretariat","enseignant","bibliotheque")?api("/api/classes"):none]);
-  const data={me:me.body,students:st.status===200?st.body:[],classes:cl.status===200?cl.body:[],demo:!!CONFIG.demo};
+  const [st,cl,ec,kd]=await Promise.all([any("direction","secretariat","enseignant","parent","eleve")?api("/api/students"):none,any("direction","secretariat","enseignant","bibliotheque")?api("/api/classes"):none,
+    api("/api/me/ecoles"),R.includes("parent")?api("/api/me/enfants"):none]);
+  // Écoles de la personne (sélecteur d'en-tête) ; enfants du parent dans toutes ses écoles (sélecteur) : l'enfant choisi
+  // filtre l'interface.
+  const schools=ec.status===200?ec.body.filter(x=>x.name):[], kids=kd.status===200?kd.body:[];
+  const kid=window.NORIA_ECO?NORIA_ECO.selectedKid(kids,me.body.schoolId):null;
+  let students=st.status===200?st.body:[];
+  if(kid) students=students.filter(x=>x.id===kid.student_id);
+  const data={me:me.body,students,classes:cl.status===200?cl.body:[],demo:!!CONFIG.demo,eco:{me:me.body,schools,kids,kid}};
+  if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   window.KL.applyServer(data);
   userChip(me.body);
+  if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   // Copie de lecture pour rouvrir sans réseau (noria_cache_v1) ; effacée à la déconnexion.
   if(window.NORIA_OFF){ await NORIA_OFF.putCache("session",data); NORIA_OFF.init(me.body); }
 }
@@ -216,8 +258,10 @@ async function startOffline(){
   if(!data){ CONFIG={demo:false,methods:["password"]}; views.login(); const e=document.getElementById("lgErr"); if(e) e.textContent=t("net")+" "+t("first"); return; }
   CONFIG={demo:data.demo,methods:["password"],offline:true};
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
+  if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   window.KL.applyServer(data);
   userChip(data.me);
+  if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   NORIA_OFF.init(data.me);
 }
 
@@ -240,6 +284,9 @@ async function init(){
   document.documentElement.dataset.backend="server";
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
   serverFooter();
+  // Administration de la plateforme : interface séparée, chargée à la demande.
+  if(location.hash==="#admin"&&window.NORIA_ECO){ try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }
+  if(window.NORIA_ECO) NORIA_ECO.onRestart(async()=>{ try{ await start(); }catch(e){ location.reload(); } });
   const vm=location.hash.match(/^#verifier=([A-Za-z0-9-]{4,40})$/);
   if(vm) return views.verify(vm[1]);
   const m=location.hash.match(/^#(invitation|recuperation)=([\w-]{20,})$/);

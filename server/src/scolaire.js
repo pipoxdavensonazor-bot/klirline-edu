@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const P = require('./policy');
 const { HttpError, forbid, notFound, audit, refuse, isUnique } = require('./common');
 const { reportCardPdf } = require('./pdf');
+const { schoolProfile } = require('./identite');
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const AUDIENCES = ['ecole', 'classe', 'parents', 'enseignants'];
@@ -350,7 +351,7 @@ const routes = [
     if (r.revoked_at) throw new HttpError(410, 'bulletin annulé ou remplacé');
     const snap = JSON.parse(r.snapshot);
     await audit(db, u, 'report_card.download', 'report_card', r.id, null);
-    return { __pdf: reportCardPdf(snap, `${publicUrl(req, ctx)}/#verifier=${r.code}`), filename: `bulletin-${snap.studentCode}-${r.term_id}.pdf` };
+    return { __pdf: reportCardPdf(snap, `${publicUrl(req, ctx)}/#verifier=${r.code}`, await schoolProfile(db, u.school_id)), filename: `bulletin-${snap.studentCode}-${r.term_id}.pdf` };
   }],
   ['POST', /^\/api\/report-cards\/(\d+)\/annuler$/, async (db, req, u, [id], ctx) => {
     if (!P.has(u, 'direction')) await refuse(ctx, u, 'report_card.revoke', 'report_card', id, null);

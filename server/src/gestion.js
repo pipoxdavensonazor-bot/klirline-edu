@@ -4,6 +4,7 @@
 const P = require('./policy');
 const { HttpError, forbid, notFound, audit, refuse, isUnique } = require('./common');
 const { receiptPdf } = require('./pdf');
+const { schoolProfile } = require('./identite');
 const { adapterFor } = require('./paiement-adaptateurs');
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -252,7 +253,7 @@ const financeRoutes = [
     const { publicUrl, fmtCode } = require('./scolaire');
     const number = fmtReceiptNo(p.receipt_no, String(p.created_at).slice(0, 4));
     await audit(db, u, 'payment.receipt', 'payment', p.id, null);
-    return { __pdf: receiptPdf({ school: school.name, number, student: `${st.first_name} ${st.last_name}`, studentCode: st.code,
+    return { __pdf: receiptPdf({ school: school.name, schoolProfile: await schoolProfile(db, u.school_id), number, student: `${st.first_name} ${st.last_name}`, studentCode: st.code,
       amount: htg(p.amount_cents), method: p.method, reference: p.reference, paidOn: p.paid_on, label: p.label, providerStatus: p.provider_status,
       balance: acc.balance_htg, paidTotal: acc.paid_htg, due: acc.due_htg, issuer: by ? by.display_name : '-', issuedAt: String(p.created_at),
       code: fmtCode(p.receipt_code), cancelledAt: p.cancelled_at, cancelReason: p.cancel_reason }, `${publicUrl(req, ctx)}/#verifier=${p.receipt_code}`),

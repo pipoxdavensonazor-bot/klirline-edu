@@ -2,7 +2,7 @@
 window.KL_I18N = {
 fr: {
   appName: "NORIA", appSub: "Une école, une famille et un avenir",
-  dashboard: "Tableau de bord", students: "Élèves", classes: "Classes",
+  dashboard: "Tableau de bord", students: "Élèves", classes: "Classes", ecole: "Profil de l'école", importEleves: "Import des élèves",
   attendance: "Présences", academic: "Académique", comms: "Communications",
   finance: "Finances", library: "Bibliothèque", reports: "Rapports", accounts: "Comptes", settings: "Paramètres",
   online: "Démo locale", offline: "File locale", sync: "Vider la file (démo)", pending: "en attente ici",
@@ -65,7 +65,7 @@ fr: {
 },
 ht: {
   appName: "NORIA", appSub: "Yon lekòl, yon fanmi ak yon avni",
-  dashboard: "Tablo jeneral", students: "Elèv", classes: "Klas",
+  dashboard: "Tablo jeneral", students: "Elèv", classes: "Klas", ecole: "Pwofil lekòl la", importEleves: "Enpòte elèv yo",
   attendance: "Prezans", academic: "Akademik", comms: "Kominikasyon",
   finance: "Finans", library: "Bibliyotèk", reports: "Rapò", accounts: "Kont", settings: "Reglaj",
   online: "Demo lokal", offline: "Fil lokal", sync: "Vide fil la (demo)", pending: "ap tann isit",

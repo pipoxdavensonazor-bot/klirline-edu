@@ -1,6 +1,7 @@
 'use strict';
 // Données 100 % fictives. Aucun nom, code ou montant ne correspond à une personne réelle.
 const { hashPassword } = require('./auth');
+const { attachPersons } = require('./identite');
 
 const DEMO_PASSWORD = 'demo-fictif-2026';
 
@@ -13,7 +14,10 @@ async function seed(db) {
   await db.tx(async (tx) => {
     t = tx;
     for (const key of ['A', 'B']) {
-      const s = await ins('INSERT INTO school (slug, name) VALUES (?,?)', `ecole-${key.toLowerCase()}`, `École fictive ${key}`);
+      // Profil d'école fictif (en-têtes PDF, invitations, accueil).
+      const s = await ins('INSERT INTO school (slug, name, initials, address, email, phone, motto) VALUES (?,?,?,?,?,?,?)', `ecole-${key.toLowerCase()}`, `École fictive ${key}`,
+        `EF${key}`, `${key === 'A' ? '12' : '48'}, rue Fictive, Port-au-Prince (adresse fictive)`, `contact@${key.toLowerCase()}.exemple.invalid`, key === 'A' ? '+50900000199' : '+50900000299',
+        key === 'A' ? 'Travail, discipline, réussite' : 'Konesans se richès');
       const campus = await ins('INSERT INTO campus (school_id, name) VALUES (?,?)', s, 'Campus principal (fictif)');
       const year = await ins('INSERT INTO school_year (school_id, label, is_current) VALUES (?,?,1)', s, '2026-2027');
       const level = await ins('INSERT INTO level (school_id, name) VALUES (?,?)', s, '7e année fondamentale');
@@ -51,6 +55,7 @@ async function seed(db) {
       const stu = async (code, fn, userId, cls) => {
         const id = await ins(`INSERT INTO student (school_id, user_id, code, first_name, last_name, birth_date, health_notes, family_notes)
           VALUES (?,?,?,?,?,?,?,?)`, s, userId, code, fn, `Fictif${key}`, '2014-01-01', 'Note santé fictive', 'Note famille fictive');
+        await link('INSERT INTO student_code (code, school_id) VALUES (?,?)', code, s);
         await ins('INSERT INTO enrollment (school_id, student_id, class_id, reason) VALUES (?,?,?,?)', s, id, cls, 'Inscription de démonstration');
         await ins('INSERT INTO finance_entry (school_id, student_id, label, amount_cents) VALUES (?,?,?,?)', s, id, 'Frais fictifs', 100000);
         return id;
@@ -65,8 +70,28 @@ async function seed(db) {
         books.push(await ins('INSERT INTO book (school_id, title, author, isbn, copies, created_by) VALUES (?,?,?,?,?,?)', s, ti, au, isbn, n, u.direction));
       ids[key] = { books, school: s, classes: [c1, c2], students: [st1, st2], users: u, terms, subjects: { maths: subj, francais: subjFr, sciences: subjSc } };
     }
+    // Identité globale : une personne par compte (migration 009).
+    await attachPersons(tx);
   });
   return ids;
 }
 
-module.exports = { seed, DEMO_PASSWORD };
+// Démonstration multi-écoles (NORIA_DEMO=1 et tests) : l'enseignant 1 de A enseigne aussi en B ; le parent 1 de A est
+// aussi parent d'un élève de B. Mêmes identités (personne), une adhésion par école.
+async function seedMulti(db, ids) {
+  await db.tx(async (t) => {
+    const B = ids.B.school;
+    for (const [handle, role] of [['prof1', 'enseignant'], ['parent1', 'parent']]) {
+      const src = await t.get('SELECT person_id, display_name FROM app_user WHERE id = ?', ids.A.users[handle]);
+      const id = await t.insert('INSERT INTO app_user (school_id, email, phone, display_name, person_id) VALUES (?,?,?,?,?)',
+        B, `${handle}@a.exemple.invalid`, null, src.display_name, src.person_id);
+      await t.run('INSERT INTO user_role (school_id, user_id, role) VALUES (?,?,?)', B, id, role);
+      ids.B.users[`${handle}A`] = id;
+      if (role === 'enseignant') await t.insert('INSERT INTO teacher_assignment (school_id, teacher_user_id, class_id, subject_id) VALUES (?,?,?,?)', B, id, ids.B.classes[1], ids.B.subjects.maths);
+      else await t.run('INSERT INTO parent_link (school_id, parent_user_id, student_id, reason) VALUES (?,?,?,?)', B, id, ids.B.students[1], 'Lien de démonstration (multi-écoles)');
+    }
+  });
+  return ids;
+}
+
+module.exports = { seed, seedMulti, DEMO_PASSWORD };
