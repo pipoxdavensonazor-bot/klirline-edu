@@ -47,7 +47,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const cdp = await p.createCDPSession(); await cdp.send('Network.enable');
       let bytes = 0; cdp.on('Network.loadingFinished', (e) => { bytes += e.encodedDataLength; });
       await p.setViewport({ width: w, height: h, deviceScaleFactor: dpr, isMobile: mob, hasTouch: mob });
-      await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
+      await p.goto(BASE + '/app', { waitUntil: 'networkidle0' });
       const first = Math.round(bytes / 102.4) / 10;
       const until = (fn, arg, ms = 10000) => p.waitForFunction(fn, { timeout: ms }, arg);
       const shot = (s) => p.screenshot({ path: `/workspace/bloc3-${s}-${name}.png`, fullPage: true });

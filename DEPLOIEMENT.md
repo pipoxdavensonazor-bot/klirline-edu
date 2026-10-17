@@ -58,7 +58,7 @@ Ouvrir `https://noria.exemple.ht`. La base est vide : créer la première école
 
 ### Ce que fait la pile
 
-- **Caddy** : certificat Let's Encrypt obtenu et renouvelé seul, redirection HTTP → HTTPS, HTTP/2 et HTTP/3, **HSTS** (1 an), compression zstd/gzip, cache d'un jour pour `/src/*` (revalidé par ETag), `index.html` et `sw.js` jamais mis en cache (mises à jour immédiates). `/healthz` n'est pas exposé publiquement.
+- **Caddy** : certificat Let's Encrypt obtenu et renouvelé seul, redirection HTTP → HTTPS, HTTP/2 et HTTP/3, **HSTS** (1 an), compression zstd/gzip, cache d'un jour pour `/src/*` (revalidé par ETag), `index.html` et `sw.js` jamais mis en cache (mises à jour immédiates). Le portail public est servi sur `/` (pages en cache public 60 s), l'application des écoles sur `/app` (voir `docs/portail-public.md`) ; définir `NORIA_PUBLIC_URL` pour des adresses absolues correctes (Open Graph, plan du site). `/healthz` n'est pas exposé publiquement.
 - **Application** : image multi-étape, utilisateur `node` (non root), système de fichiers en lecture seule, aucune capacité Linux, `NODE_ENV=production` donc **cookies `Secure`**, adresse du client lue dans `X-Forwarded-For` posé par Caddy (`NORIA_TRUST_PROXY=1`) pour le limiteur de connexions, **arrêt propre** sur `SIGTERM` (les requêtes en cours se terminent, la base est fermée, 10 s au plus).
 - **PostgreSQL 16** : jamais exposé sur Internet, données dans le volume `pgdata`, sommes de contrôle activées. L'application passe par le rôle `noria_app` soumis aux politiques RLS (créé par les migrations).
 

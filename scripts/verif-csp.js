@@ -20,7 +20,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const cdp = await p.createCDPSession(); await cdp.send('Network.enable');
     let bytes = 0, reqs = 0; cdp.on('Network.loadingFinished', (e) => { bytes += e.encodedDataLength; reqs++; });
     await p.setViewport({ width: w, height: h, deviceScaleFactor: dpr, isMobile: mob, hasTouch: mob });
-    const resp = await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
+    const resp = await p.goto(BASE + '/app', { waitUntil: 'networkidle0' });
     await p.waitForSelector('#loginScreen:not([hidden]) #lgForm');
     const r = { premierChargement: { octets: bytes, requetes: reqs }, cspServie: resp.headers()['content-security-policy'] };
     const roles = {};

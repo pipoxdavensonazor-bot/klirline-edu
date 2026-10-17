@@ -49,7 +49,7 @@ async function api(path, token, body) {
 
     // 1. Premier chargement (cache vide) : page + préchargement du service worker.
     let m = meter();
-    await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
+    await p.goto(BASE + '/app', { waitUntil: 'networkidle0' });
     await p.waitForSelector('#lgForm');
     r.premierChargementPage = m();
     await p.evaluate(() => navigator.serviceWorker.ready.then(() => true));

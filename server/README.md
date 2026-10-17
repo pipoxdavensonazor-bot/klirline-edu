@@ -96,7 +96,8 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
 - Récupération `POST /api/recovery/request` (même réponse si le compte n'existe pas, limitée en débit), jeton 60 min ;
   `POST /api/recovery/reset` change le mot de passe et révoque toutes les sessions du compte.
 - Envoi : par les adaptateurs de `src/notify.js` (voir « Notifications et code de connexion ») ; chaque message laisse une trace dans `outbox`.
-- Fichiers statiques : seulement `/`, `/index.html`, `/src/*` (liste blanche d'extensions), gzip, ETag/304, CSP.
+- Fichiers statiques : seulement `/app` (application), `/index.html`, `/src/*` (liste blanche d'extensions), gzip, ETag/304, CSP.
+- **Portail public** (bloc 5) : pages rendues par le serveur sur `/`, `/ht`, `/evenements`, `/laureats`, `/communaute`, `/annonces`, `/sitemap.xml`, `/robots.txt` ; propositions des directions et modération par le super-admin (voir `docs/portail-public.md`).
 - Premier chargement mesuré (cache vide, Chrome) : environ 118 Ko transférés en 19 requêtes.
 - Vérification navigateur : `node scripts/verif-connexion.js http://127.0.0.1:3100` (iPhone SE, Pixel 7, iPad Mini, ordinateur).
 - Limite connue : les modules additionnels (`addons.js`) restent des démonstrations locales ; ils lisent le rôle et
@@ -128,7 +129,7 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
 
 ## Hors ligne (maquette)
 
-- **Application installable** : `manifest.webmanifest`, icônes, `sw.js`. Le service worker met l'interface en cache (liste lue dans `index.html`, version = empreinte des fichiers : toute modification remplace le cache). Les réponses `/api/` ne sont **jamais** mises en cache par le service worker. Page : réseau d'abord (3,5 s au plus), puis cache.
+- **Application installable** : `manifest.webmanifest`, icônes, `sw.js`. Le service worker met l'interface en cache (liste lue dans `index.html`, version = empreinte des fichiers : toute modification remplace le cache). Les réponses `/api/` ne sont **jamais** mises en cache par le service worker. Application (`/app`) : réseau d'abord (3,5 s au plus), puis cache ; pages du portail public : réseau seul (hors ligne, `/` affiche l'application en cache).
 - **File de saisie** (`src/offline.js`, IndexedDB `noria_offline`) : l'appel est enregistré sur l'appareil puis envoyé dès que le réseau revient (événement `online`, retour sur l'onglet, toutes les 30 s s'il reste des saisies). Les saisies restent attachées au compte qui les a faites.
 - **Cache de lecture `noria_cache_v1`** : profil, élèves, classes, feuilles d'appel déjà vues, pour rouvrir l'application sans réseau ; effacé à la déconnexion ou quand la session a expiré.
 - **Indicateur** : « Hors ligne · X en attente », « X en attente », « Synchronisé à HH:MM », « N conflit(s) », « Reconnectez-vous pour envoyer X saisies » (session expirée).

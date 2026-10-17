@@ -13,7 +13,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const ctx = await b.createBrowserContext(); const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
     await p.setViewport({ width: w, height: h, deviceScaleFactor: dpr, isMobile: mob, hasTouch: mob });
-    await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
+    await p.goto(BASE + '/app', { waitUntil: 'networkidle0' });
     await p.waitForSelector('#loginScreen:not([hidden]) #lgForm');
     await p.select('#lgSchool', 'ecole-a');
     await p.$eval('#lgId', (e) => { e.value = 'prof1@a.exemple.invalid'; });

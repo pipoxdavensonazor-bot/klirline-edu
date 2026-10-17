@@ -22,7 +22,7 @@ const T={
     examType:"Type",examen:"Examen",concours:"Concours",isMinor:"Lauréat mineur",parent:"Nom du parent qui consent",draft:"Garder en attente (brouillon)",image:"Image (facultatif)",create:"Créer et publier",
     sponsored:"Encart sponsorisé",sponsor:"Annonceur",textFr:"Texte (français)",textHt:"Texte (kreyòl)",url:"Lien https (facultatif)",starts:"Début",ends:"Fin",newAd:"Nouvelle annonce",
     adSt:{cours:"En cours",avenir:"À venir",fini:"Terminée",off:"Désactivée"},clicks:"clics",clicks30:"sur 30 jours",activate:"Activer",deactivate:"Désactiver",official:"Annonce officielle",
-    noAds:"Aucune annonce.",noPartners:"Aucune école partenaire.",since:"depuis le",logo:"logo",suspended:"suspendue",sp:"Sponsorisé"},
+    noAds:"Aucune annonce.",noPartners:"Aucune école partenaire.",since:"depuis le",logo:"logo",suspended:"suspendue",sp:"Sponsorisé",tz:"heure d'Haïti"},
   ht:{title:"Pòtay piblik",open:"Louvri pòtay la",tabs:{moderation:"Moderasyon",creer:"Kreye yon kontni",annonces:"Anons",partenaires:"Lekòl patnè"},
     pending:"ap tann",adsOn:"anons k ap pase",partners:"lekòl patnè",status:"Eta",type:"Kalite",all:"Tout",
     st:{en_attente:"Ap tann",publie:"Pibliye",refuse:"Refize",retire:"Lekòl la retire l",depublie:"Retire sou pòtay la"},
@@ -36,7 +36,7 @@ const T={
     examType:"Kalite",examen:"Egzamen",concours:"Konkou",isMinor:"Laureya minè",parent:"Non paran ki dakò a",draft:"Kite l ap tann (bouyon)",image:"Imaj (si ou vle)",create:"Kreye epi pibliye",
     sponsored:"Espas sponsorize",sponsor:"Moun ki peye anons lan",textFr:"Tèks (franse)",textHt:"Tèks (kreyòl)",url:"Lyen https (si ou vle)",starts:"Kòmansman",ends:"Fen",newAd:"Nouvo anons",
     adSt:{cours:"K ap pase",avenir:"K ap vini",fini:"Fini",off:"Dezaktive"},clicks:"klik",clicks30:"sou 30 jou",activate:"Aktive",deactivate:"Dezaktive",official:"Anons ofisyèl",
-    noAds:"Pa gen anons.",noPartners:"Pa gen lekòl patnè.",since:"depi",logo:"logo",suspended:"sispann",sp:"Sponsorize"},
+    noAds:"Pa gen anons.",noPartners:"Pa gen lekòl patnè.",since:"depi",logo:"logo",suspended:"sispann",sp:"Sponsorize",tz:"lè Ayiti"},
 };
 const t=k=>T[lang()][k];
 let EL=null, TAB="moderation", ST="en_attente", KIND="", NEWKIND="evenement", IMG=null;
@@ -54,6 +54,10 @@ const opt=(v,l,cur)=>`<option value="${esc(v)}"${String(cur||"")===String(v)?" s
 const fld=(id,label,inner)=>`<label class="fld" for="${id}">${esc(label)}${inner}</label>`;
 const input=(id,label,attrs="")=>fld(id,label,`<input id="${id}" ${attrs}>`);
 const area=(id,label,max)=>fld(id,label,`<textarea id="${id}" rows="4" maxlength="${max}"></textarea>`);
+// Dates affichées à l'heure d'Haïti ; le serveur stocke en UTC.
+const hDate=(s,time)=>{ const d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(s||""))?s:String(s||"").replace(" ","T")+"Z"); if(isNaN(d)) return String(s||"");
+  const o={}; new Intl.DateTimeFormat("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:"America/Port-au-Prince"}).formatToParts(d).forEach(x=>{o[x.type]=x.value;});
+  return `${o.year}-${o.month}-${o.day}`+(time?` ${o.hour}:${o.minute}`:""); };
 const today=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Port-au-Prince"});
 (function css(){ if(document.getElementById("portCss")) return; const l=document.createElement("link"); l.id="portCss"; l.rel="stylesheet"; l.href="src/portail-gestion.css"; document.head.appendChild(l); })();
 
@@ -86,11 +90,11 @@ function item(p){
   if(p.kind==="evenement"){ add(t("cat"),t("cats")[p.category]); add(t("date"),p.event_end?`${p.event_date} → ${p.event_end}`:p.event_date); add(t("place"),p.place); }
   if(p.kind==="laureat"){ add(t("person"),p.person_name); add(t("exam"),`${p.exam} (${p.exam_type}) · ${p.year}`); add(t("mention"),p.mention); add(t("schoolName"),p.school_name);
     add(t("minor"),p.minor?t("yes"):t("no"));
-    if(p.minor) add(t("consent"),`${t("cSchool")} : ${p.consent_school?t("yes"):t("no")} · ${t("cParent")} : ${p.consent_parent?`${t("yes")} (${p.consent_parent_name||""}, ${String(p.consent_at||"").slice(0,10)})`:t("no")}`);
+    if(p.minor) add(t("consent"),`${t("cSchool")} : ${p.consent_school?t("yes"):t("no")} · ${t("cParent")} : ${p.consent_parent?`${t("yes")} (${p.consent_parent_name||""}, ${hDate(p.consent_at)})`:t("no")}`);
     add(t("publicName"),p.public_name+(p.public_name!==p.person_name?` — ${t("masked")}`:"")); }
   if(p.department) add(t("dep"),p.department);
   if(p.author) add(t("author"),p.author);
-  add(t("sent"),String(p.created_at||"").slice(0,16).replace("T"," "));
+  add(t("sent"),`${hDate(p.created_at,true)} (${t("tz")})`);
   if(p.moderation_reason) add(t("reasonL"),p.moderation_reason);
   const title=p.kind==="laureat"?p.person_name:(p.title_fr||p.title_ht);
   const body=[p.body_fr,p.body_ht].filter(Boolean).join("\n\n— — —\n\n");
@@ -171,7 +175,7 @@ async function partners(){
   const r=await api("/api/admin/portail/partenaires").catch(()=>null); const box=$("paBody"); if(!box) return;
   if(!r||r.status!==200){ box.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; return; }
   box.innerHTML=r.body.length?`<ul class="pt-list">${r.body.map(s=>`<li class="card pt-item"><div class="row sp"><strong>${s.logo?`<img class="pt-logo" src="/api/admin/portail/images/${Number(s.logo)}" alt="" width="64" height="64"> `:""}${esc(s.name)}</strong>${chip(s.status==="active"?"on":"off",s.status==="active"?"active":t("suspended"))}</div>
-    <p class="small mut">${esc(s.slug)} · ${esc(t("since"))} ${esc(String(s.portal_partner_at||"").slice(0,10))}</p></li>`).join("")}</ul>`:`<p class="mut">${esc(t("noPartners"))}</p>`;
+    <p class="small mut">${esc(s.slug)} · ${esc(t("since"))} ${esc(hDate(s.portal_partner_at))}</p></li>`).join("")}</ul>`:`<p class="mut">${esc(t("noPartners"))}</p>`;
 }
 
 window.NORIA_PORT_ADM=Object.freeze({render,tab,filter,act,feature,newKind,pick,create,pickAd,createAd,toggleAd});

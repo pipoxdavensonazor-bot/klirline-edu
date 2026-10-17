@@ -51,6 +51,17 @@ Le test `server/test/kreyol.test.js` vérifie que chaque clé française a son �
 - **Senkwonize** et **senkwonizasyon** : faut-il dire plutôt « mete ajou » ?
 - Les chaînes HT mêlées au code de `src/addons.js` (environ 140) ont été relues. Les longs textes d'aide sur Jitsi et sur les portails mériteraient une deuxième lecture.
 
+## 3 bis. Portail public (bloc 5) — termes nouveaux à valider
+
+- Navigation : **Akèy**, **Evènman**, **Laureya**, **Kominote**, **Anons**, **Konekte** (« Se connecter »), **Espas lekòl yo**.
+- Encart payant : **Sponsorize** (« Sponsorisé ») et « Espas sa a peye pa … ». Faut-il préférer « Piblisite » ?
+- Catégories : **Egzamen ofisyèl**, **Konkou**, **Kilti**, **Espò**, **Syans**, **Lòt**.
+- Départements : **Latibonit**, **Sant**, **Grandans**, **Nip**, **Nò**, **Nòdès**, **Nòdwès**, **Lwès**, **Sid**, **Sidès**.
+- Mois : **janvye, fevriye, mas, avril, me, jen, jiyè, out, septanm, oktòb, novanm, desanm** (abréviations : jan, fev, mas, avr, me, jen, jiy, out, sept, okt, nov, des).
+- Lauréat mineur : « se inisyal yo sèlman ki parèt, paske lekòl la ak paran an pa bay konsantman yo ». **Mansyon** pour « mention ».
+- Modération : **Ap tann lekti**, **Pibliye**, **Refize**, **Retire sou pòtay la** (« dépublié »), **Mete an vedèt** (« mettre à la une »).
+- Pied de page : « pa gen kont, pa gen cookie, pa gen traseur » — « traseur » est un emprunt ; une meilleure formule ?
+
 ## 4. Limites connues
 
 - Le bouton « Se déconnecter » et le pied de page restent en français après le passage en HT : ils ne sont pas redessinés au changement de langue. Ce comportement existait déjà avant cette relecture.

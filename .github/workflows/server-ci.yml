@@ -112,6 +112,8 @@ jobs:
           curl -skI https://localhost/manifest.webmanifest | grep -qi 'cache-control: public, max-age=86400'
           curl -skI https://localhost/sw.js | grep -qi 'cache-control: no-cache'
           curl -skI -H 'accept-encoding: gzip' https://localhost/ | grep -qi 'content-encoding: gzip'
+          curl -sk -o /dev/null -w '%{http_code}' https://localhost/app | grep -q 200
+          curl -sk https://localhost/robots.txt | grep -q 'Disallow: /app'
           docker compose exec -T app node -e "fetch('http://127.0.0.1:3100/healthz').then(r=>r.json()).then(j=>{if(!j.ok||j.db!=='pg')process.exit(1)})"
       - name: Sauvegarde et restauration par le conteneur db
         run: |

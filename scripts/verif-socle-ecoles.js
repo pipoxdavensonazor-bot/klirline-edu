@@ -39,7 +39,7 @@ const tok = async (school, who) => (await api('/api/login', { method: 'POST', bo
     const cdp = await p.createCDPSession(); await cdp.send('Network.enable');
     let bytes = 0, reqs = 0; cdp.on('Network.loadingFinished', (e) => { bytes += e.encodedDataLength; reqs++; });
     await p.setViewport({ width: w, height: h, deviceScaleFactor: dpr, isMobile: mob, hasTouch: mob });
-    await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
+    await p.goto(BASE + '/app', { waitUntil: 'networkidle0' });
     await p.waitForSelector('#loginScreen:not([hidden]) #lgForm');
     const r = { premierChargement: { octets: bytes, ko: Math.round(bytes / 102.4) / 10, requetes: reqs } };
     const until = (fn, arg, ms = 9000) => p.waitForFunction(fn, { timeout: ms }, arg).catch(async (e) => {

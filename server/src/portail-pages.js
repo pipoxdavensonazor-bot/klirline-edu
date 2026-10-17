@@ -155,8 +155,8 @@ function laureateCard(p, L, { photo = true } = {}) {
   const ini = p.masked ? p.name : p.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   return `<li class="card la">${photo && p.image ? img(p.image, p.name, 'la-img', 64, 64) : `<span class="av" aria-hidden="true">${esc(p.masked ? ini.replace(/[.\s]/g, '').slice(0, 3) : ini)}</span>`}
 <div><p class="la-n">${esc(p.name)}${p.masked ? ' <abbr class="mask" title="' + esc(t.masked) + '">*</abbr>' : ''}</p>
-<p class="meta">${esc(p.exam)} ${p.year ? `· ${p.year}` : ''}${p.mention ? ` · <span class="sr">${esc(t.mention)} : </span><b>${esc(p.mention)}</b>` : ''}</p>
-<p class="meta">${p.school ? `${esc(p.school)} · ` : ''}${p.department ? esc(t.dep[p.department]) : ''}</p></div></li>`;
+<p class="meta">${esc(p.exam)}${p.year ? ` · ${p.year}` : ''}${p.mention ? ` · <span class="sr">${esc(t.mention)} : </span><b>${esc(p.mention)}</b>` : ''}</p>
+${p.school || p.department ? `<p class="meta">${[p.school, p.department && t.dep[p.department]].filter(Boolean).map(esc).join(' · ')}</p>` : ''}</div></li>`;
 }
 function adCard(a, L) {
   const t = T[L];

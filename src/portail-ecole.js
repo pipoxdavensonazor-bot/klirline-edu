@@ -61,6 +61,10 @@ const get=p=>api(p).catch(()=>null);
 const $=id=>document.getElementById(id);
 function toast(m){ const c=$("toasts"); if(!c) return; const d=document.createElement("div"); d.textContent=m; c.appendChild(d); setTimeout(()=>d.remove(),4000); }
 const fail=r=>toast(!r?t("net"):t("err")+((r.body&&r.body.error)||r.status));
+// Dates affichées à l'heure d'Haïti ; le serveur stocke en UTC.
+const hDate=(s,time)=>{ const d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(s||""))?s:String(s||"").replace(" ","T")+"Z"); if(isNaN(d)) return String(s||"");
+  const o={}; new Intl.DateTimeFormat("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:"America/Port-au-Prince"}).formatToParts(d).forEach(x=>{o[x.type]=x.value;});
+  return `${o.year}-${o.month}-${o.day}`+(time?` ${o.hour}:${o.minute}`:""); };
 const val=id=>{ const e=$(id); return e?e.value.trim():""; };
 
 /* ---------- Images : redimension et compression sur l'appareil ---------- */
@@ -163,7 +167,7 @@ function mine(){
   const link=p=>p.status!=="publie"?"":p.kind==="evenement"?`/evenements/${p.id}`:(p.kind==="article"||p.kind==="temoignage")?`/communaute/${p.id}`:"/laureats";
   $("ptBody").innerHTML=!list.length?`<p class="mut">${esc(t("empty"))}</p>`:`<ul class="pt-list">${list.map(p=>`<li class="card pt-item">
     <div class="row sp"><strong>${esc(name(p))}</strong><span class="pt-chip pt-${esc(p.status)}">${esc(t("st")[p.status]||p.status)}</span></div>
-    <p class="small mut">${esc(t("kinds")[p.kind])} · ${esc(t("sentOn"))} ${esc(String(p.created_at||"").slice(0,10))}</p>
+    <p class="small mut">${esc(t("kinds")[p.kind])} · ${esc(t("sentOn"))} ${esc(hDate(p.created_at))}</p>
     ${p.moderation_reason?`<p class="small"><b>${esc(t("reason"))} :</b> ${esc(p.moderation_reason)}</p>`:""}
     <div class="row pt-acts">${p.status==="en_attente"?`<button type="button" class="ghost" data-action="NORIA_PORT.withdraw" data-a0="n:${p.id}">${esc(t("withdraw"))}</button>`:""}
     ${link(p)?`<a href="${esc(link(p))}" target="_blank" rel="noopener">${esc(t("view"))}</a>`:""}</div></li>`).join("")}</ul>`;
@@ -175,7 +179,7 @@ function partner(){
   const p=(DATA&&DATA.partenaire)||{};
   $("ptBody").innerHTML=`<form class="card pt-grid" data-action-submit="NORIA_PORT.savePartner" novalidate><h3 class="pt-full">${esc(t("partnerT"))}</h3><p class="small mut pt-full">${esc(t("partnerHelp"))}</p>
     <label class="pt-check pt-full"><input type="checkbox" id="ptPartner"${p.actif?" checked":""}> ${esc(t("partnerOn"))}</label>
-    ${p.depuis?`<p class="small mut pt-full">${esc(t("since"))} ${esc(String(p.depuis).slice(0,10))}</p>`:""}
+    ${p.depuis?`<p class="small mut pt-full">${esc(t("since"))} ${esc(hDate(p.depuis))}</p>`:""}
     <div class="pt-full">${fld("ptLogo",t("logo"),`<input id="ptLogo" type="file" accept="image/*" data-action-change="NORIA_PORT.pickLogo" data-a0="t">`)}<p class="small mut">${esc(t("logoHelp"))}${p.logo?` · ${esc(t("logoOk"))}`:""}</p><div id="ptLogoPrev"></div></div>
     <button type="submit">${esc(t("save"))}</button></form>`;
 }

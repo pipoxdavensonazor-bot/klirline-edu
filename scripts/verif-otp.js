@@ -21,7 +21,7 @@ const lastCode = (phone) => { const r = DB.prepare("SELECT body FROM outbox WHER
     const cdp = await p.createCDPSession(); await cdp.send('Network.enable');
     let bytes = 0; cdp.on('Network.loadingFinished', (e) => { bytes += e.encodedDataLength; });
     await p.setViewport({ width: w, height: h, deviceScaleFactor: dpr, isMobile: mob, hasTouch: mob });
-    await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
+    await p.goto(BASE + '/app', { waitUntil: 'networkidle0' });
     await p.waitForSelector('#loginScreen:not([hidden]) #lgCode');
     const r = { compte: handle, premierChargementOctets: bytes };
     await p.screenshot({ path: `/workspace/otp-connexion-${name}.png` });
