@@ -5,7 +5,7 @@
 "use strict";
 const T={
   fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",forgot:"Mot de passe oublié ?",
-      back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:"Se connecter avec un code (WhatsApp, Telegram, e-mail)",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:"Choisissez comment recevoir votre code. WhatsApp et Telegram sont gratuits.",enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
+      back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:l=>`Se connecter avec un code (${l})`,chName:{whatsapp:"WhatsApp",telegram:"Telegram",email:"e-mail",sms:"SMS"},or:" ou ",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:f=>`Choisissez comment recevoir votre code.${f.length?` ${f.join(" et ")} ${f.length>1?"sont gratuits":"est gratuit"}.`:""}`,enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
       reg:"Votre école n’est pas encore sur NORIA ? Inscrire mon école",priv:"Politique de confidentialité",demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
       logout:"Se déconnecter",invTitle:"Activer votre compte",resTitle:"Nouveau mot de passe",newPw:"Nouveau mot de passe (10 caractères minimum)",
@@ -23,7 +23,7 @@ const T={
       waNote:"Gratuit pour vous et pour l'école. Personne de l'école ne vous demandera ce code : ne l'envoyez qu'au numéro NORIA.",resume:"Reconnexion sur cet appareil de confiance…",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
   ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
-      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:"Konekte ak yon kòd (WhatsApp, Telegram, imèl)",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:"Chwazi kijan pou w resevwa kòd ou. WhatsApp ak Telegram gratis.",enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
+      back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:l=>`Konekte ak yon kòd (${l})`,chName:{whatsapp:"WhatsApp",telegram:"Telegram",email:"imèl",sms:"SMS"},or:" oswa ",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:f=>`Chwazi kijan pou w resevwa kòd ou.${f.length?` ${f.join(" ak ")} gratis.`:""}`,enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       reg:"Lekòl ou poko sou NORIA ? Enskri lekòl mwen",priv:"Politik konfidansyalite",demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
       logout:"Dekonekte",invTitle:"Aktive kont ou",resTitle:"Nouvo modpas",newPw:"Nouvo modpas (10 karaktè minimòm)",
@@ -78,6 +78,8 @@ function closeScreen(){ const el=document.getElementById("loginScreen"); if(el){
 const trustBox=on=>`<label class="login-trust"><input type="checkbox" id="lgTrust"${on?" checked":""}> ${esc(t("trust"))}</label>`;
 const trusted=el=>{ const c=el.querySelector("#lgTrust"); return !!(c&&c.checked); };
 const chans=()=>{ const c=(CONFIG&&CONFIG.canaux)||{email:true}; return [c.whatsapp&&"whatsapp",c.telegram&&"telegram",c.email!==false&&"email",c.sms&&"sms"].filter(Boolean); };
+// Libellé du bouton « code » : seulement les canaux réellement activés (ex. « Telegram ou e-mail »).
+const chanList=()=>{ const n=chans().map(c=>t("chName")[c]); return n.length>1?n.slice(0,-1).join(", ")+t("or")+n[n.length-1]:n.join(""); };
 function schoolField(){
   // Identité globale : l'école est facultative (« Toutes mes écoles ») ; avec plusieurs écoles, un choix suit la connexion.
   if(CONFIG.ecoles&&CONFIG.ecoles.length) return `<label class="fld">${esc(t("school"))}<select id="lgSchool" autocomplete="organization">${CONFIG.ecoles.map(e=>`<option value="${esc(e.slug)}">${esc(e.name)}</option>`).join("")}<option value="">${esc(t("anySchool"))}</option></select></label>`;
@@ -94,7 +96,7 @@ const views={
         ${trustBox()}<p id="lgErr" class="login-err" role="alert"></p>
         <button type="submit" class="login-main">${esc(t("login"))}</button>
       </form>
-      ${(CONFIG.methods||[]).includes("code6")?`<button type="button" class="login-alt" id="lgCode">${esc(t("useCode"))}</button>`:""}
+      ${(CONFIG.methods||[]).includes("code6")?`<button type="button" class="login-alt" id="lgCode">${esc(t("useCode")(chanList()))}</button>`:""}
       ${CONFIG.canaux&&CONFIG.canaux.ecole?`<button type="button" class="login-alt" id="lgAct">${esc(t("useSchool"))}</button>`:""}
       <button type="button" class="login-link" id="lgForgot">${esc(t("forgot"))}</button>
       <a class="login-link login-reg" href="${lang()==="ht"?"/ht":""}/inscrire-ecole">${esc(t("reg"))}</a>
@@ -129,7 +131,7 @@ const views={
   },
   // Code à 6 chiffres : 1) école + identifiant → envoi ; 2) saisie du code (renvoi après le délai indiqué par le serveur).
   code(pre){
-    const el=screen(`<h1 id="loginTitle">${esc(t("codeTitle"))}</h1><p class="small mut">${esc(t("codeHelp"))}</p><form id="cdForm" novalidate>${schoolField()}
+    const el=screen(`<h1 id="loginTitle">${esc(t("codeTitle"))}</h1><p class="small mut">${esc(t("codeHelp")(chans().filter(c=>c==="whatsapp"||c==="telegram").map(c=>t("chName")[c])))}</p><form id="cdForm" novalidate>${schoolField()}
       <label class="fld">${esc(t("ident"))}<input id="cdId" required autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="tel" value="${esc(pre&&pre.identifier||"")}"></label>
       <fieldset class="login-chans"><legend>${esc(t("chan"))}</legend>${chans().map((c,i)=>`<label class="login-chan"><input type="radio" name="cdChan" value="${c}"${(pre&&pre.channel?pre.channel===c:i===0)?" checked":""}> ${esc(t({whatsapp:"chWa",telegram:"chTg",email:"chEmail",sms:"chSms"}[c]))}</label>`).join("")}</fieldset>
       <p class="small mut" id="cdTg" hidden>${esc(t("tgHelp"))}</p>${trustBox(pre&&pre.trust)}

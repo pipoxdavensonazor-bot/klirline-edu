@@ -266,3 +266,10 @@ test('RLS : nouvelles tables cloisonnées par école ; demandes WhatsApp hors du
   await assert.rejects(db.asSchool(ids.A.school, (t) => t.run('INSERT INTO activation_code (school_id, user_id, role, batch, code_hash, created_by, created_at, expires_at) VALUES (?,?,?,?,?,?,?,?)',
     ids.B.school, ids.B.users.eleve1, 'eleve', 'x', 'y', ids.B.users.direction, 'now', 'now')), /row-level security/);
 });
+
+test('écran de connexion : le bouton « code » ne nomme que les canaux activés (aucune liste figée)', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'src', 'login.js'), 'utf8');
+  assert.doesNotMatch(src, /\(WhatsApp, Telegram, (e-mail|imèl)\)/);
+  assert.match(src, /t\("useCode"\)\(chanList\(\)\)/);
+  assert.match(src, /const chanList=\(\)=>\{ const n=chans\(\)\.map/);
+});
