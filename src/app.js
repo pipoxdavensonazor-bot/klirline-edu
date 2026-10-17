@@ -21,9 +21,15 @@ const toCSV=window.NORIA_U.toCSV;
 window.KL={};
 KL.t=t;
 
-const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["comms",""],["finance",""],["library",""],["reports",""],["accounts",""],["ecole",""],["importEleves",""],["scan",""],["badges",""],["releves",""],["transferts",""],["portail",""],["declaration",""],["settings",""]];
-const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",comms:"École",finance:"École",library:"Bibliothèque",reports:"École",accounts:"École",ecole:"École",importEleves:"École",scan:"École",badges:"École",releves:"École",transferts:"École",portail:"École",declaration:"École",settings:"École"};
-const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi"};
+// Ordre du menu (ordinateur, tiroir mobile ; les 5 premières entrées autorisées forment la barre du bas du téléphone).
+// « Échanges » (transferts, portail, ministère) juste après le quotidien pour rester visible sans défiler.
+const MODULES=[["dashboard",""],["students",""],["classes",""],["attendance",""],["academic",""],["transferts",""],["portail",""],["declaration",""],["comms",""],["finance",""],["reports",""],["badges",""],["releves",""],["scan",""],["library",""],["ecole",""],["importEleves",""],["accounts",""],["settings",""]];
+const SPACE={dashboard:"École",students:"École",classes:"École",attendance:"École",academic:"Classe",transferts:"Échanges",portail:"Échanges",declaration:"Échanges",comms:"Vie scolaire",finance:"Vie scolaire",reports:"Vie scolaire",badges:"Documents",releves:"Documents",scan:"Documents",library:"Bibliothèque",ecole:"Administration",importEleves:"Administration",accounts:"Administration",settings:"Administration"};
+const SPACE_HT={"École":"Lekòl","Classe":"Klas","Bibliothèque":"Bibliyotèk","Académie":"Akademi","Échanges":"Echanj","Vie scolaire":"Lavi lekòl","Documents":"Dokiman","Administration":"Administrasyon"};
+// Libellés propres au menu : ce que fait l'entrée, et « lecture seule » quand le rôle ne peut que consulter.
+const NAV_LBL={fr:{portail:"Portail : propositions",ro:"lecture seule"},ht:{portail:"Pòtay : pwopozisyon",ro:"lekti sèlman"}};
+const READ_ONLY={secretariat:["declaration"]};
+function navLabel(m){ const N=NAV_LBL[S.lang==="ht"?"ht":"fr"]; const base=N[m]||t(m==="comms"?"comms":m); return (READ_ONLY[S.role]||[]).includes(m)?`${base} · ${N.ro}`:base; }
 function spaceLbl(s){ return S.lang==="ht"?(SPACE_HT[s]||s):s; }
 const ROLE_MODULES={
   direction:["dashboard","students","classes","attendance","academic","comms","finance","library","reports","accounts","ecole","importEleves","scan","badges","releves","transferts","portail","declaration","settings"],
@@ -60,7 +66,7 @@ function renderShell(){
   MODULES.forEach(([m,ic])=>{ if(!can(m))return;
     const sp=SPACE[m]||"École";
     if(sp!==lastSp){ lastSp=sp; const lb=document.createElement("small"); lb.textContent=spaceLbl(sp); nav.appendChild(lb); }
-    const b=document.createElement("button"); b.innerHTML=`${ic} ${t(m==="comms"?"comms":m)}`; b.className=ROUTE===m?"on":""; b.onclick=()=>{ROUTE=m; render();};
+    const b=document.createElement("button"); b.type="button"; b.textContent=`${ic} ${navLabel(m)}`.trim(); b.dataset.nav=m; b.className=ROUTE===m?"on":""; if(ROUTE===m) b.setAttribute("aria-current","page"); b.onclick=()=>{ROUTE=m; render();};
     nav.appendChild(b);
     const mb=b.cloneNode(true); mb.onclick=b.onclick; mn.appendChild(mb);
   });

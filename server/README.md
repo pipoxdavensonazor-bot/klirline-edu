@@ -136,14 +136,14 @@ Comptes fictifs : écoles `ecole-a` et `ecole-b`, adresses `direction@a.exemple.
 - Vérification : `node scripts/verif-hors-ligne.js http://127.0.0.1:3100` (relais TCP qui coupe vraiment le réseau et compte les octets).
 - Mesures (Chrome, octets réels sur le réseau, en-têtes compris) : **premier chargement ≈ 145 Ko** (page + mise en cache par le service worker, revalidée par ETag) ; **rechargement avec l'interface en cache ≈ 3,5 Ko** reçus.
 
-## Sauvegarde et restauration (`test/sauvegarde.test.js`)
+## Sauvegarde et restauration (`test/sauvegarde.test.js`, `test/sauvegarde-couverture.test.js`)
 
 ```bash
-DATABASE_URL=postgres://… node scripts/sauvegarde.js sauver noria-2026-10-16.json.gz
-DATABASE_URL=postgres://… node scripts/sauvegarde.js restaurer noria-2026-10-16.json.gz   # base cible neuve et vide
+NORIA_BACKUP_KEY=… DATABASE_URL=postgres://… node scripts/sauvegarde.js sauver noria-2026-10-16.json.gz.enc
+NORIA_BACKUP_KEY=… DATABASE_URL=postgres://… node scripts/sauvegarde.js restaurer noria-2026-10-16.json.gz.enc   # base cible neuve et vide
 ```
 
-Sauvegarde logique (JSON compressé, fichier en droits 600) de toutes les tables métier, avec **empreinte SHA-256 vérifiée** à la restauration ; fonctionne entre SQLite et PostgreSQL dans les deux sens. Exclus : sessions (reconnexion obligatoire), tentatives de connexion, boîte d'envoi simulée. La restauration refuse une base non vide ou une base trop ancienne, puis recale les compteurs d'identifiants. Le test restaure dans une base neuve, compare tout le contenu et se reconnecte. En production, ajouter `pg_dump -Fc` quotidien hors de la machine, chiffré, et un essai de restauration régulier.
+Sauvegarde logique (JSON compressé, fichier en droits 600) de **toutes** les tables du schéma, blocs 4 à 6 compris (transferts, portail public, ministère, déclarations, journaux, assistant sécurité), avec **empreinte SHA-256 vérifiée** à la restauration ; fonctionne entre SQLite et PostgreSQL dans les deux sens. Avec `NORIA_BACKUP_KEY` (obligatoire si `NODE_ENV=production`), le fichier est chiffré AES-256-GCM au format de `scripts/chiffrer.js` (NORIAGCM1). Chaque table est soit dans `TABLES`, soit dans `EXCLUDED` avec sa raison (sessions, codes à usage unique, actions en attente de code, tentatives de connexion, boîte d'envoi simulée) : `test/sauvegarde-couverture.test.js` échoue sur SQLite comme sur PostgreSQL si une nouvelle table n'est dans aucune des deux listes, ou si l'ordre ne respecte pas les clés étrangères, et fait un aller-retour complet (signatures des déclarations et des transferts revérifiées, journaux toujours en ajout seul). La restauration refuse une base non vide ou une base trop ancienne, puis recale les compteurs d'identifiants. En production, la sauvegarde de référence reste `pg_dump` chiffré (`deploy/sauvegarde`).
 
 ## Cœur scolaire (phase 3, `test/scolaire.test.js`)
 
