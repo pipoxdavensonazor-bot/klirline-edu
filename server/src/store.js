@@ -8,6 +8,9 @@
 //   await db.asSchool(schoolId, async (t) => ...)  requête d'un utilisateur connecté : en PostgreSQL, transaction sous le
 //     rôle noria_app avec app.school_id réglé, donc soumise aux politiques RLS. En SQLite, pas de RLS : le cloisonnement
 //     repose sur les clauses de policy.js (toujours appliquées, quelle que soit la base).
+//   await db.asMinistry(accountId, async (t) => ...)  requête d'un compte du ministère (bloc 6) : en PostgreSQL, rôle
+//     noria_ministere (lecture par colonnes, politiques « ministere_lecture » dédiées, aucun contournement global) avec
+//     app.ministere_id réglé. En SQLite : requêtes explicites de src/ministere.js (colonnes choisies, lecture seule).
 // Le SQL s'écrit avec des « ? » ; ils deviennent $1, $2… pour PostgreSQL. Règle : ne jamais attendre une entrée-sortie
 // externe (hachage, réseau) dans une transaction SQLite, pour qu'aucune autre requête ne s'y intercale.
 const fs = require('node:fs');
@@ -52,6 +55,7 @@ function sqliteDb(file) {
       finally { depth--; }
     },
     async asSchool(_schoolId, fn) { return fn(api); },
+    async asMinistry(_accountId, fn) { return fn(api); },
     async close() { raw.close(); },
   };
   return api;
@@ -79,18 +83,23 @@ function pgDb(url) {
         catch (e) { await q.query(`ROLLBACK TO SAVEPOINT ${sp}`); throw e; }
         finally { depth--; }
       },
-      async asSchool(schoolId, fn) { return inTx ? fn(api) : transaction(schoolId, fn); },
+      async asSchool(schoolId, fn) { return inTx ? fn(api) : transaction({ role: 'noria_app', key: 'app.school_id', value: schoolId }, fn); },
+      async asMinistry(accountId, fn) {
+        if (inTx) throw new Error('asMinistry : jamais dans une transaction déjà ouverte'); // sinon droits du système
+        return transaction({ role: 'noria_ministere', key: 'app.ministere_id', value: accountId }, fn);
+      },
       async close() { await pool.end(); },
     };
     return api;
   };
-  async function transaction(schoolId, fn) {
+  // scope : null (connexion système) ou { role, key, value } (rôle soumis à la RLS et réglage de transaction).
+  async function transaction(scope, fn) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      if (schoolId != null) {
-        await client.query('SET LOCAL ROLE noria_app');
-        await client.query("SELECT set_config('app.school_id', $1, true)", [String(schoolId)]);
+      if (scope && scope.value != null) {
+        await client.query(`SET LOCAL ROLE ${scope.role === 'noria_ministere' ? 'noria_ministere' : 'noria_app'}`);
+        await client.query('SELECT set_config($1, $2, true)', [scope.key === 'app.ministere_id' ? 'app.ministere_id' : 'app.school_id', String(scope.value)]);
       }
       const r = await fn(wrap(client, true));
       await client.query('COMMIT');

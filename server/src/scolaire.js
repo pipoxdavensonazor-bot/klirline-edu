@@ -398,33 +398,34 @@ const routes = [
 // Vérification publique d'un bulletin : école, élève (prénom + initiale), période, date et état. Rien d'autre.
 const publicRoutes = [
   ['GET', /^\/api\/verifier\/([A-Za-z0-9-]{1,40})$/, async (db, req, _u, [raw], ctx) => {
-    const code = raw.toUpperCase().replace(/-/g, '');
     const keys = [`verif:${req.ip}`];
     if (await ctx.limiter.blocked(keys)) throw new HttpError(429, 'trop de vérifications, réessayez plus tard');
-    // Badge (« B… », 27 caractères) et relevé officiel (« R… », 13 caractères) : même page publique.
-    // Certificat de transfert (« T… », 13 caractères) : idem.
-    if (/^[BRT][A-Z2-9]{12,26}$/.test(code)) {
-      const v = code[0] === 'B' ? await require('./badges').verifyBadgePublic(db, code)
-        : code[0] === 'T' ? await require('./transferts').verifyTransferPublic(db, code) : await require('./releves').verifyTranscriptPublic(db, code);
-      if (v) return v;
-      await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun document ne correspond à ce code');
-    }
-    const r = /^[A-Z2-9]{12}$/.test(code) ? await db.get(`SELECT r.issued_at, r.revoked_at, r.revoked_reason, s.name AS school, st.first_name, st.last_name, t.name AS term, y.label AS year
-      FROM report_card r JOIN school s ON s.id = r.school_id
-      JOIN student st ON st.id = r.student_id AND st.school_id = r.school_id
-      JOIN term t ON t.id = r.term_id AND t.school_id = r.school_id
-      JOIN school_year y ON y.id = t.school_year_id AND y.school_id = t.school_id WHERE r.code = ?`, code) : null;
-    if (!r) {
-      // Même code, même page : un reçu de paiement se vérifie comme un bulletin.
-      const rec = /^[A-Z2-9]{12}$/.test(code) ? await require('./gestion').verifyReceipt(db, code) : null;
-      if (rec) return rec;
-      await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun bulletin ni reçu ne correspond à ce code');
-    }
-    return {
-      authentique: true, type: 'bulletin', statut: r.revoked_at ? 'annule' : 'valide', motif: r.revoked_at ? r.revoked_reason : undefined,
-      ecole: r.school, eleve: `${r.first_name} ${r.last_name.slice(0, 1)}.`, periode: `${r.term} ${r.year}`, emis_le: String(r.issued_at).slice(0, 10),
-    };
+    const v = await verifyDocument(db, raw);
+    if (v) return v;
+    await ctx.limiter.fail(keys); throw new HttpError(404, 'aucun document ne correspond à ce code');
   }, { public: true }],
 ];
 
-module.exports = { routes, publicRoutes, computeAverages, maxScore, DEFAULT_SCALE, audienceScope, verifyCode, fmtCode, publicUrl };
+// Vérification d'un document par son code (page publique, et portail du ministère au bloc 6) : badge (« B… »),
+// relevé officiel (« R… »), certificat de transfert (« T… »), bulletin ou reçu (12 caractères). null : aucun document.
+async function verifyDocument(db, raw) {
+  const code = String(raw || '').toUpperCase().replace(/-/g, '');
+  if (/^[BRT][A-Z2-9]{12,26}$/.test(code)) {
+    return code[0] === 'B' ? require('./badges').verifyBadgePublic(db, code)
+      : code[0] === 'T' ? require('./transferts').verifyTransferPublic(db, code) : require('./releves').verifyTranscriptPublic(db, code);
+  }
+  if (!/^[A-Z2-9]{12}$/.test(code)) return null;
+  const r = await db.get(`SELECT r.issued_at, r.revoked_at, r.revoked_reason, s.name AS school, st.first_name, st.last_name, t.name AS term, y.label AS year
+    FROM report_card r JOIN school s ON s.id = r.school_id
+    JOIN student st ON st.id = r.student_id AND st.school_id = r.school_id
+    JOIN term t ON t.id = r.term_id AND t.school_id = r.school_id
+    JOIN school_year y ON y.id = t.school_year_id AND y.school_id = t.school_id WHERE r.code = ?`, code);
+  // Même code, même page : un reçu de paiement se vérifie comme un bulletin.
+  if (!r) return (await require('./gestion').verifyReceipt(db, code)) || null;
+  return {
+    authentique: true, type: 'bulletin', statut: r.revoked_at ? 'annule' : 'valide', motif: r.revoked_at ? r.revoked_reason : undefined,
+    ecole: r.school, eleve: `${r.first_name} ${r.last_name.slice(0, 1)}.`, periode: `${r.term} ${r.year}`, emis_le: String(r.issued_at).slice(0, 10),
+  };
+}
+
+module.exports = { verifyDocument, routes, publicRoutes, computeAverages, maxScore, DEFAULT_SCALE, audienceScope, verifyCode, fmtCode, publicUrl };

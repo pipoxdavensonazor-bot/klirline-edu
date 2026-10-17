@@ -8,7 +8,7 @@ const path = require('node:path');
 const { HTML_CSP } = require('../src/static');
 
 const ROOT = path.join(__dirname, '..', '..');
-const files = ['index.html', 'sw.js',
+const files = ['index.html', 'ministere.html', 'sw.js',
   ...fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /\.(html|js)$/.test(f)).map((f) => 'src/' + f)];
 
 // Attribut on* ou style suivi d'une valeur entre guillemets (éventuellement échappés dans une chaîne JS), ou sans guillemets.

@@ -1,7 +1,7 @@
 'use strict';
 const { openStore } = require('./store');
 const { createServer } = require('./app');
-const { seed, seedMulti, seedPortal } = require('./seed');
+const { seed, seedMulti, seedPortal, seedMinistere } = require('./seed');
 const { createNotifier } = require('./notify');
 
 // DATABASE_URL=postgres://… (production) ; sinon NORIA_DB (fichier SQLite, développement).
@@ -20,7 +20,12 @@ async function main() {
   console.log(`Envoi : SMS ${notifier.sms.name}, e-mail ${notifier.email.name}.`);
   const db = await openStore(url);
   const empty = !(await db.get('SELECT COUNT(*) AS n FROM school')).n;
-  if (empty && demo) { const ids = await seedMulti(db, await seed(db)); await seedPortal(db, ids); console.log('Données fictives insérées (NORIA_DEMO=1).'); }
+  if (empty && demo) {
+    const ids = await seedMulti(db, await seed(db)); await seedPortal(db, ids);
+    // Bloc 6 : écoles et compte du ministère fictifs, seulement si le portail du ministère est activé.
+    if (process.env.NORIA_MINISTERE === '1') await seedMinistere(db, ids);
+    console.log('Données fictives insérées (NORIA_DEMO=1).');
+  }
   else if (empty) console.log('Base vide : aucune donnée de démonstration (lancer avec NORIA_DEMO=1 pour en créer).');
   const port = Number(process.env.PORT || 3100);
   const host = process.env.HOST || '127.0.0.1';

@@ -7,7 +7,8 @@ const esc=window.NORIA_U.esc;
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
 const T={
   fr:{profile:"Profil de l'école",profileHelp:"Ces informations figurent en en-tête de tous les documents PDF (bulletins, reçus) et sur les invitations.",
-    name:"Nom de l'école",initials:"Initiales (2 à 6 lettres, utilisées dans le code élève)",address:"Adresse",email:"E-mail",phone:"Téléphone",motto:"Devise",
+    name:"Nom de l'école",initials:"Initiales (2 à 6 lettres, utilisées dans le code élève)",address:"Adresse",email:"E-mail",phone:"Téléphone",motto:"Devise",dept:"Département",commune:"Commune",deptNone:"—",
+    deps:{artibonite:"Artibonite",centre:"Centre","grand-anse":"Grand'Anse",nippes:"Nippes",nord:"Nord","nord-est":"Nord-Est","nord-ouest":"Nord-Ouest",ouest:"Ouest",sud:"Sud","sud-est":"Sud-Est"},
     logo:"Logo",logoHelp:"JPEG ou PNG ; il est réduit automatiquement (256 px, 48 Ko au plus).",noLogo:"Aucun logo : les initiales sont utilisées.",removeLogo:"Retirer le logo",
     save:"Enregistrer",saved:"Profil enregistré.",err:"Refusé : ",net:"Réseau nécessaire pour cette action.",tooBig:"Image trop lourde même réduite.",badImg:"Image illisible.",
     noAccess:"Accès réservé à la direction.",preview:"Aperçu de l'en-tête",
@@ -17,7 +18,8 @@ const T={
     validate:n=>`Importer ${n} élève(s)`,done:(c,l,i)=>`${c} élève(s) importé(s). ${l} parent(s) relié(s) à un compte existant, ${i} invitation(s) envoyée(s).`,codes:"Codes élèves créés",
     cols:{last_name:"Nom",first_name:"Prénom",birth_date:"Naissance",sex:"Sexe",class:"Classe",parent_name:"Parent",parent_phone:"Téléphone",parent_email:"E-mail"},wait:"Analyse…",choose:"Choisissez un fichier."},
   ht:{profile:"Pwofil lekòl la",profileHelp:"Enfòmasyon sa yo parèt anlè tout dokiman PDF (bilten, resi) ak sou envitasyon yo.",
-    name:"Non lekòl la",initials:"Inisyal (2 a 6 lèt, yo sèvi nan kòd elèv la)",address:"Adrès",email:"Imèl",phone:"Telefòn",motto:"Deviz",
+    name:"Non lekòl la",initials:"Inisyal (2 a 6 lèt, yo sèvi nan kòd elèv la)",address:"Adrès",email:"Imèl",phone:"Telefòn",motto:"Deviz",dept:"Depatman",commune:"Komin",deptNone:"—",
+    deps:{artibonite:"Latibonit",centre:"Sant","grand-anse":"Grandans",nippes:"Nip",nord:"Nò","nord-est":"Nòdès","nord-ouest":"Nòdwès",ouest:"Lwès",sud:"Sid","sud-est":"Sidès"},
     logo:"Logo",logoHelp:"JPEG oswa PNG ; li ap redui otomatikman (256 px, 48 Ko maksimòm).",noLogo:"Pa gen logo : se inisyal yo k ap parèt.",removeLogo:"Retire logo a",
     save:"Anrejistre",saved:"Pwofil la anrejistre.",err:"Refize : ",net:"Fò gen rezo pou aksyon sa a.",tooBig:"Imaj la twò lou menm apre li redui.",badImg:"Nou pa ka li imaj la.",
     noAccess:"Se direksyon an sèlman ki gen aksè.",preview:"Apèsi antèt la",
@@ -51,6 +53,8 @@ async function profile(){
     <div class="eco-2"><label class="fld">${esc(t("email"))}<input name="email" type="email" maxlength="190" value="${v("email")}"></label>
     <label class="fld">${esc(t("phone"))}<input name="phone" type="tel" maxlength="40" value="${v("phone")}"></label></div>
     <label class="fld">${esc(t("motto"))}<input name="motto" maxlength="160" value="${v("motto")}"></label>
+    ${MIN()?`<div class="eco-2"><label class="fld">${esc(t("dept"))}<select name="department"><option value="">${esc(t("deptNone"))}</option>${Object.entries(t("deps")).map(([k,l])=>`<option value="${k}"${P.department===k?" selected":""}>${esc(l)}</option>`).join("")}</select></label>
+    <label class="fld">${esc(t("commune"))}<input name="commune" maxlength="80" value="${v("commune")}"></label></div>`:""}
     <fieldset class="eco-logo-f"><legend>${esc(t("logo"))}</legend><p class="small mut">${esc(t("logoHelp"))}</p>
       <input type="file" id="ecoLogo" accept="image/jpeg,image/png,image/webp" data-action-change="NORIA_ECOG.pickLogo" data-a0="t">
       ${logo.logo?`<button type="button" class="ghost" data-action="NORIA_ECOG.dropLogo">${esc(t("removeLogo"))}</button>`:`<p class="small">${esc(t("noLogo"))}</p>`}</fieldset>
@@ -71,7 +75,9 @@ function shrink(file){
   }));
 }
 function readDataUrl(file){ return new Promise((ok,ko)=>{ if(file.size>8*1024*1024) return ko(new Error(t("tooBig"))); const r=new FileReader(); r.onload=()=>ok(String(r.result)); r.onerror=()=>ko(new Error(t("badImg"))); r.readAsDataURL(file); }); }
-function formVals(){ const f=document.getElementById("ecoForm"); const o={}; ["name","initials","address","email","phone","motto"].forEach(k=>{ o[k]=f[k].value; }); return o; }
+// Bloc 6 : localisation (département, commune) demandée seulement quand le portail du ministère est actif.
+const MIN=()=>document.documentElement.dataset.ministere==="1";
+function formVals(){ const f=document.getElementById("ecoForm"); const o={}; ["name","initials","address","email","phone","motto"].concat(MIN()?["department","commune"]:[]).forEach(k=>{ o[k]=f[k].value; }); return o; }
 async function pickLogo(input){
   const f=input.files&&input.files[0]; if(!f) return;
   try{ const keep=formVals(); LOGO=await shrink(f); Object.assign(P,keep); profile(); }

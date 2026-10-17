@@ -60,6 +60,13 @@ async function describe(db, req, type, params) {
       if (type === 'ecole.suspendre' && s.status === 'suspendue') throw new HttpError(409, 'école déjà suspendue');
       return { params: { school_id: s.id }, target: `ecole:${s.id}`, fr: `${type === 'ecole.suspendre' ? 'Suspendre' : 'Déconnecter tous les comptes de'} l’école ${s.name} (${s.slug}).`, ht: `${type === 'ecole.suspendre' ? 'Sispann' : 'Dekonekte tout kont'} lekòl ${s.name}.` };
     }
+    case 'ministere.deconnecter': case 'ministere.desactiver': {
+      const m = await db.get('SELECT id, email, display_name, state FROM ministry_account WHERE id = ?', int(p.ministry_id, 'compte du ministère'));
+      if (!m) throw new HttpError(404, 'compte du ministère introuvable');
+      if (type === 'ministere.desactiver' && m.state !== 'actif') throw new HttpError(409, 'compte du ministère déjà désactivé');
+      const lbl = `compte du ministère n° ${m.id} (${maskAccount(m.email)})`;
+      return { params: { ministry_id: m.id }, target: `min:${m.id}`, fr: `${type === 'ministere.desactiver' ? 'Désactiver (et déconnecter)' : 'Déconnecter'} le ${lbl}.`, ht: `${type === 'ministere.desactiver' ? 'Dezaktive' : 'Dekonekte'} kont ministè n° ${m.id}.` };
+    }
     case 'alerte.traiter': case 'alerte.faux_positif': {
       const a = await db.get('SELECT id, status, title_fr FROM security_alert WHERE id = ?', int(p.alert_id, 'alerte'));
       if (!a) throw new HttpError(404, 'alerte introuvable');
@@ -109,6 +116,12 @@ async function execute(t, type, p, admin, reason) {
       await t.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome) VALUES (?,?,?,?,?)', admin.id, 'admin.school.suspendre', String(p.school_id), `assistant sécurité — ${reason}`, 'ok');
       return { undo: { school_id: p.school_id }, result: 'école suspendue, sessions fermées' };
     }
+    case 'ministere.deconnecter': return { undo: null, result: `${(await t.run('DELETE FROM ministry_session WHERE account_id = ?', p.ministry_id)).changes || 0} session(s) fermée(s)` };
+    case 'ministere.desactiver': {
+      await t.run("UPDATE ministry_account SET state = 'desactive', state_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", `assistant sécurité : ${reason || ''}`.slice(0, 300), p.ministry_id);
+      const n = (await t.run('DELETE FROM ministry_session WHERE account_id = ?', p.ministry_id)).changes || 0;
+      return { undo: { ministry_id: p.ministry_id }, result: `compte du ministère désactivé, ${n} session(s) fermée(s)` };
+    }
     case 'alerte.traiter': case 'alerte.faux_positif':
       await t.run('UPDATE security_alert SET status = ?, closed_at = ?, closed_by = ? WHERE id = ?', type === 'alerte.traiter' ? 'traitee' : 'faux_positif', iso(), admin.id, p.alert_id);
       return { undo: { alert_id: p.alert_id }, result: 'alerte fermée' };
@@ -120,7 +133,8 @@ async function execute(t, type, p, admin, reason) {
       else if (a.type === 'ecole.suspendre') {
         await t.run("UPDATE school SET status = 'active', status_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", reason || 'annulation depuis l’assistant sécurité', u.school_id);
         await t.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome) VALUES (?,?,?,?,?)', admin.id, 'admin.school.reactiver', String(u.school_id), `assistant sécurité — annulation de l’action ${a.id}`, 'ok');
-      } else if (a.type.startsWith('alerte.')) await t.run("UPDATE security_alert SET status = 'ouverte', closed_at = NULL, closed_by = NULL WHERE id = ?", u.alert_id);
+      } else if (a.type === 'ministere.desactiver') await t.run("UPDATE ministry_account SET state = 'actif', state_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", `réactivé : annulation de l’action ${a.id}`, u.ministry_id);
+      else if (a.type.startsWith('alerte.')) await t.run("UPDATE security_alert SET status = 'ouverte', closed_at = NULL, closed_by = NULL WHERE id = ?", u.alert_id);
       else throw new HttpError(409, 'annulation impossible');
       return { undo: null, result: `action n° ${a.id} annulée` };
     }

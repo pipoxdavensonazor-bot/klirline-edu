@@ -95,6 +95,16 @@ const G = {
       ht: 'Yon direksyon pa konn pwopoze plis pase kèk kontni pa jou. Yon rafal ka soti nan yon kont yo vòlè oswa yon robo k ap ranpli lis moderasyon an (kontni ki pa bon, imaj lou). Wout la gen pwòp limit li tou : 30 pwopozisyon pa èdtan pou chak lekòl.' },
     faux: { fr: 'Normal après les résultats des examens officiels, quand une école propose d’un coup la liste de ses lauréats.', ht: 'Sa nòmal apre rezilta egzamen ofisyèl yo, lè yon lekòl pwopoze tout laureya li yo yon sèl kou.' },
   },
+  ministere_consultations: {
+    titre: { fr: 'Consultation en masse par un compte du ministère', ht: 'Twòp konsiltasyon pa yon kont ministè' },
+    expl: { fr: '{cible} a fait {n} consultations en une heure, dont {nominatif} fiches nominatives, sur {ecoles} école(s) (moyenne habituelle : {moyenne} par heure).',
+      ht: '{cible} fè {n} konsiltasyon nan inèdtan, ladan yo {nominatif} fich ak non elèv, sou {ecoles} lekòl (mwayèn abityèl : {moyenne} pa èdtan).' },
+    reco: { fr: 'Appelez le service du ministère concerné pour confirmer ce travail. Le journal du ministère garde chaque consultation et chaque motif. Si personne ne le reconnaît, déconnectez puis désactivez le compte.',
+      ht: 'Rele sèvis ministè a pou konfime travay sa a. Jounal ministè a kenbe chak konsiltasyon ak chak rezon. Si pèsonn pa rekonèt li, dekonekte epi dezaktive kont lan.' },
+    pourquoi: { fr: 'Le ministère voit d’abord des chiffres agrégés ; une fiche nominative exige un motif. Seuils par heure : {seuil} consultations, {seuilNominatif} fiches nominatives, {seuilEcoles} écoles différentes, ou {facteur} fois la moyenne des 7 derniers jours. Une rafale peut venir d’un compte volé ou d’une extraction de données.',
+      ht: 'Ministè a wè chif total yo anvan ; yon fich ak non elèv mande yon rezon. Limit pa èdtan : {seuil} konsiltasyon, {seuilNominatif} fich ak non, {seuilEcoles} lekòl diferan, oswa {facteur} fwa mwayèn 7 dènye jou yo. Yon rafal ka soti nan yon kont yo vòlè oswa yon ekstraksyon done.' },
+    faux: { fr: 'Possible pendant une inspection ou une campagne de collecte planifiée (fin d’année, examens officiels) : confirmez avec le ministère.', ht: 'Sa posib pandan yon enspeksyon oswa yon kanpay kolèk ki te planifye (fen ane, egzamen ofisyèl) : konfime ak ministè a.' },
+  },
   modifs_sensibles: {
     titre: { fr: 'Modifications sensibles inhabituelles', ht: 'Chanjman sansib ki pa nòmal' },
     expl: { fr: '{cible} a fait {n} modifications sensibles en 24 h ({quoi}), dont {hors} hors des heures habituelles (heure d’Haïti).',

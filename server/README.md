@@ -203,6 +203,15 @@ Vérification minimale d'un élève (code + date de naissance obligatoire, limit
 signée Ed25519, étape ministère désactivée par défaut, copie et archivage, certificat vérifiable). Détails :
 `docs/transferts.md`. Vérification navigateur : `NODE_PATH=… node scripts/verif-transferts.js`.
 
+## Portail du ministère (bloc 6, prototype, `test/ministere.test.js`)
+
+Désactivé par défaut (`NORIA_MINISTERE=0` : routes, page `/ministere` et scripts répondent 404). À `1` : comptes du
+ministère créés par le super-admin, connexion par code à 6 chiffres, rôle PostgreSQL `noria_ministere` en lecture
+seule par colonnes (politiques dédiées, aucun contournement global), vue d'ensemble agrégée, détail nominatif sur
+motif journalisé (journal du ministère et journal de l'école), déclaration annuelle signée Ed25519 avec PDF, étape
+ministère des transferts signée, vérification de documents, règle d'assistant `ministere_consultations`. Détails :
+`docs/ministere.md`. Vérification navigateur : `NODE_PATH=… node scripts/verif-ministere.js`.
+
 ## Reste à faire avant toute donnée réelle
 
 Code à 6 chiffres par SMS et envoi réel (SMS, e-mail), finances, bibliothèque et rapports côté serveur (encore locaux), validation par Philippe des règles de notes (barème /10, publication par la direction seule, annulation du bulletin précédent), chiffrement et rotation des sauvegardes hors site, procédure d'incident, HTTPS et déploiement, retrait de `'unsafe-inline'` (migration des `onclick`).

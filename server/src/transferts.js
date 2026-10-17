@@ -60,6 +60,9 @@ const normCode = (v) => String(v || '').trim().toUpperCase().replace(/\s+/g, '')
 const localDay = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.NORIA_TZ || 'America/Port-au-Prince' });
 const envOf = (ctx) => (ctx && ctx.env) || process.env;
 const ministereActive = (ctx) => String(envOf(ctx).NORIA_TRANSFERT_MINISTERE || '0') === '1';
+// Bloc 6 : portail du ministère actif (NORIA_MINISTERE=1) → l'étape ministère est jouée par un compte « ministere »
+// (signée par la clé du ministère) et non plus par le super-admin.
+const portailMinistere = (ctx) => String(envOf(ctx).NORIA_MINISTERE || '0') === '1';
 function delais(ctx) {
   let o = {};
   try { o = envOf(ctx).NORIA_TRANSFERT_DELAIS ? JSON.parse(envOf(ctx).NORIA_TRANSFERT_DELAIS) : {}; } catch { o = {}; }
@@ -83,6 +86,15 @@ function codeOf(b) {
 const requestPayload = (t) => ['NORIA-TRANSFERT', 'v1', t.id, t.student_code, t.from_school_id, t.from_student_id, t.to_school_id,
   t.consent_mode, t.consent_parent || '', t.consent_to || '', t.consent_at || '', t.created_at, t.origin_at].join('|');
 const certMessage = (code, sha) => Buffer.from(`NORIA-CERT-TRANSFERT|v1|${code}|${sha}`, 'utf8');
+// Décision du ministère signée (bloc 6) : demande (empreinte signée par l'origine), décision, compte, date.
+const ministryMessage = (t, decision, accountId, at) => Buffer.from(['NORIA-TRANSFERT-MINISTERE', 'v1', t.id, t.payload_sha256, decision, accountId, at].join('|'), 'utf8');
+async function verifyMinistry(sys, t) {
+  if (!t.ministry_signature) return null; // décision non signée (super-admin, avant le bloc 6) ou étape non requise
+  const k = await K.ministryPublicKey(sys, t.ministry_key_id);
+  const decision = t.status === 'refuse' ? 'refuser' : 'approuver';
+  return !!k && t.ministry_payload_sha256 === t.payload_sha256
+    && K.verify(k.publicKey, ministryMessage(t, decision, t.ministry_account_id, t.ministry_at), t.ministry_signature);
+}
 async function verifyRequest(sys, t) {
   if (!t.signature) return false;
   const k = await K.publicKey(sys, t.from_school_id);
@@ -281,7 +293,7 @@ async function finalize(sys, ctx, req, t) {
       from: { ...from, signature: t.origin_signature_image ? Buffer.from(t.origin_signature_image, 'base64') : from.signature }, to,
       student: `${st.first_name} ${st.last_name}`, studentCode: t.student_code, birthDate: st.birth_date, lastClass: lc && lc.classe, lastYear: lc && lc.annee,
       requestedAt: String(t.created_at), consent: { mode: t.consent_mode, parent: t.consent_parent, to: t.consent_to, at: t.consent_at },
-      originAt: t.origin_at, originName: t.origin_name, keyId: t.key_id, ministry: t.ministry_at ? { at: t.ministry_at } : null,
+      originAt: t.origin_at, originName: t.origin_name, keyId: t.key_id, ministry: t.ministry_at ? { at: t.ministry_at, keyId: t.ministry_key_id || null } : null,
       transferredAt: at, summary, code: `T-${S.fmtCode(code.slice(1))}`, verifyUrl: `${base}/#verifier=${code}`, requestSha: t.payload_sha256,
     });
     const csha = sha256(pdf);
@@ -600,10 +612,12 @@ async function verifyTransferPublic(db, code) {
     JOIN school b ON b.id = t.to_school_id JOIN student st ON st.id = t.from_student_id AND st.school_id = t.from_school_id WHERE t.code = ? AND t.status = 'transfere'`, code);
   if (!t) return null;
   const k = await K.publicKey(db, t.from_school_id);
+  const min = await verifyMinistry(db, t); // null : pas de décision signée du ministère
   const ok = (await verifyRequest(db, t)) && !!k && K.verify(k.publicKey, certMessage(t.code, t.certificate_sha256), t.certificate_signature)
-    && sha256(Buffer.from(t.certificate || '', 'base64')) === t.certificate_sha256;
+    && sha256(Buffer.from(t.certificate || '', 'base64')) === t.certificate_sha256 && min !== false;
   return { authentique: ok, type: 'transfert', document: 'Certificat de transfert', statut: ok ? 'valide' : 'modifie', ecole: t.from_name, ecole_accueil: t.to_name,
-    eleve: `${t.first_name} ${String(t.last_name).slice(0, 1)}.`, emis_le: day(t.closed_at), signature: { algo: 'Ed25519', cle: t.key_id, valide: ok } };
+    eleve: `${t.first_name} ${String(t.last_name).slice(0, 1)}.`, emis_le: day(t.closed_at), signature: { algo: 'Ed25519', cle: t.key_id, valide: ok },
+    ...(min === null ? {} : { ministere: { algo: 'Ed25519', cle: t.ministry_key_id, valide: min, le: day(t.ministry_at) } }) };
 }
 async function checkCertificate(db, code, hash) {
   if (!/^T[A-Z2-9]{12}$/.test(code)) return null;
@@ -614,37 +628,57 @@ async function checkCertificate(db, code, hash) {
   return { resultat: ok ? 'authentique' : 'modifie', statut: 'valide' };
 }
 
+// Décision du ministère sur un transfert « approuve_origine » : par le super-admin (sans portail) ou par un compte du
+// ministère (portail actif : signature Ed25519 de la clé du ministère, opts.account). Retourne le transfert à jour.
+async function ministryDecision(db, ctx, req, id, b, { who, extra = {}, account = null }) {
+  await expireDue(db, ctx);
+  const t = await getTr(db, int(id));
+  if (!t || (!ministereActive(ctx) && !Number(t.ministry_required))) throw new HttpError(404, 'étape ministère désactivée (NORIA_TRANSFERT_MINISTERE=0)');
+  if (!['approuver', 'refuser'].includes(b.decision)) throw new HttpError(400, 'décision : approuver ou refuser');
+  const why = text(b.motif, 300, 'motif', b.decision === 'refuser');
+  const at = iso();
+  const sets = { ...extra, ministry_at: at, ministry_reason: why };
+  if (account) {
+    if (t.status !== 'approuve_origine' || !Number(t.ministry_required)) throw new HttpError(409, `transition interdite (${t.status})`);
+    const mk = await K.ministryKeys(db);
+    Object.assign(sets, { ministry_account_id: account.id, ministry_key_id: mk.keyId, ministry_payload_sha256: t.payload_sha256,
+      ministry_signature: K.sign(mk.privateKey(), ministryMessage(t, b.decision, account.id, at)) });
+  }
+  if (b.decision === 'approuver') {
+    if (t.status === 'approuve_origine' && !(await verifyRequest(db, t))) {
+      await auditBoth(db, t, null, 'transfert.signature_invalide', 'signature Ed25519 de la demande invalide : autorisation impossible', who);
+      throw new HttpError(409, 'signature de la demande invalide : transfert bloqué');
+    }
+    const next = await db.tx((x) => transition(x, ctx, t, 'approuve_ministere', 'ministere', null, `${why || 'autorisation accordée'}${account ? ` (signée Ed25519, clé ${sets.ministry_key_id})` : ''}`, sets, who));
+    return finalize(db, ctx, req, next);
+  }
+  return db.tx((x) => transition(x, ctx, t, 'refuse', 'ministere', null, `${why}${account ? ` (signée Ed25519, clé ${sets.ministry_key_id})` : ''}`, { ...sets, decision_reason: why }, who));
+}
+// Transferts en attente du ministère (vue du portail du ministère : élève abrégé, écoles, dates).
+async function pendingMinistry(db, ctx) {
+  await expireDue(db, ctx);
+  const rows = await db.all(`${LIST} WHERE t.status = 'approuve_origine' AND t.ministry_required = 1 ORDER BY t.id`);
+  return rows.map((r) => ({ id: r.id, statut: r.status, code_eleve: r.student_code, eleve: `${r.first_name} ${String(r.last_name).slice(0, 1)}.`,
+    ecole_origine: r.from_name, ecole_accueil: r.to_name, motif: r.motive, approuve_le: r.origin_at, expire_le: r.expires_at, cle: r.key_id }));
+}
+
 // Étape « autorisation ministère » (NORIA_TRANSFERT_MINISTERE=1) : en attendant un rôle ministère, validée depuis
 // la session super-admin (journal de la plateforme). Désactivée par défaut : 404.
 function adminRoutes({ log }) {
   return [
     ['GET', /^\/api\/admin\/transferts$/, async (db, req, a, _m, ctx) => {
       if (!ministereActive(ctx)) throw new HttpError(404, 'étape ministère désactivée (NORIA_TRANSFERT_MINISTERE=0)');
-      await expireDue(db, ctx);
-      const rows = await db.all(`${LIST} WHERE t.status = 'approuve_origine' AND t.ministry_required = 1 ORDER BY t.id`);
-      return rows.map((r) => ({ id: r.id, statut: r.status, code_eleve: r.student_code, eleve: `${r.first_name} ${String(r.last_name).slice(0, 1)}.`, ecole_origine: r.from_name, ecole_accueil: r.to_name, approuve_le: r.origin_at, expire_le: r.expires_at }));
+      if (portailMinistere(ctx)) throw new HttpError(409, 'étape ministère : passe par le portail du ministère (NORIA_MINISTERE=1)');
+      return pendingMinistry(db, ctx);
     }, { auth: true }],
     ['POST', /^\/api\/admin\/transferts\/(\d+)\/ministere$/, async (db, req, a, [id], ctx) => {
-      await expireDue(db, ctx);
-      const t = await getTr(db, int(id));
-      if (!t || (!ministereActive(ctx) && !Number(t.ministry_required))) throw new HttpError(404, 'étape ministère désactivée (NORIA_TRANSFERT_MINISTERE=0)');
+      if (portailMinistere(ctx)) throw new HttpError(409, 'étape ministère : passe par le portail du ministère (NORIA_MINISTERE=1)');
       const b = req.body || {};
-      if (!['approuver', 'refuser'].includes(b.decision)) throw new HttpError(400, 'décision : approuver ou refuser');
-      const why = text(b.motif, 300, 'motif', b.decision === 'refuser');
-      const who = `ministère (super-admin n° ${a.id})`;
-      let next;
-      if (b.decision === 'approuver') {
-        if (t.status === 'approuve_origine' && !(await verifyRequest(db, t))) {
-          await auditBoth(db, t, null, 'transfert.signature_invalide', 'signature Ed25519 de la demande invalide : autorisation impossible', who);
-          throw new HttpError(409, 'signature de la demande invalide : transfert bloqué');
-        }
-        next = await db.tx((x) => transition(x, ctx, t, 'approuve_ministere', 'ministere', null, why || 'autorisation accordée', { ministry_by: a.id, ministry_at: iso(), ministry_reason: why }, who));
-        next = await finalize(db, ctx, req, next);
-      } else next = await db.tx((x) => transition(x, ctx, t, 'refuse', 'ministere', null, why, { ministry_by: a.id, ministry_at: iso(), ministry_reason: why, decision_reason: why }, who));
-      await log(db, a, 'admin.transfert.ministere', t.id, `${b.decision}${why ? ` : ${why}` : ''}`, 'ok', req.ip);
-      return { id: t.id, statut: next.status };
+      const next = await ministryDecision(db, ctx, req, id, b, { who: `ministère (super-admin n° ${a.id})`, extra: { ministry_by: a.id } });
+      await log(db, a, 'admin.transfert.ministere', next.id, `${b.decision}${b.motif ? ` : ${String(b.motif).slice(0, 300)}` : ''}`, 'ok', req.ip);
+      return { id: next.id, statut: next.status };
     }, { auth: true, write: true }],
   ];
 }
 
-module.exports = { createRoutes, adminRoutes, canTransition, MACHINE, lookup, minimal, verifyTransferPublic, checkCertificate, requestPayload, verifyRequest, expireDue, CATEGORIES, DECISIONS, ACTIFS };
+module.exports = { createRoutes, adminRoutes, ministryDecision, pendingMinistry, verifyMinistry, portailMinistere, ministereActive, canTransition, MACHINE, lookup, minimal, verifyTransferPublic, checkCertificate, requestPayload, verifyRequest, expireDue, CATEGORIES, DECISIONS, ACTIFS };

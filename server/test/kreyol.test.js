@@ -40,6 +40,7 @@ const DICTS = [
   ['offline.js', 'const L={'], ['mobile-nav.js', 'const L = {'],
   ['ecoles.js', 'const T={'], ['ecoles-gestion.js', 'const T={'], ['admin.js', 'const T={'], ['badges.js', 'const T={'], ['admin-securite.js', 'const T={'], ['transferts.js', 'const T={'],
   ['portail-ecole.js', 'const T={'], ['admin-portail.js', 'const T={'],
+  ['ministere.js', 'const T={'], ['declaration.js', 'const T={'], ['admin-ministere.js', 'const T={'],
 ];
 
 test('KL_I18N (i18n.js + addons-i18n.js) : chaque clé FR existe en HT', () => {

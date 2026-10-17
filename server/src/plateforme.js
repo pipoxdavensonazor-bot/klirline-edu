@@ -155,8 +155,13 @@ const ROUTES = [
     if (!/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/.test(slug)) throw new HttpError(400, 'identifiant (slug) : lettres minuscules, chiffres et tirets');
     if (!name || name.length > 120) throw new HttpError(400, 'nom obligatoire (120 caractères au plus)');
     const initials = I.cleanInitials(b.initials || '') || I.deriveInitials(name);
+    // Bloc 6 : département et commune facultatifs (filtres du portail du ministère).
+    const DEPS = ['artibonite', 'centre', 'grand-anse', 'nippes', 'nord', 'nord-est', 'nord-ouest', 'ouest', 'sud', 'sud-est'];
+    const department = b.department ? String(b.department) : null;
+    if (department && !DEPS.includes(department)) throw new HttpError(400, 'département inconnu');
+    const commune = b.commune ? String(b.commune).trim().slice(0, 80) : null;
     const id = await db.tx(async (t) => {
-      const sid = await t.insert('INSERT INTO school (slug, name, initials, default_lang) VALUES (?,?,?,?)', slug, name, initials, b.lang === 'ht' ? 'ht' : 'fr');
+      const sid = await t.insert('INSERT INTO school (slug, name, initials, default_lang, department, commune) VALUES (?,?,?,?,?,?)', slug, name, initials, b.lang === 'ht' ? 'ht' : 'fr', department, commune);
       await t.insert('INSERT INTO campus (school_id, name) VALUES (?,?)', sid, 'Campus principal');
       await log(t, a, 'admin.school.create', sid, `${slug} — ${why}`, 'ok', req.ip);
       return sid;
@@ -179,6 +184,8 @@ ROUTES.push(...require('./securite-actions').routes({ log, dbSize, backups }));
 ROUTES.push(...require('./transferts').adminRoutes({ log }));
 // Bloc 5 : modération et publication du portail public, annonces et encarts sponsorisés.
 ROUTES.push(...require('./portail').adminRoutes({ log }));
+// Bloc 6 : comptes du ministère (création, désactivation) et journal de leurs consultations (404 si NORIA_MINISTERE=0).
+ROUTES.push(...require('./ministere').adminRoutes({ log }));
 
 function parseAdminToken(req, parseCookies) {
   const h = req.headers.authorization || '';

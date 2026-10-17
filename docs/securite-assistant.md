@@ -40,6 +40,7 @@ Tous les seuils peuvent être modifiés avec `NORIA_ASSISTANT_SEUILS` (JSON, cl�
 | **Volume anormal** (`volume_anormal`) | par compte et par heure : ≥ 20 exports (`exportsHeure`), ≥ 100 PDF (`pdfHeure`), ≥ 200 fiches consultées (`fichesHeure`) | attention ; critique à 3 fois le seuil |
 | **Vérifications d'élèves** (`recherches_eleves`) | par école et par heure (bloc 4, `POST /api/transferts/recherche`) : ≥ 30 vérifications (`recherchesEcoleHeure`) ou ≥ 10 sans résultat (`recherchesEchecsHeure`) | attention ; critique à 3 fois un seuil |
 | **Propositions en masse pour le portail** (`propositions_masse`) | par école (bloc 5, `POST /api/portail/propositions`) : ≥ 10 propositions en 1 h (`propositionsHeure`) ou ≥ 30 en 24 h (`propositionsJour`) ; la route est aussi limitée à 30 par heure et par école | attention ; critique à 3 fois un seuil |
+| **Consultations du ministère** (`ministere_consultations`) | par compte du ministère (bloc 6, prototype) : ≥ 150 consultations en 1 h (`ministereConsultationsHeure`), ≥ 25 consultations nominatives en 1 h (`ministereNominatifHeure`) ou ≥ 40 écoles différentes ouvertes en 1 h (`ministereEcolesHeure`), ou une heure ≥ 4 fois la moyenne horaire des 7 derniers jours (`ministereFacteur`, au-delà de `ministereMinimum`) | attention ; critique à 3 fois un seuil |
 | **Modifications sensibles** (`modifs_sensibles`) | notes rouvertes (`evaluation.rouvrir`), notes corrigées (`grade.correct`), reçus annulés (`payment.cancel`), rôles changés (`user.roles`) sur 24 h par personne : ≥ 10 (`sensiblesJour`), ou hors des heures habituelles 6 h – 20 h, heure d'Haïti (`heureMatin`, `heureSoir`) | info pour 1 ou 2 hors heures ; attention pour ≥ 3 hors heures (`horsHeuresAttention`) ou ≥ 10 ; critique à ≥ 30 |
 | **Santé : healthz** (`sante`) | la base ne répond pas à `SELECT 1` | critique |
 | **Santé : latence** | latence de la base ou médiane des 500 dernières requêtes ≥ 500 ms (`latenceAttentionMs`) | attention ; critique à ≥ 2000 ms (`latenceCritiqueMs`) |
@@ -74,6 +75,8 @@ côté serveur.
 | Verrouiller un compte (`compte.verrouiller`) | la personne (toutes ses écoles) ne peut plus se connecter ; ses sessions sont fermées | **oui** | oui (déverrouillage) |
 | Déverrouiller un compte (`compte.deverrouiller`) | retire le verrou posé par le super-admin | non | oui (nouveau verrou) |
 | Déconnecter un compte (`compte.deconnecter`) | ferme toutes les sessions de la personne | non | non (la personne se reconnecte) |
+| Déconnecter un compte du ministère (`ministere.deconnecter`) | ferme les sessions du compte du ministère | non | non |
+| Désactiver un compte du ministère (`ministere.desactiver`) | le compte ne peut plus demander de code ni se connecter ; sessions fermées | **oui** | oui (réactivation) |
 | Déconnecter une école (`ecole.deconnecter`) | ferme toutes les sessions de l'école | **oui** | non |
 | Forcer la réinitialisation du mot de passe (`compte.reinitialiser`) | efface le mot de passe et ferme les sessions ; la personne passe par « mot de passe oublié » ou par la connexion par code | **oui** | non |
 | Suspendre une école (`ecole.suspendre`) | même effet que la route existante `POST /api/admin/ecoles/:id/suspendre` ; motif obligatoire | **oui** | oui (réactivation) |

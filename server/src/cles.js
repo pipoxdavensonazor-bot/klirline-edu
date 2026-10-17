@@ -55,9 +55,29 @@ async function publicKey(sys, schoolId) {
   return row ? { keyId: row.key_id, publicKey: crypto.createPublicKey({ key: Buffer.from(row.public_key, 'base64'), format: 'der', type: 'spki' }) } : null;
 }
 
+// Clé Ed25519 du ministère (bloc 6, portail du ministère) : une seule clé active (la plus ancienne), créée au premier
+// usage, chiffrée comme celles des écoles. Elle signe la décision du ministère sur un transfert.
+const toPub = (b64) => crypto.createPublicKey({ key: Buffer.from(b64, 'base64'), format: 'der', type: 'spki' });
+async function ministryKeys(sys) {
+  let row = await sys.get('SELECT * FROM ministry_key ORDER BY id LIMIT 1');
+  if (!row) {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+    const pub = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+    const priv = seal(privateKey.export({ type: 'pkcs8', format: 'pem' }));
+    const keyId = `M${crypto.createHash('sha256').update(Buffer.from(pub, 'base64')).digest('hex').slice(0, 15)}`;
+    await sys.run('INSERT INTO ministry_key (key_id, public_key, private_key, private_enc) VALUES (?,?,?,?)', keyId, pub, priv.value, priv.enc);
+    row = await sys.get('SELECT * FROM ministry_key ORDER BY id LIMIT 1');
+  }
+  return { keyId: row.key_id, publicKey: toPub(row.public_key), privateKey: () => crypto.createPrivateKey(unseal(row.private_key, row.private_enc)) };
+}
+async function ministryPublicKey(sys, keyId) {
+  const row = await sys.get('SELECT key_id, public_key FROM ministry_key WHERE key_id = ?', String(keyId || ''));
+  return row ? { keyId: row.key_id, publicKey: toPub(row.public_key) } : null;
+}
+
 // Message signé d'un relevé : type, code de vérification et empreinte SHA-256 du PDF.
 const transcriptMessage = (code, sha256) => Buffer.from(`NORIA-RELEVE|v1|${code}|${sha256}`, 'utf8');
 const sign = (privateKey, msg) => crypto.sign(null, msg, privateKey).toString('base64');
 const verify = (publicKey, msg, sig) => { try { return crypto.verify(null, msg, publicKey, Buffer.from(String(sig), 'base64')); } catch { return false; } };
 
-module.exports = { schoolKeys, publicKey, transcriptMessage, sign, verify, seal, unseal };
+module.exports = { schoolKeys, publicKey, ministryKeys, ministryPublicKey, transcriptMessage, sign, verify, seal, unseal };

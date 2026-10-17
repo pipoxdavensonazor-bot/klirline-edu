@@ -23,6 +23,7 @@ const DEFAULTS = {
   exportsHeure: 20, pdfHeure: 100, fichesHeure: 200,
   recherchesEcoleHeure: 30, recherchesEchecsHeure: 10,
   propositionsHeure: 10, propositionsJour: 30,
+  ministereConsultationsHeure: 150, ministereNominatifHeure: 25, ministereEcolesHeure: 40, ministereMinimum: 30, ministereFacteur: 4,
   sensiblesJour: 10, horsHeuresAttention: 3, heureMatin: 6, heureSoir: 20,
   latenceAttentionMs: 500, latenceCritiqueMs: 2000, disqueAttentionPct: 15, disqueCritiquePct: 5, memoireAttentionPct: 10, memoireCritiquePct: 3,
   baseMaxMo: 2048, sauvegardeMaxHeures: 26, certAttentionJours: 21, certCritiqueJours: 7, rapportAuditMaxJours: 7,
@@ -42,7 +43,8 @@ function maskIp(ip) {
 function maskAccount(a) {
   const s = String(a || '');
   if (!s) return '—';
-  const pre = s.startsWith('admin:') ? 'admin:' : ''; const v = s.slice(pre.length);
+  if (/^min:\d+$/.test(s)) return `ministère n° ${s.slice(4)}`; // compte du ministère (bloc 6)
+  const pre = s.startsWith('admin:') ? 'admin:' : s.startsWith('min:') ? 'min:' : ''; const v = s.slice(pre.length);
   if (/^u:\d+$/.test(v)) return pre + `compte n° ${v.slice(2)}`;
   if (v.includes('@')) { const [l, d] = v.split('@'); return `${pre}${l.slice(0, 2)}***@${d.slice(0, 2)}***`; }
   if (/^\+?\d+$/.test(v)) return pre + v.slice(0, 4) + '****' + v.slice(-2);
@@ -78,6 +80,8 @@ const ACTIONS = {
   'ecole.suspendre': { critical: true, label: { fr: 'Suspendre l’école', ht: 'Sispann lekòl la' } },
   'alerte.traiter': { critical: false, label: { fr: 'Marquer comme traitée', ht: 'Make l trete' } },
   'alerte.faux_positif': { critical: false, label: { fr: 'Marquer comme faux positif', ht: 'Make l fo alèt' } },
+  'ministere.deconnecter': { critical: false, label: { fr: 'Déconnecter le compte du ministère', ht: 'Dekonekte kont ministè a' } },
+  'ministere.desactiver': { critical: true, label: { fr: 'Désactiver le compte du ministère', ht: 'Dezaktive kont ministè a' } },
   annuler: { critical: false, label: { fr: 'Annuler l’action', ht: 'Anile aksyon an' } },
 };
 const act = (type, params) => ({ type, params, critical: ACTIONS[type].critical, label: ACTIONS[type].label });
@@ -113,6 +117,8 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     if (req.method === 'POST' && fail && p === '/api/login') return record({ ...base, kind: b.method === 'code' ? 'otp.fail' : 'login.fail', account: String(b.identifier ?? b.email ?? '').trim().toLowerCase() || null, detail: b.school ? `école ${String(b.school).slice(0, 60)}` : null });
     if (req.method === 'POST' && fail && p === '/api/admin/login') return record({ ...base, kind: 'login.fail', account: `admin:${String(b.email || '').trim().toLowerCase()}` });
     if (req.method === 'POST' && fail && p === '/api/admin/login/code') return record({ ...base, kind: 'otp.fail', account: 'admin:code' });
+    // Portail du ministère (bloc 6) : code faux ou trop de tentatives ; consultations notées par src/ministere.js.
+    if (req.method === 'POST' && fail && p === '/api/ministere/login') return record({ ...base, kind: 'otp.fail', account: `min:${String(b.identifier || '').trim().toLowerCase().slice(0, 100)}` });
     if (req.rls) return record({ ...base, kind: 'rls' });
     if (status >= 400) return record({ ...base, kind: 'http' });
     if (status === 200 && u) {
@@ -153,6 +159,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
   };
   const evLine = (e) => `${haitiTime(Number(e.at_ms), TZ)} · ${e.kind}${e.status ? ` ${e.status}` : ''} · IP ${maskIp(e.ip)}${e.account ? ` · ${maskAccount(e.account)}` : ''}${e.path ? ` · ${e.path.replace(/\d{2,}/g, '…')}` : ''}`;
   const lastEvents = (where, ...p) => db.all(`SELECT at_ms, kind, ip, account, status, path FROM security_event WHERE ${where} ORDER BY at_ms DESC LIMIT 6`, ...p);
+  const ministryActions = (id) => [act('ministere.deconnecter', { ministry_id: id }), act('ministere.desactiver', { ministry_id: id })];
   const accountActions = (target) => [act('compte.deconnecter', target), act('compte.verrouiller', target), act('compte.reinitialiser', target)];
 
   async function ruleBrute() {
@@ -179,7 +186,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
   }
   async function ruleNewDevice() {
     const out = []; const since = now() - 2 * H; const back = S.nouvelAppareilJours * 24 * H;
-    const rows = await db.all(`SELECT id, at_ms, ip, ua_hash, account, role, user_id FROM security_event WHERE kind = 'login.ok' AND role IN ('direction','superadmin') AND at_ms > ? ORDER BY at_ms`, since);
+    const rows = await db.all(`SELECT id, at_ms, ip, ua_hash, account, role, user_id FROM security_event WHERE kind = 'login.ok' AND role IN ('direction','superadmin','ministere') AND at_ms > ? ORDER BY at_ms`, since);
     for (const r of rows) {
       const t = Number(r.at_ms);
       const prev = await db.get(`SELECT COUNT(*) AS n, SUM(CASE WHEN ip = ? THEN 1 ELSE 0 END) AS sip, SUM(CASE WHEN ua_hash = ? THEN 1 ELSE 0 END) AS sua
@@ -188,11 +195,12 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       const newIp = !Number(prev.sip), newUa = !Number(prev.sua);
       if (!newIp && !newUa) continue;
       const quoi = { fr: [newIp && 'une adresse IP', newUa && 'un appareil'].filter(Boolean).join(' et '), ht: [newIp && 'yon adrès IP', newUa && 'yon aparèy'].filter(Boolean).join(' ak ') };
-      const role = r.role === 'superadmin' ? 'super-admin' : 'direction';
+      const role = r.role === 'superadmin' ? 'super-admin' : r.role === 'ministere' ? 'ministère' : 'direction';
       const cible = r.account.startsWith('admin:') ? r.account : maskAccount(r.account);
+      const minId = /^min:\d+$/.test(r.account) ? Number(r.account.slice(4)) : null;
       out.push({ rule: 'nouvel_appareil', key: `${r.account}|${r.ip}|${r.ua_hash}`, severity: r.role === 'superadmin' ? 'attention' : 'info', vars: { cible, role, quoi: quoi.fr }, varsHt: { cible, role, quoi: quoi.ht },
         evidence: [`${haitiTime(t, TZ)} · connexion réussie · IP ${maskIp(r.ip)} · appareil ${r.ua_hash || '?'}${newIp ? ' · IP nouvelle' : ''}${newUa ? ' · appareil nouveau' : ''}`, `${Number(prev.n)} connexion(s) connue(s) sur ${S.nouvelAppareilJours} jours`],
-        actions: r.user_id ? accountActions({ user_id: r.user_id }) : [act('ip.bloquer', { ip: r.ip, minutes: 60 })] });
+        actions: minId ? ministryActions(minId) : r.user_id ? accountActions({ user_id: r.user_id }) : [act('ip.bloquer', { ip: r.ip, minutes: 60 })] });
     }
     return out;
   }
@@ -281,6 +289,28 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
         evidence: [`${h} propositions pour le portail en 1 h, ${n} en 24 h (seuils ${S.propositionsHeure} / ${S.propositionsJour})`,
           ...(await lastEvents("kind = 'proposition' AND school_id = ? AND at_ms > ?", r.school_id, since)).map(evLine)],
         actions: top ? accountActions({ user_id: Number(top.user_id) }) : [] });
+    }
+    return out;
+  }
+  // Bloc 6 : consultation en masse inhabituelle par un compte du ministère (beaucoup de consultations, de fiches
+  // nominatives ou d'écoles différentes en une heure, ou un volume très au-dessus de sa moyenne des 7 derniers jours).
+  async function ruleMinistere() {
+    const out = []; const hour = now() - H; const week = now() - 7 * 24 * H;
+    const rows = await db.all(`SELECT account, COUNT(*) AS n, SUM(CASE WHEN detail LIKE 'nominatif%' THEN 1 ELSE 0 END) AS nom, COUNT(DISTINCT school_id) AS ecoles
+      FROM security_event WHERE kind = 'ministere' AND at_ms > ? AND account IS NOT NULL GROUP BY account`, hour);
+    for (const r of rows) {
+      const n = Number(r.n), nom = Number(r.nom || 0), ecoles = Number(r.ecoles || 0);
+      const past = Number((await db.get("SELECT COUNT(*) AS n FROM security_event WHERE kind = 'ministere' AND account = ? AND at_ms > ? AND at_ms <= ?", r.account, week, hour)).n);
+      const moyenne = past / (7 * 24 - 1);
+      const pic = n >= S.ministereMinimum && past > 0 && n >= S.ministereFacteur * Math.max(moyenne, 1);
+      if (n < S.ministereConsultationsHeure && nom < S.ministereNominatifHeure && ecoles < S.ministereEcolesHeure && !pic) continue;
+      const critique = n >= 3 * S.ministereConsultationsHeure || nom >= 3 * S.ministereNominatifHeure || ecoles >= 3 * S.ministereEcolesHeure;
+      const id = /^min:\d+$/.test(r.account) ? Number(r.account.slice(4)) : null;
+      const vars = { n, nominatif: nom, ecoles, moyenne: moyenne.toFixed(1), cible: maskAccount(r.account), seuil: S.ministereConsultationsHeure, seuilNominatif: S.ministereNominatifHeure, seuilEcoles: S.ministereEcolesHeure };
+      out.push({ rule: 'ministere_consultations', key: r.account, severity: critique ? 'critique' : 'attention', vars, varsHt: { ...vars, cible: id ? `ministè n° ${id}` : vars.cible },
+        evidence: [`${n} consultations en 1 h, dont ${nom} nominatives, sur ${ecoles} école(s) ; moyenne ${moyenne.toFixed(1)} / h sur 7 jours`,
+          ...(await lastEvents("kind = 'ministere' AND account = ? AND at_ms > ?", r.account, hour)).map(evLine)],
+        actions: id ? ministryActions(id) : [] });
     }
     return out;
   }
@@ -442,7 +472,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       await flush();
       const cands = [];
       const health = await ruleHealth(opts);
-      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, rulePropositions, ruleSensitive]) {
+      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, rulePropositions, ruleMinistere, ruleSensitive]) {
         try { cands.push(...await f()); } catch (e) { log(`[assistant] règle ${f.name} en échec : ${e.message}`); }
       }
       cands.push(...health.alerts, ...ruleConfig(), ...ruleDeps());
@@ -487,9 +517,9 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     const g = G[alert.rule] || G.sante;
     const ev = JSON.parse(alert.evidence || '[]');
     const vars = { seuil: '', n: alert.hits };
-    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure, propositions_masse: S.propositionsHeure };
-    Object.assign(vars, { seuilJour: S.propositionsJour, jour: '', echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
-    const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications|vérifications|propositions)/) || [])[1]; if (m) vars.n = m;
+    const nums = { force_brute_ip: S.bruteIpAttention, force_brute_compte: S.bruteCompteAttention, pulverisation: S.pulverisationComptes, inter_ecoles: S.interEcolesRefus, pic_4xx: S.pic4xx, pic_5xx: S.pic5xxAttention, modifs_sensibles: S.sensiblesJour, recherches_eleves: S.recherchesEcoleHeure, ministere_consultations: S.ministereConsultationsHeure, propositions_masse: S.propositionsHeure };
+    Object.assign(vars, { seuilNominatif: S.ministereNominatifHeure, seuilEcoles: S.ministereEcolesHeure, facteur: S.ministereFacteur, seuilJour: S.propositionsJour, jour: '', echecs: S.recherchesEchecsHeure, miss: '', comptes: '', seuil: nums[alert.rule] ?? '', seuils: `exports ${S.exportsHeure}, PDF ${S.pdfHeure}, fiches ${S.fichesHeure}`, soir: S.heureSoir, matin: S.heureMatin });
+    const m = (alert.explain_fr.match(/(\d+) (échecs|réponses|erreurs|refus|modifications|vérifications|propositions|consultations)/) || [])[1]; if (m) vars.n = m;
     const cm = alert.explain_fr.match(/essayé (\d+) comptes/); if (cm) vars.comptes = cm[1];
     if (q === 'libre' && llm && libre) {
       try { return { source: llm.name, reponse: await llm.ask({ question: libre, alerte: llm.redact(alert) }) }; }

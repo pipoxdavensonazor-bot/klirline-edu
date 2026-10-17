@@ -64,6 +64,11 @@ le consentement). Le parent rattaché est prévenu par SMS ou e-mail du transfer
   l'autorisation se donne depuis la session super-admin (`GET /api/admin/transferts`,
   `POST /api/admin/transferts/:id/ministere` `{ decision: approuver|refuser, motif }`, journal de la plateforme), en
   attendant un vrai rôle ministère. Le choix est figé dans chaque transfert au moment de l'approbation.
+  Bloc 6 : avec `NORIA_MINISTERE=1` (portail du ministère, prototype), l'étape passe par un compte du ministère
+  (`GET /api/ministere/transferts`, `POST /api/ministere/transferts/:id`) ; la décision est signée par la clé Ed25519
+  du ministère (`ministry_signature`, `ministry_key_id`, message
+  `NORIA-TRANSFERT-MINISTERE|v1|id|payload_sha256|decision|compte|date`), vérifiée sur la page publique et imprimée
+  sur le certificat. Les routes super-admin répondent alors 409. Voir `docs/ministere.md`.
 
 ## 4. Cloisonnement
 

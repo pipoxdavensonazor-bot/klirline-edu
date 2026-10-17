@@ -19,8 +19,10 @@ const str = (v, max, label) => {
 const int = (v) => { const x = Number(v); if (!Number.isInteger(x) || x <= 0) throw new HttpError(400, 'identifiant invalide'); return x; };
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 
+const DEPARTMENTS = ['artibonite', 'centre', 'grand-anse', 'nippes', 'nord', 'nord-est', 'nord-ouest', 'ouest', 'sud', 'sud-est'];
 function publicProfile(s) {
   return { id: s.id, slug: s.slug, name: s.name, initials: s.initials, address: s.address, email: s.email, phone: s.phone, motto: s.motto,
+    department: s.department || null, commune: s.commune || null,
     logo: s.logo ? `/api/ecoles/${encodeURIComponent(s.slug)}/logo?v=${encodeURIComponent(s.logo_updated_at || '1')}` : null };
 }
 
@@ -230,6 +232,13 @@ function createRoutes({ normalizePhone, outbox, linkBase, reqLang, newToken, INV
       let phone = str(b.phone, 40, 'téléphone');
       if (phone) { phone = normalizePhone(phone); if (!phone) throw new HttpError(400, 'téléphone invalide'); }
       const fields = { name, initials, address: str(b.address, 240, 'adresse'), email: email && email.toLowerCase(), phone, motto: str(b.motto, 160, 'devise') };
+      // Bloc 6 : localisation (filtres du portail du ministère), facultative.
+      if (b.department !== undefined) {
+        const d = String(b.department || '');
+        if (d && !DEPARTMENTS.includes(d)) throw new HttpError(400, 'département inconnu');
+        fields.department = d || null;
+      }
+      if (b.commune !== undefined) fields.commune = str(b.commune, 80, 'commune');
       const changed = Object.keys(fields);
       const sets = changed.map((k) => `${k} = ?`); const vals = changed.map((k) => fields[k]);
       if (b.logo === null || b.logo === '') { sets.push('logo = NULL', 'logo_updated_at = NULL'); changed.push('logo (retiré)'); }

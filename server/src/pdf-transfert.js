@@ -58,7 +58,7 @@ function certificatePdf(c) {
     ['Demande / Demann', `${day(c.requestedAt)} par ${c.to.name}`],
     ['Consentement du parent / Konsantman', `${consent}, le ${day(c.consent.at)}`],
     ['Approbation origine / Apwobasyon', `${day(c.originAt)} par ${cut(c.originName || 'la direction', 30)} (Ed25519)`],
-    ['Ministère / Ministè', c.ministry ? `Approuvé le ${day(c.ministry.at)}` : 'Étape non requise (désactivée)'],
+    ['Ministère / Ministè', c.ministry ? `Approuvé le ${day(c.ministry.at)}${c.ministry.keyId ? ` (Ed25519, clé ${c.ministry.keyId})` : ''}` : 'Étape non requise (désactivée)'],
     ['Transfert / Transfè', `${day(c.transferredAt)} : élève marqué « transféré » à l'origine`],
   ], y);
   y -= 6; p.rect(L, y - 4, R - L, 16, 0.9); p.text(L + 6, y, 'Dossier transmis / Dosye ki transmèt', { size: 9, bold: true }); y -= 18;

@@ -136,4 +136,83 @@ async function seedPortal(db, ids) {
   });
 }
 
-module.exports = { seed, seedMulti, seedPortal, DEMO_PASSWORD };
+// Portail du ministère (bloc 6, NORIA_DEMO=1 et NORIA_MINISTERE=1) : localisation des écoles, effectifs plus fournis
+// (sexe, décisions de fin d'année), cinq écoles fictives de plus dans d'autres départements, déclarations déjà
+// envoyées par certaines, et un compte du ministère fictif. Tout est inventé.
+const FIRST = { F: ['Ana', 'Bèl', 'Carline', 'Dieula', 'Esther', 'Fabiola', 'Guerline', 'Islande', 'Judith', 'Kettia', 'Lovely', 'Mirlande', 'Nadège', 'Olivia', 'Rose'],
+  M: ['Alix', 'Berto', 'Claude', 'Davidson', 'Emmanuel', 'Frantz', 'Guerby', 'Herby', 'Jameson', 'Kervens', 'Lesly', 'Mackenson', 'Ricardo', 'Stevenson', 'Wilner'] };
+const LAST = ['Fictif', 'Exemple', 'Modèle', 'Démo', 'Imaginaire', 'Inventé', 'Essai', 'Maquette'];
+async function seedMinistere(db, ids) {
+  const year = '2026-2027';
+  const { sendDeclaration } = require('./ministere');
+  const out = { schools: [] };
+  // Générateur déterministe (mêmes données à chaque démarrage).
+  let seedN = 7; const rnd = () => { seedN = (seedN * 1103515245 + 12345) % 2147483648; return seedN / 2147483648; };
+  const decisionOf = (p) => (rnd() < p ? 'admis' : rnd() < 0.7 ? 'redouble' : 'echec');
+  await db.tx(async (t) => {
+    await t.run('UPDATE school SET department = ?, commune = ? WHERE id = ?', 'ouest', 'Port-au-Prince', ids.A.school);
+    await t.run('UPDATE school SET department = ?, commune = ? WHERE id = ?', 'nord', 'Cap-Haïtien', ids.B.school);
+    await t.run("UPDATE student SET sex = 'F' WHERE school_id IN (?,?) AND sex IS NULL", ids.A.school, ids.B.school);
+    const fill = async (sid, prefix, classes, yearId, director, n, p) => {
+      let k = 0;
+      for (const cls of classes) {
+        for (let i = 0; i < n + Math.floor(rnd() * 6); i++) {
+          const sex = rnd() < 0.52 ? 'F' : 'M'; k++;
+          const code = `${prefix}-${String(100 + k).padStart(3, '0')}`;
+          const stid = await t.insert('INSERT INTO student (school_id, code, first_name, last_name, birth_date, sex) VALUES (?,?,?,?,?,?)', sid, code,
+            FIRST[sex][Math.floor(rnd() * FIRST[sex].length)], `${LAST[Math.floor(rnd() * LAST.length)]}`, `20${10 + Math.floor(rnd() * 5)}-0${1 + Math.floor(rnd() * 9)}-1${Math.floor(rnd() * 9)}`, sex);
+          await t.run('INSERT INTO student_code (code, school_id) VALUES (?,?)', code, sid);
+          await t.insert('INSERT INTO enrollment (school_id, student_id, class_id, reason) VALUES (?,?,?,?)', sid, stid, cls, 'Inscription de démonstration');
+          if (rnd() < 0.93) await t.insert('INSERT INTO year_decision (school_id, student_id, school_year_id, decision, decided_by) VALUES (?,?,?,?,?)', sid, stid, yearId, decisionOf(p), director);
+        }
+      }
+    };
+    for (const key of ['A', 'B']) {
+      const sid = ids[key].school;
+      const y = await t.get('SELECT id FROM school_year WHERE school_id = ? AND is_current = 1', sid);
+      await fill(sid, `${key}M`, ids[key].classes, y.id, ids[key].users.direction, key === 'A' ? 16 : 12, key === 'A' ? 0.82 : 0.71);
+    }
+    const EXTRA = [
+      ['lycee-fictif-jacmel', 'Lycée fictif de Jacmel', 'LFJ', 'sud-est', 'Jacmel', 'JAC', ['9e A', '9e B', 'NS1'], 18, 0.76],
+      ['college-fictif-gonaives', 'Collège fictif des Gonaïves', 'CFG', 'artibonite', 'Gonaïves', 'GON', ['7e A', '8e A', '9e A'], 20, 0.68],
+      ['ecole-fictive-hinche', 'École nationale fictive de Hinche', 'ENH', 'centre', 'Hinche', 'HIN', ['1re AF', '2e AF', '3e AF', '4e AF'], 22, 0.88],
+      ['institution-fictive-cayes', 'Institution fictive des Cayes', 'IFC', 'sud', 'Les Cayes', 'CAY', ['7e A', '7e B'], 17, 0.79],
+      ['ecole-fictive-petionville', 'École fictive de Pétion-Ville', 'EPV', 'ouest', 'Pétion-Ville', 'PEV', ['5e AF', '6e AF'], 21, 0.9],
+    ];
+    const pw = null;
+    for (const [slug, name, ini, dep, com, prefix, classNames, n, p] of EXTRA) {
+      const sid = await t.insert('INSERT INTO school (slug, name, initials, address, email, phone, department, commune) VALUES (?,?,?,?,?,?,?,?)', slug, name, ini,
+        `Rue fictive, ${com} (adresse fictive)`, `contact@${slug}.exemple.invalid`, null, dep, com);
+      const campus = await t.insert('INSERT INTO campus (school_id, name) VALUES (?,?)', sid, 'Campus principal (fictif)');
+      const y = await t.insert('INSERT INTO school_year (school_id, label, is_current) VALUES (?,?,1)', sid, year);
+      const lv = await t.insert('INSERT INTO level (school_id, name) VALUES (?,?)', sid, 'Fondamental');
+      const cls = [];
+      for (const c of classNames) cls.push(await t.insert('INSERT INTO class (school_id, name, school_year_id, level_id, campus_id) VALUES (?,?,?,?,?)', sid, c, y, lv, campus));
+      const staff = [['direction', `Direction fictive ${ini}`, 'direction'], ['secretariat', `Secrétariat fictif ${ini}`, 'secretariat']];
+      for (let i = 1; i <= classNames.length + 1; i++) staff.push([`prof${i}`, `Enseignant fictif ${i} ${ini}`, 'enseignant']);
+      let dir = null;
+      for (const [h, dn, role] of staff) {
+        const uid = await t.insert('INSERT INTO app_user (school_id, email, display_name, password_hash) VALUES (?,?,?,?)', sid, `${h}@${slug}.exemple.invalid`, dn, pw);
+        await t.run('INSERT INTO user_role (school_id, user_id, role) VALUES (?,?,?)', sid, uid, role);
+        if (role === 'direction') dir = { id: uid, school_id: sid, display_name: dn };
+      }
+      await fill(sid, prefix, cls, y, dir.id, n, p);
+      out.schools.push({ sid, dir, year: { id: y, label: year } });
+    }
+    await t.insert("INSERT INTO ministry_account (email, phone, display_name, title, created_by_admin) VALUES (?,?,?,?,0)",
+      'inspection@ministere.exemple.invalid', '+50900000900', 'Inspection fictive (MENFP)', 'Direction départementale (fictive)');
+  });
+  // Déclarations déjà envoyées par trois des écoles ajoutées (signées comme une vraie), l'une déjà reçue.
+  for (const [i, x] of out.schools.entries()) {
+    if (i > 2) break;
+    const r = await db.tx((t) => sendDeclaration(t, db, x.dir, x.year));
+    if (i === 0) await db.tx(async (t) => {
+      const acc = await t.get("SELECT id FROM ministry_account WHERE email = 'inspection@ministere.exemple.invalid'");
+      await t.run("UPDATE annual_declaration SET status = 'recue', ministry_by = ?, ministry_at = ?, ministry_note = ? WHERE id = ?", acc.id, new Date().toISOString(), 'Dossier complet, merci.', r.id);
+      await t.run("INSERT INTO declaration_event (declaration_id, school_id, kind, actor, ministry_account_id, note) VALUES (?,?,?,?,?,?)", r.id, x.sid, 'accuse', 'ministere', acc.id, 'Dossier complet, merci.');
+    });
+  }
+  return out;
+}
+
+module.exports = { seed, seedMulti, seedPortal, seedMinistere, DEMO_PASSWORD };

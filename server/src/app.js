@@ -16,6 +16,7 @@ const ecoles = require('./ecoles');
 const plateforme = require('./plateforme');
 const { createSecurity } = require('./securite');
 const { createPortal } = require('./portail-pages');
+const ministere = require('./ministere');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -130,6 +131,8 @@ const routes = [
     // session : évite au navigateur un appel /api/me en 401 quand personne n'est connecté
     demo: ctx.demo, session: Boolean(u), methods: ['password', 'code6'], code: { digits: otp.DIGITS, minutes: otp.TTL_MIN, resendSeconds: otp.RESEND_SECONDS },
     ecoles: ctx.demo ? await db.all('SELECT slug, name FROM school ORDER BY id') : undefined,
+    // Bloc 6 : présent seulement quand le portail du ministère est activé (NORIA_MINISTERE=1).
+    ministere: ministere.enabled(ctx) || undefined,
   }), { public: true, optionalUser: true }],
   ['POST', /^\/api\/login$/, async (db, req, _u, _m, ctx) => {
     const { school, password, method = 'password' } = req.body || {};
@@ -477,6 +480,8 @@ routes.push(...trf.routes, ...trf.publicRoutes);
 // Bloc 5 : propositions des directions pour le portail public (événements, articles, lauréats) et école partenaire.
 const portail = require('./portail');
 routes.push(...portail.schoolRoutes());
+// Bloc 6 : déclaration annuelle au ministère (direction). Routes 404 tant que NORIA_MINISTERE ne vaut pas 1.
+routes.push(...ministere.schoolRoutes());
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STATUSES = ['present', 'absent', 'retard', 'excuse'];
@@ -636,6 +641,8 @@ function createServer(db, options = {}) {
     school: createLimiter({ db, max: 40, windowMs: 15 * 60 * 1000 }),
   };
   // Portail public : propositions d'une école limitées par heure (la règle « propositions_masse » de l'assistant alerte avant).
+  // Bloc 6 : vérifications de documents par un compte du ministère (codes inconnus limités par compte).
+  ctx.ministryVerifyLimit = options.ministryVerifyLimit || createLimiter({ db, max: 30, windowMs: 15 * 60 * 1000 });
   ctx.portalLimit = options.portalLimit || createLimiter({ db, max: portail.PROPOSALS_PER_HOUR, windowMs: 3600e3 });
   // Assistant sécurité : observe les connexions, refus et erreurs ; n'agit jamais seul (voir src/securite.js).
   ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl }));
@@ -670,6 +677,11 @@ function createServer(db, options = {}) {
       const url = new URL(req.url, 'http://localhost');
       req.query = url.searchParams;
       if (url.pathname.startsWith('/api/')) urlSeen = url;
+      // Bloc 6 (prototype) : portail du ministère désactivé par défaut → ses pages, scripts et routes n'existent pas.
+      if (!ministere.enabled(ctx) && ministere.GATED.test(url.pathname)) {
+        if (!url.pathname.startsWith('/api/') && portal && /text\/html/.test(req.headers.accept || '')) return portal.notFound(req, res, url, SECURITY_HEADERS);
+        throw new HttpError(404, 'introuvable');
+      }
       // Sonde de santé (Docker, Caddy, hébergeur) : la base répond-elle ? Aucune donnée, aucun journal.
       if (url.pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
         let ok = true;
@@ -702,6 +714,8 @@ function createServer(db, options = {}) {
       if (ctx.sec && url.pathname.startsWith('/api/') && await ctx.sec.isBlocked(req.ip)) { req.secSkip = true; throw new HttpError(403, 'adresse temporairement bloquée'); }
       // Administration de la plateforme : routes et session séparées (cookie noria_admin), hors école.
       if (url.pathname.startsWith('/api/admin/')) return send(200, await plateforme.dispatch(db, req, url, ctx, parseCookies));
+      // Portail du ministère (bloc 6) : session séparée (cookie noria_ministere), rôle noria_ministere en PostgreSQL.
+      if (url.pathname.startsWith('/api/ministere/')) return send(200, await ministere.dispatch(db, req, url, ctx, parseCookies));
       for (const [method, re, handler, opts = {}] of routes) {
         const m = url.pathname.match(re);
         if (!m || method !== req.method) continue;

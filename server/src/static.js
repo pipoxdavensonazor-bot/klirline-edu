@@ -33,6 +33,8 @@ function createStatic(root) {
     let p;
     try { p = decodeURIComponent(pathname); } catch { return null; }
     if (p === '/app' || p === '/index.html') return path.join(rootAbs, 'index.html');
+    // Bloc 6 : portail du ministère (page séparée, légère ; 404 en amont tant que NORIA_MINISTERE ne vaut pas 1).
+    if (p === '/ministere' || p === '/ministere/') return path.join(rootAbs, 'ministere.html');
     if (ROOT_FILES.has(p)) return path.join(rootAbs, p.slice(1));
     if (!p.startsWith('/src/') || p.includes('\0')) return null;
     const abs = path.resolve(rootAbs, '.' + p);

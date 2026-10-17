@@ -8,7 +8,7 @@ const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==
 const T={
   fr:{title:"Administration de la plateforme",login:"Connexion administrateur",email:"E-mail",pw:"Mot de passe",next:"Continuer",code:"Code à 6 chiffres",codeSent:"Un code vient d'être envoyé (SMS ou e-mail). Valable 10 minutes.",verify:"Valider",
     bad:"Identifiants invalides.",badCode:"Code invalide ou expiré.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable.",logout:"Se déconnecter",back:"Retour à NORIA",
-    tabs:{ecoles:"Écoles",comptes:"Comptes",journal:"Journal global",etat:"État du serveur",echecs:"Connexions échouées",assistant:"Assistant sécurité",portail:"Portail public"},
+    tabs:{ecoles:"Écoles",comptes:"Comptes",journal:"Journal global",etat:"État du serveur",echecs:"Connexions échouées",assistant:"Assistant sécurité",portail:"Portail public",ministere:"Ministère"},
     readOnly:"Lecture seule par défaut : chaque consultation est journalisée. Les modifications (écoles, actions de l'assistant sécurité) exigent un motif ou une confirmation explicite.",
     slug:"Identifiant (ex. college-saint-pierre)",name:"Nom",initials:"Initiales (facultatif)",reason:"Motif (obligatoire)",create:"Créer l'école",suspend:"Suspendre",reactivate:"Réactiver",
     active:"Active",suspended:"Suspendue",students:"élèves",accounts:"comptes",search:"Rechercher (nom ou e-mail)",noPw:"sans mot de passe",
@@ -17,7 +17,7 @@ const T={
     done:"Enregistré.",err:"Refusé : "},
   ht:{title:"Administrasyon platfòm nan",login:"Koneksyon administratè",email:"Imèl",pw:"Modpas",next:"Kontinye",code:"Kòd 6 chif",codeSent:"Yon kòd fèk pati (SMS oswa imèl). Li bon pou 10 minit.",verify:"Valide",
     bad:"Idantifyan yo pa bon.",badCode:"Kòd la pa bon oswa li ekspire.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn.",logout:"Dekonekte",back:"Retounen nan NORIA",
-    tabs:{ecoles:"Lekòl yo",comptes:"Kont yo",journal:"Jounal jeneral",etat:"Eta sèvè a",echecs:"Koneksyon ki echwe",assistant:"Asistan sekirite",portail:"Pòtay piblik"},
+    tabs:{ecoles:"Lekòl yo",comptes:"Kont yo",journal:"Jounal jeneral",etat:"Eta sèvè a",echecs:"Koneksyon ki echwe",assistant:"Asistan sekirite",portail:"Pòtay piblik",ministere:"Ministè"},
     readOnly:"Pa defo se lekti sèlman : chak konsiltasyon anrejistre nan jounal la. Chanjman yo (lekòl, aksyon asistan sekirite a) mande yon rezon oswa yon konfimasyon klè.",
     slug:"Idantifyan (egz. college-saint-pierre)",name:"Non",initials:"Inisyal (si ou vle)",reason:"Rezon (obligatwa)",create:"Kreye lekòl la",suspend:"Sispann",reactivate:"Reaktive",
     active:"Aktif",suspended:"Sispann",students:"elèv",accounts:"kont",search:"Chèche (non oswa imèl)",noPw:"san modpas",
@@ -75,6 +75,11 @@ async function panel(){
       try{ await NORIA_ECO.load("src/admin-securite.js"); if(document.getElementById("admAssistant")===el) window.NORIA_SEC.render(el); }
       catch(e){ el.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; } },0);
     return `<div id="admAssistant"><p class="mut">…</p></div>`; }
+  if(TAB==="ministere"){ // Bloc 6 : comptes du ministère (prototype), module séparé chargé à la demande.
+    setTimeout(async()=>{ const el=document.getElementById("admMin"); if(!el) return;
+      try{ await NORIA_ECO.load("src/admin-ministere.js"); if(document.getElementById("admMin")===el) window.NORIA_ADM_MIN.render(el); }
+      catch(e){ el.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; } },0);
+    return `<div id="admMin"><p class="mut">…</p></div>`; }
   if(TAB==="portail"){ // Bloc 5 : modération du portail public, module séparé chargé à la demande.
     setTimeout(async()=>{ const el=document.getElementById("admPortail"); if(!el) return;
       try{ await NORIA_ECO.load("src/admin-portail.js"); if(document.getElementById("admPortail")===el) window.NORIA_PORT_ADM.render(el); }
@@ -114,7 +119,7 @@ async function dash(){
   const tabs=t("tabs");
   root().innerHTML=`<div id="admDash" class="adm-dash"><header class="adm-top"><img class="brand-mark" src="src/noria-logo.png" alt="NORIA" width="107" height="40"><h1>${esc(t("title"))}</h1><span class="adm-who small">${esc(me.body.name)}</span>
     <span class="row"><button type="button" class="ghost" data-action="NORIA_ADM.lang" data-a0="s:${lang()==="ht"?"fr":"ht"}">${lang()==="ht"?"FR":"HT"}</button><button type="button" class="ghost" data-action="NORIA_ADM.logout">${esc(t("logout"))}</button></span></header>
-    <nav class="adm-tabs" aria-label="${esc(t("title"))}">${Object.keys(tabs).map(k=>`<button type="button" class="${TAB===k?"on":""}" aria-pressed="${TAB===k}" data-action="NORIA_ADM.tab" data-a0="s:${k}">${esc(tabs[k])}</button>`).join("")}</nav>
+    <nav class="adm-tabs" aria-label="${esc(t("title"))}">${Object.keys(tabs).filter(k=>k!=="ministere"||document.documentElement.dataset.ministere==="1").map(k=>`<button type="button" class="${TAB===k?"on":""}" aria-pressed="${TAB===k}" data-action="NORIA_ADM.tab" data-a0="s:${k}">${esc(tabs[k])}</button>`).join("")}</nav>
     <p class="small mut">${esc(t("readOnly"))}</p><section id="admPanel" aria-live="polite"><p class="mut">…</p></section></div>`;
   const h=await panel(); const el=document.getElementById("admPanel"); if(h!=null&&el) el.innerHTML=h;
 }
