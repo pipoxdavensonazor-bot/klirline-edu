@@ -54,7 +54,7 @@ const t=k=>T[lang()][k];
 let EL=null, C={}, TAB="verifier", LAST=null, CLASSES=null, ITEMS=[];
 const roles=()=>(C.me&&C.me.roles)||[];
 const has=(...r)=>r.some(x=>roles().includes(x));
-(function css(){ if(document.getElementById("trfCss")) return; const l=document.createElement("link"); l.id="trfCss"; l.rel="stylesheet"; l.href="src/transferts.css"; document.head.appendChild(l); })();
+(function css(){ if(document.getElementById("trfCss")) return; const l=document.createElement("link"); l.id="trfCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/transferts.css"); document.head.appendChild(l); })();
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});
   let b=null; try{ b=await r.clone().json(); }catch(e){} return {status:r.status,body:b,res:r};

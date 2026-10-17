@@ -14,7 +14,7 @@ FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3100 NODE_OPTIONS=--enable-source-maps
 WORKDIR /app
 # Fichiers appartenant à root, lisibles par tous : l'utilisateur « node » ne peut pas modifier le code.
-COPY index.html sw.js manifest.webmanifest ./
+COPY index.html ministere.html sw.js manifest.webmanifest ./
 COPY src ./src
 COPY server/package.json ./server/
 COPY server/src ./server/src

@@ -1,0 +1,7 @@
+# NORIA_DERRIERE_CLOUDFLARE=1 : Caddy est derrière le proxy Cloudflare (nuage orange).
+# L'adresse réelle du visiteur est lue dans CF-Connecting-IP, mais SEULEMENT si la connexion vient d'une plage
+# Cloudflare (plages.caddy, mis à jour par maj-plages.sh). Venant d'ailleurs, l'en-tête est ignoré (il serait falsifiable).
+servers {
+	import plages.caddy
+	client_ip_headers CF-Connecting-IP
+}

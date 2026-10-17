@@ -1,0 +1,4 @@
+# Secrets de production : jamais dans Git.
+.env
+deploy/certs/*
+!deploy/certs/LISEZMOI.md

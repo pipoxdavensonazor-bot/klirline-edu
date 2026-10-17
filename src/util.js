@@ -25,5 +25,9 @@ function run(el,name,ev){ const a=[]; for(let i=0;el.hasAttribute("data-a"+i);i+
   document.addEventListener(type,ev=>{ for(let el=ev.target.closest?ev.target:ev.target.parentElement;el;el=el.parentElement){ const name=el.getAttribute(attr); if(!name) continue;
     if(type==="submit") ev.preventDefault();
     run(el,name,ev); if(!el.isConnected) break; } },true); });
-window.NORIA_U = Object.freeze({ esc, safeUrl, csvCell, toCSV });
+// Version des fichiers (posée par le serveur) : ajoutée aux chargements à la demande pour ne jamais servir
+// une ancienne version depuis un cache (navigateur, Cloudflare). Sans serveur (démonstration), URL inchangée.
+const VER=(document.querySelector('meta[name="noria-version"]')||{}).content||"";
+function v(u){ return VER&&!/[?#]/.test(u)?u+"?v="+encodeURIComponent(VER):u; }
+window.NORIA_U = Object.freeze({ esc, safeUrl, csvCell, toCSV, v });
 })();

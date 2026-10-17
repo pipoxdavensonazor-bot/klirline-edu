@@ -59,7 +59,7 @@ const hDate=(s,time)=>{ const d=new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(s||"
   const o={}; new Intl.DateTimeFormat("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:"America/Port-au-Prince"}).formatToParts(d).forEach(x=>{o[x.type]=x.value;});
   return `${o.year}-${o.month}-${o.day}`+(time?` ${o.hour}:${o.minute}`:""); };
 const today=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Port-au-Prince"});
-(function css(){ if(document.getElementById("portCss")) return; const l=document.createElement("link"); l.id="portCss"; l.rel="stylesheet"; l.href="src/portail-gestion.css"; document.head.appendChild(l); })();
+(function css(){ if(document.getElementById("portCss")) return; const l=document.createElement("link"); l.id="portCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/portail-gestion.css"); document.head.appendChild(l); })();
 
 async function render(el){
   EL=el||EL;

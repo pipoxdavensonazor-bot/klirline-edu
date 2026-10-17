@@ -1,0 +1,4 @@
+# NORIA_DERRIERE_CLOUDFLARE=1 : certificat d'origine Cloudflare (Origin CA, mode SSL « Full (strict) »).
+# Ce certificat n'est reconnu que par Cloudflare : ne pas désactiver le proxy (nuage orange) sans repasser au mode 0.
+# Chemins dans le conteneur Caddy ; par défaut, le dossier de l'hôte NORIA_CF_CERTS_HOTE (deploy/certs) monté en lecture seule.
+tls {$NORIA_CF_ORIGIN_CERT:/etc/caddy/certs/origine.pem} {$NORIA_CF_ORIGIN_KEY:/etc/caddy/certs/origine.key}

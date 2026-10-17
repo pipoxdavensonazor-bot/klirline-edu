@@ -31,6 +31,13 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
+      # Binaire Caddy de l'image de production (caddy:2-alpine, statique) : test du mode Cloudflare (adresse réelle).
+      - name: Caddy (image caddy:2-alpine)
+        run: |
+          docker create --name caddy-bin caddy:2-alpine >/dev/null
+          docker cp caddy-bin:/usr/bin/caddy "$RUNNER_TEMP/caddy" && docker rm caddy-bin >/dev/null
+          "$RUNNER_TEMP/caddy" version
+          echo "NORIA_TEST_CADDY=$RUNNER_TEMP/caddy" >> "$GITHUB_ENV"
       - name: Tests (SQLite)
         run: npm test
       - name: Tests (PostgreSQL 16)
@@ -88,13 +95,28 @@ jobs:
           S3_ACCESS_KEY_ID: ci-fictif
           S3_SECRET_ACCESS_KEY: ci-fictif-secret
       - name: ShellCheck
-        run: shellcheck -x -S warning deploy/sauvegarde/*.sh
+        run: shellcheck -x -S warning deploy/sauvegarde/*.sh deploy/cloudflare/*.sh
 
   image:
     # Image Docker + pile complète (app, PostgreSQL, Caddy) : HTTPS, en-têtes, sauvegarde via le conteneur, arrêt propre.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Configuration Caddy valide (mode direct et mode Cloudflare)
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/certs"
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 1 -subj /CN=noriaedu.com \
+            -keyout "$RUNNER_TEMP/certs/origine.key" -out "$RUNNER_TEMP/certs/origine.pem" 2>/dev/null
+          for m in 0 1; do
+            docker run --rm -e NORIA_DOMAIN=noriaedu.com -e NORIA_DERRIERE_CLOUDFLARE=$m \
+              -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/deploy/cloudflare:/etc/caddy/cloudflare:ro" \
+              -v "$RUNNER_TEMP/certs:/etc/caddy/certs:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          done
+          # Valeur invalide : refus explicite (fichier de mode introuvable).
+          ! docker run --rm -e NORIA_DOMAIN=noriaedu.com -e NORIA_DERRIERE_CLOUDFLARE=oui \
+              -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/deploy/cloudflare:/etc/caddy/cloudflare:ro" \
+              caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Construction et démarrage
         run: |
           printf 'NORIA_DOMAIN=localhost\nPOSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env
@@ -111,6 +133,9 @@ jobs:
           curl -s -o /dev/null -w '%{http_code}' http://localhost/ | grep -q 308
           curl -skI https://localhost/manifest.webmanifest | grep -qi 'cache-control: public, max-age=86400'
           curl -skI https://localhost/sw.js | grep -qi 'cache-control: no-cache'
+          v="$(curl -sk https://localhost/app | grep -o 'name="noria-version" content="[0-9a-f]*"' | cut -d'"' -f4)"; test -n "$v"
+          curl -skI "https://localhost/src/app.js?v=$v" | grep -qi 'cache-control: public, max-age=31536000, immutable'
+          curl -skI https://localhost/src/app.js | grep -qi 'cache-control: public, max-age=86400'
           curl -skI -H 'accept-encoding: gzip' https://localhost/ | grep -qi 'content-encoding: gzip'
           curl -sk -o /dev/null -w '%{http_code}' https://localhost/app | grep -q 200
           curl -sk https://localhost/robots.txt | grep -q 'Disallow: /app'
@@ -125,6 +150,23 @@ jobs:
           a="$(docker compose exec -T db psql -U noria -d noria -tAc 'SELECT version FROM schema_migrations ORDER BY 1')"
           b="$(docker compose exec -T db psql -U noria -d noria_restau -tAc 'SELECT version FROM schema_migrations ORDER BY 1')"
           test -n "$a" && test "$a" = "$b"
+      - name: Pare-feu Cloudflare (ufw + DOCKER-USER) sur la machine de CI
+        run: |
+          set -e
+          sudo deploy/cloudflare/pare-feu.sh --essai >/dev/null
+          sudo deploy/cloudflare/pare-feu.sh
+          sudo ufw status | grep -q 'noria-cloudflare'
+          sudo ufw status | grep -Eq '^22/tcp +LIMIT'
+          sudo iptables -S DOCKER-USER | grep -q -- '--ctorigdstport 443 .*-j DROP'
+          sudo iptables -S DOCKER-USER | grep -q -- '-s 173.245.48.0/20 .*--ctorigdstport 443 .*-j RETURN'
+          # Idempotent : relancé, aucune règle en double.
+          n1="$(sudo ufw status | grep -c noria-cloudflare)"; sudo deploy/cloudflare/pare-feu.sh >/dev/null
+          test "$(sudo ufw status | grep -c noria-cloudflare)" = "$n1"
+          test "$(sudo grep -c '^# BEGIN NORIA-CLOUDFLARE' /etc/ufw/after.rules)" = 1
+          # Le trafic local (sonde, contrôles) et les conteneurs continuent de fonctionner.
+          curl -sk -o /dev/null -w '%{http_code}' https://localhost/app | grep -q 200
+          docker compose exec -T app node -e "fetch('http://127.0.0.1:3100/healthz').then(r=>process.exit(r.ok?0:1))"
+          sudo ufw --force disable
       - name: Arrêt propre
         run: |
           docker compose stop app

@@ -1,5 +1,6 @@
 # NORIA en production : application + PostgreSQL 16 + Caddy (HTTPS automatique Let's Encrypt).
-# Prérequis : fichier .env (copier .env.example), DNS du domaine pointant vers le serveur, ports 80 et 443 ouverts.
+# Prérequis : fichier .env (copier .env.example), DNS du domaine pointant vers le serveur, ports 80 et 443 ouverts
+# (derrière Cloudflare : aux seules plages Cloudflare, deploy/cloudflare/pare-feu.sh).
 #   docker compose up -d --build
 # Seul Caddy est exposé ; l'application et la base restent sur le réseau interne.
 name: noria
@@ -59,12 +60,19 @@ services:
     restart: unless-stopped
     environment:
       NORIA_DOMAIN: ${NORIA_DOMAIN}
+      # 1 = derrière le proxy Cloudflare (adresse réelle par CF-Connecting-IP, certificat d'origine Cloudflare).
+      # 0 (défaut) = Caddy reçoit les clients directement, certificat Let's Encrypt. Voir DEPLOIEMENT.md, section 9.
+      NORIA_DERRIERE_CLOUDFLARE: ${NORIA_DERRIERE_CLOUDFLARE:-0}
+      NORIA_CF_ORIGIN_CERT: ${NORIA_CF_ORIGIN_CERT:-/etc/caddy/certs/origine.pem}
+      NORIA_CF_ORIGIN_KEY: ${NORIA_CF_ORIGIN_KEY:-/etc/caddy/certs/origine.key}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"   # HTTP/3
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/cloudflare:/etc/caddy/cloudflare:ro   # modes, plages IP Cloudflare (maj-plages.sh)
+      - ${NORIA_CF_CERTS_HOTE:-./deploy/certs}:/etc/caddy/certs:ro   # certificat d'origine Cloudflare (mode 1)
       - caddy_data:/data       # certificats : à conserver (limites de Let's Encrypt)
       - caddy_config:/config
     depends_on:

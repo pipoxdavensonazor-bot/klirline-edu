@@ -78,7 +78,7 @@ function toast(m){ const c=document.getElementById("toasts"); if(!c) return; con
 // Chargement à la demande (même origine, conforme à la CSP script-src 'self').
 const loaded={};
 function load(src){
-  if(!loaded[src]) loaded[src]=new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=()=>{ delete loaded[src]; ko(new Error(src)); }; document.head.appendChild(s); });
+  if(!loaded[src]) loaded[src]=new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src=NORIA_U.v(src); s.onload=ok; s.onerror=()=>{ delete loaded[src]; ko(new Error(src)); }; document.head.appendChild(s); });
   return loaded[src];
 }
 // Vues « Profil de l'école » et « Import des élèves ».

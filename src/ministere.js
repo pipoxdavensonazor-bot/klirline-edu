@@ -287,7 +287,7 @@ async function check(val){
   const rows=[["Type",d.document||d.type],["École",d.ecole],["Élève",d.eleve],["Période",d.periode||d.annee],["Émis le",d.emis_le],["Statut",d.statut],["Motif",d.motif],["Signature",d.signature?`${d.signature.algo} · ${d.signature.cle} · ${d.signature.valide?"✓":"✗"}`:null],["Ministère",d.ministere?`${d.ministere.algo} · ${d.ministere.cle} · ${d.ministere.valide?"✓":"✗"}`:null]].filter(x=>x[1]);
   el.innerHTML=`<div class="card"><div class="box ${ok?"ok":"bad"}"><b>${esc(ok?t("authentic"):t("invalid"))}</b></div><dl class="kv">${rows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>`;
 }
-function loadDecoder(){ return window.NORIA_QR?Promise.resolve(window.NORIA_QR):new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src="src/qr-decode.js"; s.onload=()=>ok(window.NORIA_QR); s.onerror=ko; document.head.appendChild(s); }); }
+function loadDecoder(){ return window.NORIA_QR?Promise.resolve(window.NORIA_QR):new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src=NORIA_U.v("src/qr-decode.js"); s.onload=()=>ok(window.NORIA_QR); s.onerror=ko; document.head.appendChild(s); }); }
 async function photo(input){
   const f=input.files&&input.files[0]; if(!f) return; const msg=$("mVerMsg"); msg.textContent=t("reading");
   try{

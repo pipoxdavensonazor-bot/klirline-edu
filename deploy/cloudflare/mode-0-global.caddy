@@ -1,0 +1,2 @@
+# NORIA_DERRIERE_CLOUDFLARE=0 (défaut) : Caddy reçoit les clients directement, aucune option globale ajoutée.
+# Aucun en-tête d'adresse entrant n'est cru (X-Forwarded-For, CF-Connecting-IP ignorés).

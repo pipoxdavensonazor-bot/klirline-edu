@@ -53,7 +53,7 @@ const roles=()=>(C.me&&C.me.roles)||[];
 const has=(...r)=>r.some(x=>roles().includes(x));
 
 // Feuille de style du module (même origine, CSP style-src 'self'), ajoutée une fois.
-(function css(){ if(document.getElementById("badCss")) return; const l=document.createElement("link"); l.id="badCss"; l.rel="stylesheet"; l.href="src/badges.css"; document.head.appendChild(l); })();
+(function css(){ if(document.getElementById("badCss")) return; const l=document.createElement("link"); l.id="badCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/badges.css"); document.head.appendChild(l); })();
 
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});

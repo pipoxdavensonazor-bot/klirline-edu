@@ -31,7 +31,7 @@ const T={
     fwd:n=>`${n} mesaj transfere`,net:"Bezwen rezo pou aksyon sa a.",err:"Refize : ",fin:"Dezaktivasyon prevwa le"},
 };
 const t=k=>T[lang()][k];
-(function css(){ if(document.getElementById("emCss")) return; const l=document.createElement("link"); l.id="emCss"; l.rel="stylesheet"; l.href="src/emails-eleves.css"; document.head.appendChild(l); })();
+(function css(){ if(document.getElementById("emCss")) return; const l=document.createElement("link"); l.id="emCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/emails-eleves.css"); document.head.appendChild(l); })();
 let EL=null, C={}, LIST=[];
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});

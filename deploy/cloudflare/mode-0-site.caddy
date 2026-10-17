@@ -1,0 +1,1 @@
+# NORIA_DERRIERE_CLOUDFLARE=0 (défaut) : certificat Let's Encrypt obtenu et renouvelé automatiquement par Caddy.

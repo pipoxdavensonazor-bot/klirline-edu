@@ -51,7 +51,7 @@ const T={
 const t=k=>T[lang()][k];
 let EL=null, C={}, TAB="proposer", KIND="evenement", IMG=null, LOGO=null, DATA=null;
 const roles=()=>(C.me&&C.me.roles)||[];
-(function css(){ if(document.getElementById("portCss")) return; const l=document.createElement("link"); l.id="portCss"; l.rel="stylesheet"; l.href="src/portail-gestion.css"; document.head.appendChild(l); })();
+(function css(){ if(document.getElementById("portCss")) return; const l=document.createElement("link"); l.id="portCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/portail-gestion.css"); document.head.appendChild(l); })();
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});
   let b=null; try{ b=await r.json(); }catch(e){} return {status:r.status,body:b};

@@ -15,6 +15,8 @@ const TYPES = {
 const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
 // Fichiers servis à la racine (application installable) en plus de index.html et src/.
 const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest']);
+// Scripts et feuilles de style : appelés avec ?v=<version> (les images gardent leur URL, aussi utilisée par les gabarits JS).
+const VERSIONNES = /^\/src\/.+\.(?:js|css)$/;
 
 // CSP de la page : aucun script ni style en ligne (gestionnaires par délégation data-action, styles en classes).
 // Le test test/csp.test.js échoue si un attribut on* ou style="" réapparaît dans le HTML ou les gabarits JS.
@@ -56,7 +58,36 @@ function createStatic(root) {
     const h = crypto.createHash('sha256');
     for (const u of list) h.update(u).update(fs.readFileSync(resolve(u)));
     h.update(fs.readFileSync(path.join(rootAbs, 'index.html')));
-    return src.replace('__NORIA_VERSION__', h.digest('hex').slice(0, 12)).replace('__NORIA_ASSETS__', JSON.stringify(list));
+    // Mêmes URL que la page (src/x.js?v=…) : le service worker revalide ce que la page vient de recevoir (304) au lieu
+    // de tout retélécharger sous une autre URL.
+    const v = assetVersion();
+    const urls = list.map((u) => (VERSIONNES.test(u) ? `${u}?v=${v}` : u));
+    return src.replace('__NORIA_VERSION__', h.digest('hex').slice(0, 12)).replace('__NORIA_ASSETS__', JSON.stringify(urls));
+  }
+
+  // Version des fichiers de l'interface = empreinte du contenu de src/ (recalculée au plus toutes les 60 s).
+  // Ajoutée aux URL des scripts et feuilles de style (src/x.js?v=…) dans les pages HTML et par les chargements à la demande (NORIA_U.v) :
+  // après un déploiement, les URL changent, donc ni le navigateur ni le cache Cloudflare ne servent d'ancienne version.
+  let version = null; let versionAt = 0;
+  function assetVersion() {
+    if (version && Date.now() - versionAt < 60e3) return version;
+    const h = crypto.createHash('sha256');
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+        const abs = path.join(dir, e.name);
+        if (e.isDirectory()) walk(abs);
+        else if (e.isFile() && TYPES[path.extname(e.name)]) h.update(path.relative(srcAbs, abs)).update('\0').update(fs.readFileSync(abs));
+      }
+    };
+    try { walk(srcAbs); } catch { /* pas de dossier src : version fixe */ }
+    version = h.digest('hex').slice(0, 10); versionAt = Date.now();
+    return version;
+  }
+  function versionHtml(html, v) {
+    // Signale au navigateur qu'un serveur NORIA est présent : sans ce repère (fichiers statiques seuls),
+    // la maquette reste en démonstration locale sans même interroger /api/config.
+    return html.replace('<head>', `<head><meta name="noria-server" content="1"><meta name="noria-version" content="${v}">`)
+      .replace(/((?:href|src)=")(src\/[^"#?]+\.(?:js|css))"/g, `$1$2?v=${v}"`);
   }
 
   function load(abs) {
@@ -64,15 +95,14 @@ function createStatic(root) {
     if (!st || !st.isFile()) return null;
     const hit = cache.get(abs);
     const isSw = abs === path.join(rootAbs, 'sw.js');
-    if (hit && hit.mtime === st.mtimeMs && !isSw) return hit;
-    let raw = fs.readFileSync(abs);
     const ext = path.extname(abs);
-    // Signale au navigateur qu'un serveur NORIA est présent : sans ce repère (fichiers statiques seuls),
-    // la maquette reste en démonstration locale sans même interroger /api/config.
-    if (ext === '.html') raw = Buffer.from(raw.toString('utf8').replace('<head>', '<head><meta name="noria-server" content="1">'));
+    const v = ext === '.html' ? assetVersion() : null;
+    if (hit && hit.mtime === st.mtimeMs && hit.v === v && !isSw) return hit;
+    let raw = fs.readFileSync(abs);
+    if (ext === '.html') raw = Buffer.from(versionHtml(raw.toString('utf8'), v));
     if (abs === path.join(rootAbs, 'sw.js')) raw = Buffer.from(swSource(raw.toString('utf8')));
     const entry = {
-      mtime: st.mtimeMs, raw, type: TYPES[ext], ext,
+      mtime: st.mtimeMs, v, raw, type: TYPES[ext], ext,
       gz: COMPRESS.has(ext) ? zlib.gzipSync(raw, { level: 9 }) : null,
       etag: '"' + crypto.createHash('sha1').update(raw).digest('base64url').slice(0, 16) + '"',
     };
@@ -88,8 +118,11 @@ function createStatic(root) {
     const headers = {
       ...baseHeaders,
       'content-type': f.type,
-      // HTML et sw.js : revalidés à chaque fois (mises à jour) ; le reste : cache court, le service worker fait le reste.
-      'cache-control': f.ext === '.html' || url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600',
+      // HTML et sw.js : revalidés à chaque fois (mises à jour). Fichier demandé avec la version courante (?v=, posée
+      // dans les pages HTML) : immuable, 1 an (navigateur, Cloudflare). Le reste : cache court, le service worker fait le reste.
+      'cache-control': f.ext === '.html' || url.pathname === '/sw.js' ? 'no-cache'
+        : url.pathname.startsWith('/src/') && url.searchParams.get('v') === assetVersion() ? 'public, max-age=31536000, immutable'
+          : 'public, max-age=3600',
       etag: f.etag, vary: 'Accept-Encoding',
     };
     // Caméra autorisée pour la page elle-même seulement (scan des badges) ; jamais pour un cadre tiers.

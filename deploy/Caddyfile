@@ -1,9 +1,19 @@
-# Caddy devant NORIA : certificat Let's Encrypt automatique (renouvelé seul), redirection HTTP → HTTPS,
-# HSTS, compression, cache des fichiers statiques. Le domaine vient de NORIA_DOMAIN (.env).
-# Caddy reçoit directement les clients : il ne fait confiance à aucun X-Forwarded-For entrant et le remplace par
-# l'adresse réelle ; l'application lit cette valeur (NORIA_TRUST_PROXY=1) pour limiter les tentatives de connexion.
+# Caddy devant NORIA : HTTPS, redirection HTTP → HTTPS, HSTS, compression, cache des fichiers statiques.
+# Le domaine vient de NORIA_DOMAIN (.env). Deux modes, choisis par NORIA_DERRIERE_CLOUDFLARE (0 ou 1) :
+#   0 (défaut) : Caddy reçoit les clients directement, certificat Let's Encrypt automatique (renouvelé seul) ;
+#                aucun en-tête d'adresse entrant n'est cru.
+#   1          : derrière le proxy Cloudflare ; adresse réelle lue dans CF-Connecting-IP pour les seules connexions
+#                venant des plages Cloudflare (deploy/cloudflare/plages.caddy) ; certificat d'origine Cloudflare.
+# Dans les deux modes, X-Forwarded-For est remplacé par l'adresse réelle du client ({client_ip}) : l'application lit
+# cette valeur (NORIA_TRUST_PROXY=1) pour le limiteur de connexions et l'assistant sécurité (blocage d'IP).
+# Une autre valeur que 0 ou 1 fait échouer le démarrage de Caddy (fichier de mode introuvable) : c'est voulu.
+{
+	import cloudflare/mode-{$NORIA_DERRIERE_CLOUDFLARE:0}-global.caddy
+}
 
 {$NORIA_DOMAIN} {
+	import cloudflare/mode-{$NORIA_DERRIERE_CLOUDFLARE:0}-site.caddy
+
 	encode zstd gzip
 
 	header {
@@ -11,17 +21,26 @@
 		-Server
 	}
 
-	# Fichiers de l'interface (non versionnés par leur nom) : 1 jour en cache, puis revalidation par ETag.
+	# Fichiers de l'interface. Les pages HTML appellent scripts et styles avec ?v=<empreinte de src/> (server/src/static.js) :
+	# une nouvelle version change l'URL. Avec la version courante, l'application répond « immutable » (1 an, navigateur
+	# et Cloudflare) ; avec une ancienne version, cache court. Ces en-têtes de l'application sont conservés ici.
+	# Sans ?v= (anciens liens, manifeste) : 1 jour en cache, puis revalidation par ETag.
 	# index.html et sw.js restent « no-cache » (réglés par l'application) pour que les mises à jour arrivent tout de suite.
 	# Portail public (/, /ht, /evenements…) et images /p/img : en-têtes de cache réglés par l'application (bloc 5).
-	@statiques path /src/* /manifest.webmanifest
+	@statiques {
+		path /src/* /manifest.webmanifest
+		not query v=*
+	}
 	header @statiques >Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
 
 	# La sonde de santé n'est pas publique.
 	@sante path /healthz
 	respond @sante 404
 
-	reverse_proxy app:3100 {
+	reverse_proxy {$NORIA_AMONT:app:3100} {
+		# NORIA_AMONT : pour les tests seulement (CI, vérification locale) ; en production, toujours app:3100.
+		# Adresse réelle du client (mode 1 : CF-Connecting-IP venant de Cloudflare ; sinon l'adresse de connexion).
+		header_up X-Forwarded-For {client_ip}
 		health_uri /healthz
 		health_interval 30s
 	}

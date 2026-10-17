@@ -127,7 +127,7 @@ async function ask(q){
   ANSWER=r&&r.status===200?r.body.reponse:t("net");
   const el=document.getElementById("secAnswer"); if(el) el.textContent=ANSWER;
 }
-(function css(){ if(document.getElementById("secCss")) return; const l=document.createElement("link"); l.id="secCss"; l.rel="stylesheet"; l.href="src/admin-securite.css"; document.head.appendChild(l); })();
+(function css(){ if(document.getElementById("secCss")) return; const l=document.createElement("link"); l.id="secCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/admin-securite.css"); document.head.appendChild(l); })();
 window.NORIA_SEC=Object.freeze({render,run,prepare,confirm,ask,
   open:id=>{CUR=id;VIEW="detail";PENDING=null;ANSWER=null;draw();},
   view:v=>{VIEW=v;PENDING=null;ANSWER=null;draw();},
