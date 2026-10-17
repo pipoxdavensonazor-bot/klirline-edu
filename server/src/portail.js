@@ -204,7 +204,9 @@ function readItem(b, kind, who) {
 }
 const consented = (r) => !Number(r.minor) || (Number(r.consent_school) === 1 && Number(r.consent_parent) === 1);
 // Initiales seules : « Anne-Marie Fils-Aimé » → « A. F. ».
-const initials = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).map((w) => `${w[0].toUpperCase()}.`).join(' ');
+// Initiales : seuls les mots qui commencent par une lettre comptent (pas de chiffre ni de ponctuation) ; un nom composé ne compte qu'une fois (moins d'indices sur un mineur).
+const initials = (name) => String(name || '').normalize('NFC').split(/\s+/).filter((w) => /^\p{L}/u.test(w))
+  .map((w) => `${[...w][0].toLocaleUpperCase('fr')}.`).join(' ') || '?';
 
 // Champs publics d'un contenu (liste blanche) : jamais d'identifiant d'utilisateur, de consentement détaillé ni de motif.
 function publicItem(r) {

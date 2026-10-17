@@ -65,6 +65,13 @@ before(async () => {
 });
 after(async () => { server.close(); await db.cleanup(); });
 
+test('initiales : lettres seulement (chiffres et ponctuation ignorés), nom composé compté une fois, repli', () => {
+  assert.equal(Pt.initials('Élève Fictif Pixel 7'), 'É. F. P.');
+  assert.equal(Pt.initials('Anne-Marie Exemple'), 'A. E.');
+  assert.equal(Pt.initials('  r   d '), 'R. D.');
+  assert.equal(Pt.initials('123 (?)'), '?');
+});
+
 test('pages publiques sans connexion : HTML, CSP stricte, aucun cookie, cache, SEO, langue', async () => {
   for (const p of ['/', '/evenements', '/laureats', '/communaute', '/annonces', '/ht', '/ht/evenements', '/ht/laureats', '/ht/communaute', '/ht/annonces']) {
     const r = await page(p);
