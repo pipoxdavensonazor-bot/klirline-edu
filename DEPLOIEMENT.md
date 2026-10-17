@@ -145,3 +145,14 @@ Le `Dockerfile` fonctionne tel quel sur une plateforme qui construit une image e
 - **Railway** : projet depuis le dépôt + extension PostgreSQL ; mêmes variables (`DATABASE_URL=${{Postgres.DATABASE_URL}}`), healthcheck `/healthz`. Facturation à l'usage, ≈ 5–10 $/mois pour une petite école.
 
 Points d'attention : Caddy n'est pas utilisé (la plateforme fait l'HTTPS ; vérifier que HSTS est bien envoyé — l'application l'envoie déjà), et la base gérée doit accepter `CREATE ROLE noria_app` et `SET ROLE` (rôle propriétaire de la base). Les sauvegardes de la plateforme ne remplacent pas une copie hors site chiffrée : lancer `noria-sauvegarde.sh` avec `DATABASE_URL` depuis une autre machine (ou une tâche planifiée de la plateforme) et un client `pg_dump` 16.
+
+## Assistant sécurité (super-admin)
+
+L'onglet « Assistant sécurité » de `/#admin` surveille les connexions, les intrusions, la santé du serveur, la
+configuration et les dépendances. Il ne fait jamais rien seul : chaque action demande une confirmation, et un code
+pour les actions critiques. Réglages : `.env.example`, section « Assistant sécurité ». Détail des règles et des
+actions : [docs/securite-assistant.md](docs/securite-assistant.md).
+- Les sauvegardes de l'hôte (`/var/backups/noria`, ou `NORIA_BACKUP_DIR_HOTE`) sont montées en lecture seule dans
+  `/sauvegardes`. Au-delà de 26 h sans nouvelle sauvegarde, l'assistant lève une alerte critique.
+- Rapport de dépendances : `cd server && npm run audit:rapport -- ../deploy/rapports/npm-audit.json`, ou bien
+  l'artefact `npm-audit` de la CI, déposé dans `deploy/rapports/`.

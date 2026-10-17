@@ -14,6 +14,7 @@ const otp = require('./otp');
 const I = require('./identite');
 const ecoles = require('./ecoles');
 const plateforme = require('./plateforme');
+const { createSecurity } = require('./securite');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -40,13 +41,13 @@ async function findUser(db, school, ident) {
   const col = ident.field === 'phone' ? 'u.phone' : 'u.email';
   const sel = `SELECT u.*, p.password_hash AS person_hash FROM app_user u JOIN school s ON s.id = u.school_id LEFT JOIN person p ON p.id = u.person_id`;
   if (school) {
-    const u = await db.get(`${sel} WHERE s.slug = ? AND ${col} = ? AND u.state = 'actif' AND s.status = 'active'`, String(school), ident.value);
+    const u = await db.get(`${sel} WHERE s.slug = ? AND ${col} = ? AND u.state = 'actif' AND s.status = 'active' AND p.locked_at IS NULL`, String(school), ident.value);
     if (u) u.ecoles = u.person_id ? (await I.memberships(db, u.person_id)).length : 1;
     return u;
   }
   const rows = ident.field === 'phone'
-    ? await db.all(`${sel} WHERE u.phone = ? AND u.state = 'actif' AND s.status = 'active' ORDER BY u.school_id`, ident.value)
-    : await db.all(`${sel} WHERE (p.email = ? OR (u.person_id IS NULL AND u.email = ?)) AND u.state = 'actif' AND s.status = 'active' ORDER BY u.school_id`, ident.value, ident.value);
+    ? await db.all(`${sel} WHERE u.phone = ? AND u.state = 'actif' AND s.status = 'active' AND p.locked_at IS NULL ORDER BY u.school_id`, ident.value)
+    : await db.all(`${sel} WHERE (p.email = ? OR (u.person_id IS NULL AND u.email = ?)) AND u.state = 'actif' AND s.status = 'active' AND p.locked_at IS NULL ORDER BY u.school_id`, ident.value, ident.value);
   if (!rows.length) return undefined;
   const persons = new Set(rows.map((r) => r.person_id || `u${r.id}`));
   if (persons.size !== 1) return undefined; // téléphone partagé par plusieurs personnes : préciser l'école
@@ -592,7 +593,8 @@ function parseCookies(h) {
 
 // choisir : la personne a plusieurs écoles et s'est connectée sans en préciser une → l'interface lui fait choisir.
 function startSession(db, req, ctx, user) {
-  return createSession(db, user).then((token) => {
+  return createSession(db, user).then(async (token) => {
+    if (ctx.sec) await ctx.sec.loginOk(req, { user }).catch(() => {});
     setSessionCookie(req, ctx, token);
     return { token, ecoles: user.ecoles || 1, choisir: !(req.body && req.body.school) && (user.ecoles || 1) > 1 };
   });
@@ -618,13 +620,17 @@ function createServer(db, options = {}) {
     // X-Forwarded-For, ajoutée par le mandataire. Sans trustProxy, l'en-tête est ignoré (il serait falsifiable).
     trustProxy: !!options.trustProxy,
   };
+  // Assistant sécurité : observe les connexions, refus et erreurs ; n'agit jamais seul (voir src/securite.js).
+  ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl }));
   const serveStatic = options.staticRoot === false ? null : createStatic(options.staticRoot || path.join(__dirname, '..', '..'));
-  return http.createServer(async (req, res) => {
+  const srv = http.createServer(async (req, res) => {
     let extra = {};
     const cookies = [];
     req.setCookie = (c) => cookies.push(c);
     const withCookies = (h) => (cookies.length ? { ...h, 'set-cookie': cookies } : h);
+    const t0 = Date.now(); let urlSeen = null;
     const send = (status, body) => {
+      if (ctx.sec && urlSeen) { try { ctx.sec.observe(req, urlSeen, status, body, Date.now() - t0); } catch { /* jamais bloquant */ } }
       if (body && body.__pdf) {
         res.writeHead(status, withCookies({ ...SECURITY_HEADERS, ...extra, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${body.filename || 'document.pdf'}"`, 'content-length': body.__pdf.length }));
         return res.end(body.__pdf);
@@ -644,6 +650,7 @@ function createServer(db, options = {}) {
     try {
       const url = new URL(req.url, 'http://localhost');
       req.query = url.searchParams;
+      if (url.pathname.startsWith('/api/')) urlSeen = url;
       // Sonde de santé (Docker, Caddy, hébergeur) : la base répond-elle ? Aucune donnée, aucun journal.
       if (url.pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
         let ok = true;
@@ -669,6 +676,8 @@ function createServer(db, options = {}) {
         }
       }
       req.ip = clientIp(req, ctx.trustProxy);
+      // Adresse bloquée par le super-admin (action confirmée depuis l'assistant sécurité), pour une durée limitée.
+      if (ctx.sec && url.pathname.startsWith('/api/') && await ctx.sec.isBlocked(req.ip)) { req.secSkip = true; throw new HttpError(403, 'adresse temporairement bloquée'); }
       // Administration de la plateforme : routes et session séparées (cookie noria_admin), hors école.
       if (url.pathname.startsWith('/api/admin/')) return send(200, await plateforme.dispatch(db, req, url, ctx, parseCookies));
       for (const [method, re, handler, opts = {}] of routes) {
@@ -677,6 +686,7 @@ function createServer(db, options = {}) {
         let user = null;
         if (!opts.public) { user = await loadSession(db, req.token); if (!user) throw new HttpError(401, 'connexion requise'); }
         else if (opts.optionalUser && req.token) user = await loadSession(db, req.token);
+        req.user = user;
         // Utilisateur connecté : tout passe par asSchool (en PostgreSQL, rôle noria_app + RLS sur son école).
         // Routes « system » (adhésions de la personne connectée) : connexion système, la lecture des données d'une école
         // y repasse par db.asSchool. Toutes les autres : transaction RLS de l'école active.
@@ -689,11 +699,13 @@ function createServer(db, options = {}) {
       if (e instanceof HttpError) { extra = e.headers; return send(e.status, { error: e.message }); }
       if (/CHECK constraint|FOREIGN KEY|violates (check|foreign key|not-null) constraint/.test(e.message)) return send(400, { error: 'donnée refusée par la base' });
       if (isUnique(e)) return send(409, { error: 'doublon refusé par la base' });
-      if (/row-level security/.test(e.message)) return send(404, { error: 'introuvable' });
+      if (/row-level security/.test(e.message)) { req.rls = true; return send(404, { error: 'introuvable' }); }
       console.error(e);
       send(500, { error: 'erreur serveur' });
     }
   });
+  srv.sec = ctx.sec;
+  return srv;
 }
 
 module.exports = { createServer, clientIp, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier };

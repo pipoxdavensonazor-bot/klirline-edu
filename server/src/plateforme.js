@@ -93,6 +93,7 @@ const ROUTES = [
     await db.run('INSERT INTO platform_session (token_hash, admin_id, expires_at) VALUES (?,?,?)', auth.sha256(token), row.admin_id, iso(SESSION_HOURS * 3600e3));
     req.setCookie(`${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=${SESSION_HOURS * 3600}${ctx.secureCookie ? '; Secure' : ''}`);
     await log(db, { id: row.admin_id }, 'admin.login', row.admin_id, 'mot de passe + code', 'ok', req.ip);
+    if (ctx.sec) await ctx.sec.loginOk(req, { account: `admin:${row.admin_id}`, role: 'superadmin' });
     return { ok: true, token };
   }],
   ['POST', /^\/api\/admin\/logout$/, async (db, req, a) => {
@@ -172,6 +173,8 @@ const ROUTES = [
     return { id: Number(id), status };
   }, { auth: true, write: true }],
 ];
+// Assistant sécurité (bloc 3) : mêmes garanties (session super-admin, x-noria, journal).
+ROUTES.push(...require('./securite-actions').routes({ log, dbSize, backups }));
 
 function parseAdminToken(req, parseCookies) {
   const h = req.headers.authorization || '';
@@ -191,6 +194,7 @@ async function dispatch(db, req, url, ctx, parseCookies) {
     if (opts.auth) {
       admin = await loadAdmin(db, token);
       if (!admin) throw new HttpError(401, 'connexion administrateur requise');
+      req.admin = admin;
     }
     const out = await handler(db, req, admin, m.slice(1), ctx);
     // Toute lecture hors RLS est journalisée (sauf /me, appelé à chaque ouverture) ; les écritures le sont dans la route.
@@ -212,4 +216,4 @@ async function createAdmin(db, { email, name, phone, password }) {
   return id;
 }
 
-module.exports = { dispatch, createAdmin, loadAdmin, COOKIE };
+module.exports = { dispatch, createAdmin, loadAdmin, COOKIE, backups, dbSize };

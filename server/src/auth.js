@@ -46,7 +46,8 @@ async function loadSession(db, token) {
   const row = await db.get(`SELECT u.id, u.school_id, u.person_id, u.display_name, u.state, s.expires_at
     FROM session s JOIN app_user u ON u.id = s.user_id AND u.school_id = s.school_id
     JOIN school sc ON sc.id = u.school_id AND sc.status = 'active'
-    WHERE s.token_hash = ?`, sha256(token));
+    LEFT JOIN person p ON p.id = u.person_id
+    WHERE s.token_hash = ? AND p.locked_at IS NULL`, sha256(token));
   if (!row || row.state !== 'actif' || row.expires_at < new Date().toISOString()) return null;
   row.roles = (await db.all('SELECT role FROM user_role WHERE user_id = ? AND school_id = ?', row.id, row.school_id)).map((r) => r.role);
   return row;

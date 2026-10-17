@@ -1,0 +1,124 @@
+'use strict';
+// Guide intégré de l'assistant sécurité (FR / HT) : textes des alertes et réponses aux questions guidées.
+// Aucune IA externe : les réponses sont construites à partir de ces règles et des preuves de l'alerte.
+const G = {
+  force_brute_ip: {
+    titre: { fr: 'Force brute depuis une adresse IP', ht: 'Atak fòs brital ki soti nan yon adrès IP' },
+    expl: { fr: 'Une même adresse a raté {n} connexions ou codes en {min} minutes. Quelqu’un essaie peut-être de deviner des mots de passe.',
+      ht: 'Menm adrès la rate {n} koneksyon oswa kòd nan {min} minit. Petèt gen moun k ap eseye devine modpas.' },
+    reco: { fr: 'Bloquez l’adresse pour une heure si personne de l’école ne la reconnaît. Le limiteur ralentit déjà ces essais.',
+      ht: 'Bloke adrès la pou inè si pèsonn nan lekòl la pa rekonèt li. Limitè a deja ap ralanti eseye sa yo.' },
+    pourquoi: { fr: 'Le seuil est de {seuil} échecs par IP en 15 minutes ; cette adresse en a {n}.', ht: 'Limit lan se {seuil} echèk pa IP nan 15 minit ; adrès sa a gen {n}.' },
+    faux: { fr: 'Possible si toute une école partage une seule connexion Internet (même IP) et que plusieurs personnes se trompent de mot de passe en même temps, par exemple à la rentrée.',
+      ht: 'Sa posib si tout yon lekòl pataje yon sèl koneksyon Entènèt (menm IP) epi plizyè moun ap twonpe modpas an menm tan, pa egzanp nan rantre klas.' },
+  },
+  force_brute_compte: {
+    titre: { fr: 'Force brute sur un compte', ht: 'Atak fòs brital sou yon kont' },
+    expl: { fr: 'Le compte {cible} a reçu {n} échecs de connexion ou de code en {min} minutes, depuis {ips} adresse(s).',
+      ht: 'Kont {cible} resevwa {n} echèk koneksyon oswa kòd nan {min} minit, soti nan {ips} adrès.' },
+    reco: { fr: 'Prévenez la personne. Si elle n’est pas à l’origine des essais, verrouillez le compte et forcez la réinitialisation du mot de passe.',
+      ht: 'Avèti moun nan. Si se pa li ki t ap eseye, fèmen kont lan epi fòse chanjman modpas la.' },
+    pourquoi: { fr: 'Le seuil est de {seuil} échecs par compte en 15 minutes ; ce compte en a {n}.', ht: 'Limit lan se {seuil} echèk pa kont nan 15 minit ; kont sa a gen {n}.' },
+    faux: { fr: 'Possible si la personne a oublié son mot de passe et réessaie souvent.', ht: 'Sa posib si moun nan bliye modpas li epi l ap eseye plizyè fwa.' },
+  },
+  pulverisation: {
+    titre: { fr: 'Pulvérisation de mots de passe sur plusieurs comptes', ht: 'Atak sou plizyè kont an menm tan' },
+    expl: { fr: 'Une même adresse a essayé {comptes} comptes différents en {min} minutes ({n} échecs). C’est la signature d’une attaque automatisée.',
+      ht: 'Menm adrès la eseye {comptes} kont diferan nan {min} minit ({n} echèk). Se mak yon atak otomatik.' },
+    reco: { fr: 'Bloquez l’adresse. Vérifiez qu’aucun des comptes visés ne s’est connecté avec succès depuis cette adresse.',
+      ht: 'Bloke adrès la. Verifye pa gen youn nan kont yo ki rive konekte avèk adrès sa a.' },
+    pourquoi: { fr: 'Le seuil est de {seuil} comptes différents par IP en 15 minutes ; cette adresse en a visé {comptes}.', ht: 'Limit lan se {seuil} kont diferan pa IP nan 15 minit ; adrès sa a vize {comptes}.' },
+    faux: { fr: 'Rare : un secrétariat qui teste plusieurs comptes nouvellement créés depuis le même poste.', ht: 'Ra : yon sekretarya k ap teste plizyè nouvo kont sou menm òdinatè a.' },
+  },
+  nouvel_appareil: {
+    titre: { fr: 'Connexion depuis une nouvelle adresse ou un nouvel appareil', ht: 'Koneksyon ak yon nouvo adrès oswa yon nouvo aparèy' },
+    expl: { fr: 'Le compte {cible} ({role}) s’est connecté depuis {quoi} jamais vu(e) ces 30 derniers jours.',
+      ht: 'Kont {cible} ({role}) konekte ak {quoi} yo pa t janm wè nan 30 dènye jou yo.' },
+    reco: { fr: 'Demandez à la personne si c’est bien elle. Sinon, forcez la déconnexion et la réinitialisation du mot de passe.',
+      ht: 'Mande moun nan si se li vre. Si se pa li, fòse dekoneksyon an epi chanjman modpas la.' },
+    pourquoi: { fr: 'Les comptes de direction et de super-administration sont surveillés : toute adresse ou appareil inconnu déclenche une alerte.',
+      ht: 'Kont direksyon ak super-administrasyon yo sou siveyans : nenpòt adrès oswa aparèy enkoni deklanche yon alèt.' },
+    faux: { fr: 'Fréquent : nouveau téléphone, connexion depuis la maison ou un cybercafé, changement d’opérateur mobile.', ht: 'Sa rive souvan : nouvo telefòn, koneksyon lakay oswa nan yon sibèkafe, chanjman operatè.' },
+  },
+  inter_ecoles: {
+    titre: { fr: 'Tentatives d’accès aux données d’une autre école', ht: 'Eseye antre nan done yon lòt lekòl' },
+    expl: { fr: 'Le compte {cible} a reçu {n} refus (403/404) en {min} minutes, dont {autres} sur des fiches d’autres écoles{rls}.',
+      ht: 'Kont {cible} resevwa {n} refi (403/404) nan {min} minit, ladan yo {autres} sou fich lòt lekòl{rls}.' },
+    reco: { fr: 'L’isolation a fonctionné : rien n’a fuité. Contactez la direction de l’école ; si c’est volontaire, verrouillez le compte.',
+      ht: 'Izolasyon an mache : anyen pa soti. Kontakte direksyon lekòl la ; si se espre, fèmen kont lan.' },
+    pourquoi: { fr: 'Le seuil est de {seuil} refus en 15 minutes, ou 3 fiches d’autres écoles, ou un refus de la base (RLS).', ht: 'Limit lan se {seuil} refi nan 15 minit, oswa 3 fich lòt lekòl, oswa yon refi baz done a (RLS).' },
+    faux: { fr: 'Possible avec un ancien lien ou un favori gardé après un changement d’école.', ht: 'Sa posib ak yon ansyen lyen oswa yon favori ki rete apre yon chanjman lekòl.' },
+  },
+  pic_4xx: {
+    titre: { fr: 'Pic d’erreurs 4xx', ht: 'Anpil erè 4xx' },
+    expl: { fr: '{n} réponses refusées (4xx) en {min} minutes, contre {base} en moyenne. Quelqu’un explore peut-être l’application.',
+      ht: '{n} repons refize (4xx) nan {min} minit, konpare ak {base} an mwayèn. Petèt gen moun k ap fouye aplikasyon an.' },
+    reco: { fr: 'Regardez les adresses et les chemins les plus fréquents dans les preuves ; bloquez une adresse si elle domine.',
+      ht: 'Gade adrès ak chemen ki parèt plis yo nan prèv yo ; bloke yon adrès si se li ki domine.' },
+    pourquoi: { fr: 'Le seuil est de {seuil} erreurs 4xx en 10 minutes et au moins 3 fois la moyenne de l’heure précédente.', ht: 'Limit lan se {seuil} erè 4xx nan 10 minit epi omwen 3 fwa mwayèn lè anvan an.' },
+    faux: { fr: 'Possible après une mise à jour si d’anciennes versions de l’application appellent des routes disparues.', ht: 'Sa posib apre yon mizajou si ansyen vèsyon aplikasyon an ap rele wout ki pa egziste ankò.' },
+  },
+  pic_5xx: {
+    titre: { fr: 'Pic d’erreurs serveur (5xx)', ht: 'Anpil erè sèvè (5xx)' },
+    expl: { fr: '{n} erreurs serveur en {min} minutes. Les utilisateurs voient des pannes.', ht: '{n} erè sèvè nan {min} minit. Itilizatè yo ap wè pàn.' },
+    reco: { fr: 'Consultez les journaux du serveur (docker compose logs) et l’état de la base. Redémarrez seulement après avoir compris la cause.',
+      ht: 'Gade jounal sèvè a (docker compose logs) ak eta baz done a. Pa redemare anvan ou konprann kòz la.' },
+    pourquoi: { fr: 'Le seuil est de {seuil} erreurs 5xx en 10 minutes.', ht: 'Limit lan se {seuil} erè 5xx nan 10 minit.' },
+    faux: { fr: 'Rare : une coupure brève de la base pendant une sauvegarde ou un redémarrage.', ht: 'Ra : yon ti koupi baz done a pandan yon sovgad oswa yon redemaraj.' },
+  },
+  volume_anormal: {
+    titre: { fr: 'Volume anormal de consultations ou d’exports', ht: 'Twòp konsiltasyon oswa ekspòtasyon' },
+    expl: { fr: 'Le compte {cible} a fait {n} {quoi} en une heure (seuil {seuil}). Cela peut être une copie massive de données.',
+      ht: 'Kont {cible} fè {n} {quoi} nan inèdtan (limit {seuil}). Sa ka yon kopi anpil done.' },
+    reco: { fr: 'Demandez à la direction si c’est un travail prévu (fin de trimestre). Sinon, déconnectez le compte et verrouillez-le.',
+      ht: 'Mande direksyon an si se yon travay ki te prevwa (fen trimès). Si se pa sa, dekonekte kont lan epi fèmen l.' },
+    pourquoi: { fr: 'Seuils par compte et par heure : {seuils}.', ht: 'Limit pa kont ak pa èdtan : {seuils}.' },
+    faux: { fr: 'Fréquent en fin de trimestre (impression de tous les bulletins).', ht: 'Sa rive souvan nan fen trimès (enprime tout kanè yo).' },
+  },
+  modifs_sensibles: {
+    titre: { fr: 'Modifications sensibles inhabituelles', ht: 'Chanjman sansib ki pa nòmal' },
+    expl: { fr: '{cible} a fait {n} modifications sensibles en 24 h ({quoi}), dont {hors} hors des heures habituelles (heure d’Haïti).',
+      ht: '{cible} fè {n} chanjman sansib nan 24 è ({quoi}), ladan yo {hors} andeyò lè abityèl (lè Ayiti).' },
+    reco: { fr: 'Vérifiez avec la direction que ces notes rouvertes, reçus annulés ou rôles changés étaient prévus. Le journal de l’école garde chaque motif.',
+      ht: 'Verifye ak direksyon an si nòt ki relouvri, resi ki anile oswa wòl ki chanje yo te prevwa. Jounal lekòl la kenbe chak rezon.' },
+    pourquoi: { fr: 'Seuils : {seuil} modifications sensibles par personne en 24 h, ou des modifications entre {soir} h et {matin} h (heure d’Haïti).',
+      ht: 'Limit : {seuil} chanjman sansib pa moun nan 24 è, oswa chanjman ant {soir} è ak {matin} è (lè Ayiti).' },
+    faux: { fr: 'Possible lors d’une correction groupée planifiée avec la direction.', ht: 'Sa posib pandan yon koreksyon gwoup ki te planifye ak direksyon an.' },
+  },
+  sante: {
+    titre: { fr: 'Santé du serveur', ht: 'Sante sèvè a' },
+    expl: { fr: '{detail}', ht: '{detail_ht}' },
+    reco: { fr: '{reco}', ht: '{reco_ht}' },
+    pourquoi: { fr: 'L’assistant mesure à chaque analyse : base de données (healthz et latence), disque, mémoire, taille de la base, âge de la dernière sauvegarde (problème au-delà de 26 h) et expiration du certificat HTTPS.',
+      ht: 'Asistan an mezire chak fwa : baz done (healthz ak vitès), disk, memwa, gwosè baz la, laj dènye sovgad la (pwoblèm apre 26 è) ak dat sètifika HTTPS la ap ekspire.' },
+    faux: { fr: 'Possible juste après une restauration ou un déménagement du dossier de sauvegarde.', ht: 'Sa posib touswit apre yon restorasyon oswa yon chanjman dosye sovgad.' },
+  },
+  configuration: {
+    titre: { fr: 'Configuration de production incomplète', ht: 'Konfigirasyon pwodiksyon an pa konplè' },
+    expl: { fr: '{detail}', ht: '{detail_ht}' },
+    reco: { fr: 'Ajoutez la variable dans le fichier .env du serveur (voir DEPLOIEMENT.md), puis redémarrez le service.', ht: 'Ajoute varyab la nan fichye .env sèvè a (gade DEPLOIEMENT.md), epi redemare sèvis la.' },
+    pourquoi: { fr: 'En production, ces réglages protègent les clés, les codes de connexion, les sauvegardes et les cookies.', ht: 'Nan pwodiksyon, reglaj sa yo pwoteje kle yo, kòd koneksyon yo, sovgad yo ak cookie yo.' },
+    faux: { fr: 'Possible si la variable est fournie autrement (secret Docker) sans être visible du processus : vérifiez.', ht: 'Sa posib si varyab la bay yon lòt jan (sekrè Docker) : verifye.' },
+  },
+  dependances: {
+    titre: { fr: 'Dépendances vulnérables', ht: 'Depandans ki gen fay' },
+    expl: { fr: '{detail}', ht: '{detail_ht}' },
+    reco: { fr: 'Mettez à jour les paquets concernés (npm audit fix) sur un poste de développement, relancez les tests, puis redéployez.', ht: 'Mete pake yo ajou (npm audit fix) sou yon òdinatè devlopman, relanse tès yo, epi redeplwaye.' },
+    pourquoi: { fr: 'L’assistant lit le dernier rapport npm audit déposé par le script ou la CI ; il ne lance jamais npm lui-même.', ht: 'Asistan an li dènye rapò npm audit ke script la oswa CI a depoze ; li pa janm lanse npm li menm.' },
+    faux: { fr: 'Possible si la faille ne touche qu’un outil de développement non déployé.', ht: 'Sa posib si fay la touche sèlman yon zouti devlopman ki pa deplwaye.' },
+  },
+};
+const QUOI = { fr: 'Que faire ? ', ht: 'Kisa pou fè ? ' };
+const RISQUE = {
+  critique: { fr: 'Gravité critique : à traiter maintenant.', ht: 'Gravite kritik : fòk ou trete l kounye a.' },
+  attention: { fr: 'Gravité attention : à vérifier aujourd’hui.', ht: 'Gravite atansyon : verifye l jodi a.' },
+  info: { fr: 'Gravité info : pour information, rien d’urgent.', ht: 'Gravite enfo : pou enfòmasyon, anyen pa ijan.' },
+};
+const GENERAL = {
+  score: { fr: 'Le score part de 100 : chaque alerte ouverte vue dans les dernières 24 h retire 25 points (critique), 8 (attention) ou 2 (info).',
+    ht: 'Nòt la kòmanse a 100 : chak alèt ouvè nan 24 dènye è yo retire 25 pwen (kritik), 8 (atansyon) oswa 2 (enfo).' },
+  actions: { fr: 'L’assistant n’agit jamais seul : il propose, vous confirmez. Les actions critiques demandent un nouveau code à 6 chiffres. Tout est inscrit au journal, et vous pouvez annuler quand c’est possible.',
+    ht: 'Asistan an pa janm aji pou kont li : li pwopoze, ou konfime. Aksyon kritik yo mande yon nouvo kòd 6 chif. Tout bagay ekri nan jounal la, epi ou ka anile lè sa posib.' },
+};
+function fill(s, v) { return String(s).replace(/\{(\w+)\}/g, (_, k) => (v[k] == null ? '' : String(v[k]))); }
+module.exports = { G, QUOI, RISQUE, GENERAL, fill };

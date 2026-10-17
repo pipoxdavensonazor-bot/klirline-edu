@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test test/",
-    "admin:creer": "node scripts/admin-creer.js"
+    "admin:creer": "node scripts/admin-creer.js",
+    "audit:rapport": "node scripts/audit-rapport.js"
   },
   "license": "UNLICENSED",
   "dependencies": {

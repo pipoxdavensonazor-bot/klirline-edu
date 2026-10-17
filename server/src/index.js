@@ -30,6 +30,9 @@ async function main() {
     secureCookie: prod || process.env.NORIA_SECURE_COOKIE === '1',
     trustProxy: process.env.NORIA_TRUST_PROXY ? process.env.NORIA_TRUST_PROXY === '1' : prod,
   });
+  // Assistant sécurité : analyse périodique interne (NORIA_ASSISTANT_INTERVALLE_MIN, 5 min par défaut ; 0 = manuelle seulement).
+  const { backups, dbSize } = require('./plateforme');
+  if (server.sec) server.sec.start({ backups, dbSize: () => dbSize(db) });
   server.keepAliveTimeout = 65_000; // plus long que celui du mandataire, pour éviter des 502 sporadiques
   server.listen(port, host, () => console.log(`NORIA (${db.kind}${demo ? ', démo' : ''}) : http://${host}:${port}`));
 
@@ -41,6 +44,7 @@ async function main() {
     console.log(`${signal} reçu : arrêt en cours…`);
     const force = setTimeout(() => { console.error('Arrêt forcé (délai dépassé).'); process.exit(1); }, 10_000);
     force.unref();
+    if (server.sec) server.sec.stop();
     server.close(async () => {
       try { await db.close(); } catch (e) { console.error(e); }
       console.log('Arrêt terminé.');

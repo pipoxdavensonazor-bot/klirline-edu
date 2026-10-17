@@ -36,6 +36,12 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-noria}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-noria}
       NORIA_PUBLIC_URL: https://${NORIA_DOMAIN:?définir NORIA_DOMAIN dans .env}
       NORIA_TRUST_PROXY: "1"
+      # Assistant sécurité : lecture seule des sauvegardes (âge de la dernière) et du rapport npm audit.
+      BACKUP_DIR: /sauvegardes
+      NORIA_AUDIT_RAPPORT: /rapports/npm-audit.json
+    volumes:
+      - ${NORIA_BACKUP_DIR_HOTE:-/var/backups/noria}:/sauvegardes:ro
+      - ./deploy/rapports:/rapports:ro
     depends_on:
       db:
         condition: service_healthy

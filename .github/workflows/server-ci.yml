@@ -37,6 +37,14 @@ jobs:
         run: npm test
         env:
           NORIA_TEST_PG: postgres://postgres:ci-local-fictif@127.0.0.1:5432/postgres
+      # Rapport lu par l'assistant sécurité (règle « dépendances ») : à déposer sur le serveur (NORIA_AUDIT_RAPPORT).
+      - name: Rapport npm audit (assistant sécurité)
+        run: npm run audit:rapport -- npm-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit
+          path: server/npm-audit.json
+          retention-days: 30
       - run: npm audit --audit-level=moderate
 
   sauvegardes:
