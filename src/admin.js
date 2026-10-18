@@ -99,7 +99,7 @@ async function panel(){
   if(r.status===401){ loginView(); return null; }
   const d=r.body;
   if(TAB==="ecoles") return `<div class="card"><form id="admNew" class="adm-new" data-action-submit="NORIA_ADM.create" novalidate>
-      <label class="fld">${esc(t("slug"))}<input name="slug" required pattern="[a-z0-9-]+"></label><label class="fld">${esc(t("name"))}<input name="name" required></label>
+      <label class="fld">${esc(t("slug"))}<input name="slug" required pattern="[a-z0-9\\-]+"></label><label class="fld">${esc(t("name"))}<input name="name" required></label>
       <label class="fld">${esc(t("initials"))}<input name="initials" maxlength="6"></label>
       <label class="fld">${esc(t("dep"))}<select name="department"><option value="">${esc(t("anyDep"))}</option>${DEPS.map(d=>`<option value="${d[0]}">${esc(d[1])}</option>`).join("")}</select></label>
       <label class="fld">${esc(t("commune"))}<input name="commune" maxlength="80"></label><label class="fld">${esc(t("reason"))}<input name="reason" required></label>

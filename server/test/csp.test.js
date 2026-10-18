@@ -46,3 +46,32 @@ test('CSP stricte servie avec le HTML', () => {
   assert.equal(d['frame-ancestors'], "'none'");
   assert.equal(d['form-action'], "'self'");
 });
+
+// Délégation (src/util.js) : une action dont l'espace de noms n'est pas dans la liste NS est ignorée en silence
+// (« action inconnue » dans la console) — c'est ce qui rendait « Accepter » inerte dans les demandes d'inscription.
+test('délégation : chaque espace de noms utilisé dans data-action* est autorisé par src/util.js', () => {
+  const util = fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8');
+  const ns = new Set(util.match(/const NS=\{([^}]*)\}/)[1].split(',').map((x) => x.split(':')[0].trim()));
+  const used = new Map();
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    for (const m of src.matchAll(/data-action(?:-[a-z]+)?=\\?["'`]([A-Za-z_]+)\.[A-Za-z_]+/g)) if (!used.has(m[1])) used.set(m[1], f);
+  }
+  assert.ok(used.has('NORIA_ADM_DEM'));
+  const missing = [...used].filter(([n]) => !ns.has(n)).map(([n, f]) => `${n} (${f})`);
+  assert.deepEqual(missing, [], `espaces de noms non autorisés : ${missing.join(', ')}`);
+});
+
+// Attributs pattern : les navigateurs les compilent avec le drapeau « v » ; un motif invalide (ex. « [a-z0-9-] ») est
+// ignoré avec une erreur dans la console et le champ n'est plus validé.
+test('attributs pattern valides avec le drapeau « v » (comme dans le navigateur)', () => {
+  const bad = [];
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    for (const m of src.matchAll(/pattern=\\?"([^"\\]*(?:\\\\[^"\\]*)*)\\?"/g)) {
+      const p = f.endsWith('.js') ? m[1].replace(/\\\\/g, '\\') : m[1];
+      try { new RegExp(`^(?:${p})$`, 'v'); } catch (e) { bad.push(`${f}: ${p}`); }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
