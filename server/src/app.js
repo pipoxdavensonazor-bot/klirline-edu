@@ -294,7 +294,8 @@ const routes = [
   ['POST', /^\/api\/recovery\/request$/, async (db, req, _u, _m, ctx) => {
     const { school } = req.body || {};
     const ident = parseIdentifier(req.body.identifier);
-    const keys = [`ip:${req.ip}`, `recup:${school}|${ident.value}`];
+    // Clé IP propre à la récupération : une demande de lien ne doit pas consommer les essais de connexion (« ip: »).
+    const keys = [`recup-ip:${req.ip}`, `recup:${school}|${ident.value}`];
     if (await ctx.limiter.blocked(keys)) throw new HttpError(429, 'trop de demandes, réessayez plus tard');
     await ctx.limiter.fail(keys);
     const user = await findUser(db, school, ident);
