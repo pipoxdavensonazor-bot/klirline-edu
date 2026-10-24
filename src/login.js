@@ -367,6 +367,10 @@ async function startOffline(){
 
 function serverFooter(){
   const f=document.querySelector(".site-foot"); if(!f) return;
+  if(!(CONFIG&&CONFIG.demo)){ // production : ligne neutre, jamais « données fictives »
+    f.innerHTML=lang()==="ht"?"NORIA se yon pwodui <strong>Klirline Inc.</strong>":"NORIA est un produit de <strong>Klirline Inc.</strong>";
+    return;
+  }
   f.innerHTML=lang()==="ht"
     ?"NORIA se yon pwodui <strong>Klirline Inc.</strong><br>Sèvè demonstrasyon : done fiktif. Elèv, klas, prezans, nòt, bilten, anons ak kalandriye soti nan sèvè a ; lòt modil yo rete sou aparèy sa a."
     :"NORIA est un produit de <strong>Klirline Inc.</strong><br>Serveur de démonstration : données fictives. Élèves, classes, présences, notes, bulletins, annonces et calendrier viennent du serveur ; les autres modules restent sur cet appareil.";
