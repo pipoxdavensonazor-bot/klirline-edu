@@ -26,7 +26,11 @@ const TX={
   accept:"Accepter",wait:"Liste d'attente",refuse:"Refuser",note:"Note / motif",classFor:"Classe d'inscription",guardian:"Responsable",docs:"Pièces",view:"Voir",
   created:(c,e)=>`Élève créé : ${c}${e?` — adresse ${e}`:""}`,
   badgeT:"Mon badge",badgeIntro:"Carte d'élève avec code QR (vérification) et code-barres Code128 du code élève, générés par NORIA. Montrez-la à l'entrée ou à la bibliothèque.",
-  code:"Code élève",valid:"Valable jusqu'au",pdf:"Télécharger le PDF",noBadge:"Pas encore de badge imprimé : voici votre code-barres provisoire.",email:"Adresse NORIA"},
+  code:"Code élève",valid:"Valable jusqu'au",pdf:"Télécharger le PDF",noBadge:"Pas encore de badge imprimé : voici votre code-barres provisoire.",email:"Adresse NORIA",
+  invite:"Inviter les parents",inviteAsk:n=>`Envoyer l'invitation ? E-mail à ${n.email} parent(s), lien WhatsApp prêt pour ${n.whatsapp}, ${n.sans_contact} sans contact.`,
+  invT:"Invitations envoyées",invRecap:r=>`${r.emails_envoyes} e-mail(s) envoyé(s) · ${r.whatsapp} à envoyer par WhatsApp · ${r.sans_contact} sans contact${r.emails_echec?` · ${r.emails_echec} e-mail(s) en échec`:""}`,
+  invSim:"Mode test : les e-mails ont été simulés (aucun envoi réel).",invWa:"À envoyer par WhatsApp (cliquez sur chaque bouton, puis « Envoyer » dans WhatsApp)",
+  invWaBtn:"Envoyer sur WhatsApp",invSans:"Sans contact — à prévenir autrement (appel, élève, papier)",invFail:"E-mails en échec",invLink:"Lien de la réunion",copy:"Copier",copied:"Copié."},
  ht:{err:"Refize : ",net:"Fò gen rezo.",saved:"Anrejistre.",refresh:"Rafrechi",back:"← Retounen",none:"Anyen pou kounye a.",
   msgT:"Mesaj ak lekòl la",msgIntro:"Ekri direksyon an oswa sekretarya a. Repons lan ap nan pòtay ou ; avi pa Telegram oswa imèl si lekòl la aktive l (san kontni mesaj la).",
   msgStaff:"Resepsyon mesaj",msgStaffIntro:"Mesaj paran ak elèv lekòl la. Lè ou louvri yon fil, li make li.",
@@ -48,7 +52,7 @@ const TX={
   badgeT:"Badj mwen",badgeIntro:"Kat elèv ak kòd QR (verifikasyon) ak kòd ba Code128 kòd elèv la, NORIA fè yo. Montre l nan pòtay la oswa nan bibliyotèk la.",
   code:"Kòd elèv",valid:"Bon jiska",pdf:"Telechaje PDF la",noBadge:"Badj ou poko enprime : men kòd ba pwovizwa ou.",email:"Adrès NORIA"}
 };
-const t=k=>TX[L()][k];
+const t=k=>TX[L()][k]??TX.fr[k];
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});
   let b=null; try{ b=await r.json(); }catch(e){} return {status:r.status,body:b};
@@ -119,6 +123,9 @@ async function meetings(){
   const r=await get("/api/reunions-parents"); if(!alive()) return;
   if(!r||r.status!==200){ ROOT.innerHTML=`<div class="badbox">${esc(errOf(r))}</div>`; return; }
   MEET=r.body; const st=t("st");
+  // Lien d'invitation (#reunion=ID, voir login.js) : ouvre directement la réunion demandée.
+  let want=0; try{ want=Number(sessionStorage.getItem("noria_reunion"))||0; sessionStorage.removeItem("noria_reunion"); }catch(e){}
+  if(want&&MEET.reunions.some(x=>x.id===want)) return meeting(want);
   ROOT.innerHTML=head(t("meetT"),t("meetIntro"))+
   (MEET.organisateur?`<details class="u8 card"><summary><b>${esc(t("newMeet"))}</b></summary><form id="l3Meet" data-action-submit="NORIA_L3.createMeet" novalidate><div class="grid g2">
     <label class="fld">${esc(t("title"))}<input name="titre" maxlength="140" required></label><label class="fld">${esc(t("start"))}<input name="debut" type="datetime-local" required></label>
@@ -145,7 +152,7 @@ async function meeting(id){
   ${m.salle_intervenants?`<p><a class="btn" href="${esc(m.salle_intervenants)}" target="_blank" rel="noopener">${esc(t("speakerRoom"))}</a></p>`:""}
   ${MEET.intervenant?"":(fx?`<audio controls preload="none" src="${esc(fx)}"></audio><p><a class="small" href="${esc(fx)}" target="_blank" rel="noopener">${esc(t("openStream"))}</a></p>`:m.salle_audio?`<p><a class="btn" href="${esc(m.salle_audio)}" target="_blank" rel="noopener">${esc(t("audioRoom"))}</a></p>`:`<p class="mut">${esc(t("noStream"))}</p>`)}
   ${MEET.organisateur?`<div class="toolbar">${m.statut!=="en_cours"?`<button data-action="NORIA_L3.meetSet" data-a0="n:${m.id}" data-a1="s:en_cours">${esc(t("begin"))}</button>`:""}${m.statut!=="terminee"?`<button class="soft" data-action="NORIA_L3.meetSet" data-a0="n:${m.id}" data-a1="s:terminee">${esc(t("end"))}</button>`:""}
-    <button class="soft" data-action="NORIA_L3.meetQa" data-a0="n:${m.id}" data-a1="n:${m.questions_ouvertes?0:1}">${esc(m.questions_ouvertes?t("qaClosed"):t("qaOpen"))}</button><a class="btn btn-o" href="/api/reunions-parents/${m.id}/presences.csv" download>${esc(t("csv"))}</a></div>`:""}</div>
+    <button class="soft" data-action="NORIA_L3.meetQa" data-a0="n:${m.id}" data-a1="n:${m.questions_ouvertes?0:1}">${esc(m.questions_ouvertes?t("qaClosed"):t("qaOpen"))}</button><a class="btn btn-o" href="/api/reunions-parents/${m.id}/presences.csv" download>${esc(t("csv"))}</a>${m.statut!=="terminee"?`<button class="soft" data-action="NORIA_L3.invite" data-a0="n:${m.id}">${esc(t("invite"))}</button>`:""}</div><div id="l3Inv"></div>`:""}</div>
   ${MEET.intervenant?`<div class="u8 card"><h3>${esc(t("moderation"))}</h3><div id="l3Mod"><p class="mut">…</p></div></div>`
    :`<div class="u8 card"><h3>${esc(t("ask"))}</h3><form id="l3Q" data-action-submit="NORIA_L3.ask" data-a0="n:${m.id}" novalidate><textarea name="texte" rows="2" maxlength="500"></textarea><div class="toolbar"><button type="submit">${esc(t("askBtn"))}</button><button type="button" class="soft" id="l3Hand" data-action="NORIA_L3.hand" data-a0="n:${m.id}">${esc(t("hand"))}</button></div></form></div>`}
   <div class="u8 card"><h3>${esc(t("answers"))}</h3><div id="l3Ans"><p class="mut">${esc(t("none"))}</p></div></div>`;
@@ -241,9 +248,22 @@ async function badge(){
   ${b.sans_badge.map(x=>`<div class="card l3-badge"><div class="l3-who">${ph(x)}<div><h3>${esc(x.first_name+" "+x.last_name)}</h3><p class="small mut">${esc(t("noBadge"))}</p></div></div><div class="l3-bar">${x.code128_svg}</div><p><b>${esc(t("code"))} :</b> ${esc(x.code)}</p></div>`).join("")}</div>`;
 }
 
+// Invitations : e-mail d'abord (serveur), sinon boutons wa.me que l'école envoie un par un ; sans contact listés.
+async function invite(id){
+  const pv=await get(`/api/reunions-parents/${id}/invitations`); if(!pv||pv.status!==200) return toast(errOf(pv));
+  if(!confirm(t("inviteAsk")(pv.body))) return;
+  const r=await send("POST",`/api/reunions-parents/${id}/inviter`,{}); if(!r||r.status!==200) return toast(errOf(r));
+  const d=r.body; const box=document.getElementById("l3Inv"); if(!box) return;
+  const li=(a,f)=>a.length?`<ul>${a.map(f).join("")}</ul>`:"";
+  box.innerHTML=`<div class="card"><h3>${esc(t("invT"))}</h3><p><b>${esc(t("invRecap")(d.recap))}</b></p>${d.simule?`<p class="small mut">${esc(t("invSim"))}</p>`:""}
+  <p class="small">${esc(t("invLink"))} : <a href="${esc(d.lien)}" target="_blank" rel="noopener">${esc(d.lien)}</a></p>
+  ${d.whatsapp.length?`<h4>${esc(t("invWa"))}</h4>${li(d.whatsapp,x=>`<li>${esc(x.nom)} — ${esc(x.telephone)} <a class="btn" href="${esc(x.lien)}" target="_blank" rel="noopener">${esc(t("invWaBtn"))}</a></li>`)}`:""}
+  ${d.echecs.length?`<h4>${esc(t("invFail"))}</h4>${li(d.echecs,x=>`<li>${esc(x.nom)} — ${esc(x.email)}</li>`)}`:""}
+  ${d.sans_contact.length?`<h4>${esc(t("invSans"))}</h4>${li(d.sans_contact,x=>`<li>${esc(x.nom)}${x.telephone?` — ${esc(x.telephone)}`:""} (${esc(x.motif)})</li>`)}`:""}</div>`;
+}
 const VIEWS={messages,reunions:meetings,candidatures,badge};
 function render(el,view){ ROOT=el; stop(); VIEW=view; el.innerHTML='<p class="mut">…</p>'; (VIEWS[view]||messages)(); }
 function go(view){ render(ROOT,view); }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&CURMEET&&alive()) tick(); });
-window.NORIA_L3=Object.freeze({render,go,filter:k=>{ FILTER=k; messages(); },thread,newThread,reply,closeThread,meeting,createMeet,meetSet,meetQa,ask,hand,answerQ,openCamp,camp,app,decide});
+window.NORIA_L3=Object.freeze({render,go,filter:k=>{ FILTER=k; messages(); },thread,newThread,reply,closeThread,meeting,createMeet,meetSet,invite,meetQa,ask,hand,answerQ,openCamp,camp,app,decide});
 })();

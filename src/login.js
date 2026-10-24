@@ -349,6 +349,11 @@ async function start(){
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   // Copie de lecture pour rouvrir sans réseau (noria_cache_v1) ; effacée à la déconnexion.
   if(window.NORIA_OFF){ await NORIA_OFF.putCache("session",data); NORIA_OFF.init(me.body); }
+  openPendingMeeting();
+}
+function openPendingMeeting(){
+  let id=null; try{ id=sessionStorage.getItem("noria_reunion"); }catch(e){}
+  if(id&&window.KL&&typeof window.KL.go==="function") setTimeout(()=>{ try{ window.KL.go("ext-reunions-parents"); }catch(e){} },0);
 }
 
 // Sans réseau : on rouvre la dernière session connue (lecture seule côté serveur, saisies mises en file).
@@ -393,6 +398,9 @@ async function init(){
   // Administration de la plateforme : interface séparée, chargée à la demande.
   if(location.hash==="#admin"&&window.NORIA_ECO){ try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }
   if(window.NORIA_ECO) NORIA_ECO.onRestart(async()=>{ try{ await start(); }catch(e){ location.reload(); } });
+  // Lien d'invitation à une réunion de parents : mémorisé le temps de la connexion, puis ouvert après start().
+  const rv=location.hash.match(/^#reunion=(\d{1,9})$/);
+  if(rv){ try{ sessionStorage.setItem("noria_reunion",rv[1]); }catch(e){} try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} }
   const vm=location.hash.match(/^#verifier=([A-Za-z0-9-]{4,40})$/);
   if(vm) return views.verify(vm[1]);
   const m=location.hash.match(/^#(invitation|recuperation)=([\w-]{20,})$/);

@@ -519,7 +519,7 @@ const facturation = require('./facturation');
 routes.push(...facturation.schoolRoutes);
 routes.push(...emailsEleves.schoolRoutes(), ...emailsEleves.inboundRoutes());
 // Lot 3 : messagerie familles ↔ école, réunions de parents à grande audience, inscriptions en ligne.
-routes.push(...require('./messagerie').routes, ...require('./reunions-parents').routes, ...require('./candidatures').routes);
+routes.push(...require('./messagerie').routes, ...require('./reunions-parents').routes, ...require('./reunions-invitations').routes, ...require('./candidatures').routes);
 // Diffusion audio des réunions de parents (WHIP → MediaMTX → HLS → R2) : 409/404 tant que NORIA_DIRECT_* manquent.
 routes.push(...require('./diffusion').routes, ...require('./diffusion').publicRoutes);
 // Prise de parole audio des parents (accordée par la direction seulement), mélangée par la direction dans la diffusion.
