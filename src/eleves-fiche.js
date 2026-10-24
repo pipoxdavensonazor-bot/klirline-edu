@@ -7,7 +7,7 @@ const esc=window.NORIA_U.esc;
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
 const T={
   fr:{photo:"Photo (facultatif, pour la carte d’élève)",phFile:"Choisir une photo",phCam:"Prendre une photo",phHelp:"Recadrée en portrait et compressée sur cet appareil ; aucune donnée de localisation gardée. Privée : jamais publiée.",phSaved:"Photo enregistrée.",phReady:"Photo prête : elle sera enregistrée avec la fiche.",phBad:"Image illisible ou trop grande.",newStu:"Nouvel élève",edit:"Modifier l'élève",fn:"Prénom",ln:"Nom",sex:"Sexe",none:"—",birth:"Date de naissance",cls:"Classe",health:"Santé (allergies, traitement)",family:"Remarques famille",
-    reason:"Motif de la modification (journalisé)",reasonNew:"Motif (facultatif)",reasonPh:"ex. correction de l'orthographe du nom",save:"Enregistrer",cancel:"Fermer",
+    reason:"Motif de la modification (journalisé)",reasonNew:"Motif (facultatif)",reasonPh:"ex. correction de l'orthographe du nom",save:"Enregistrer",cancel:"Fermer",back:"← Retour",done:"Terminer",doneHelp:"Élève enregistré. Ajoutez d'autres responsables si besoin, puis « Terminer » pour revenir à la liste.",
     guard:"Responsables",gName:"Nom du responsable",gRel:"Lien",gPhone:"Téléphone",gEmail:"E-mail",gPickup:"Peut récupérer l'enfant",gPrimary:"Principal",add:"Ajouter ce responsable",
     noGuard:"Aucun responsable enregistré.",del:"Retirer",delReason:"Motif du retrait",make:"Rendre principal",
     rel:{mere:"Mère",pere:"Père",tuteur:"Tuteur / tutrice",grand_parent:"Grand-parent",frere_soeur:"Frère / sœur",autre:"Autre"},
@@ -15,7 +15,7 @@ const T={
     dup:"Un élève porte déjà ce nom et cette date de naissance. Enregistrer quand même ?",confirm:"Oui, c'est un autre élève",need:"Prénom, nom et classe sont obligatoires.",
     needReason:"Indiquez le motif de la modification (3 caractères au moins).",help:"Le code élève est créé automatiquement. Le premier responsable est le contact principal.",loading:"Chargement…",archived:"Dossier archivé (élève transféré) : lecture seule."},
   ht:{photo:"Foto (si ou vle, pou kat elèv la)",phFile:"Chwazi yon foto",phCam:"Pran yon foto",phHelp:"Nou koupe l an pòtrè epi nou konprese l sou aparèy sa a ; nou pa kenbe done lokalizasyon. Prive : yo pa janm pibliye l.",phSaved:"Foto a anrejistre.",phReady:"Foto a pare : l ap anrejistre ak fich la.",phBad:"Imaj la pa ka li oswa li twò gwo.",newStu:"Nouvo elèv",edit:"Modifye elèv la",fn:"Prenon",ln:"Non",sex:"Sèks",none:"—",birth:"Dat nesans",cls:"Klas",health:"Sante (alèji, tretman)",family:"Remak sou fanmi an",
-    reason:"Rezon modifikasyon an (n ap note l)",reasonNew:"Rezon (si ou vle)",reasonPh:"egz. korije òtograf non an",save:"Anrejistre",cancel:"Fèmen",
+    reason:"Rezon modifikasyon an (n ap note l)",reasonNew:"Rezon (si ou vle)",reasonPh:"egz. korije òtograf non an",save:"Anrejistre",cancel:"Fèmen",back:"← Retounen",done:"Fini",doneHelp:"Elèv la anrejistre. Ajoute lòt responsab si sa nesesè, epi « Fini » pou retounen nan lis la.",
     guard:"Responsab yo",gName:"Non responsab la",gRel:"Lyen",gPhone:"Telefòn",gEmail:"Imèl",gPickup:"Ka vin chèche timoun nan",gPrimary:"Prensipal",add:"Ajoute responsab sa a",
     noGuard:"Pa gen responsab anrejistre.",del:"Retire",delReason:"Rezon ou retire l",make:"Fè l prensipal",
     rel:{mere:"Manman",pere:"Papa",tuteur:"Titè / titris",grand_parent:"Granparan",frere_soeur:"Frè / sè",autre:"Lòt"},
@@ -52,7 +52,8 @@ function guardList(){
 function form(){
   const s=CUR||{}; const ed=!!CUR; const ro=ed&&s.status==="transfere";
   const v=k=>esc(s[k]||"");
-  return `<div class="modal"><div class="sheet elv-sheet" role="dialog" aria-modal="true" aria-labelledby="elvH"><h3 id="elvH">${esc(ed?t("edit"):t("newStu"))}${ed?` <small class="mut">${esc(s.code)}</small>`:""}</h3>
+  return `<div class="modal elv-modal"><div class="sheet elv-sheet" role="dialog" aria-modal="true" aria-labelledby="elvH"><div class="elv-top"><button type="button" class="ghost small" id="elvBack" data-action="NORIA_ELV.close">${esc(t("back"))}</button><h3 id="elvH">${esc(ed?t("edit"):t("newStu"))}${ed?` <small class="mut">${esc(s.code)}</small>`:""}</h3></div>
+  ${ed&&!ro?`<p class="small mut">${esc(t("doneHelp"))}</p>`:""}
   ${ro?`<div class="warnbox">${esc(t("archived"))}</div>`:`<p class="small mut">${esc(t("help"))}</p>`}
   <form id="elvForm" data-action-submit="NORIA_ELV.save" novalidate><fieldset ${ro?"disabled":""}>
   <div class="grid g2"><label class="fld">${esc(t("fn"))} *<input name="first_name" required maxlength="60" value="${v("first_name")}" autocomplete="off"></label>
@@ -68,8 +69,9 @@ function form(){
   ${ed?"":guardRow(0)+guardRow(1)}
   <label class="fld">${esc(ed?t("reason"):t("reasonNew"))}${ed?" *":""}<input name="reason" maxlength="300" placeholder="${esc(t("reasonPh"))}"${ed?" required":""}></label>
   <div id="elvDup"></div>
-  <div class="row"><button type="submit">${esc(t("save"))}</button><button type="button" class="ghost" data-action="vider" data-a0="s:#stuModal">${esc(t("cancel"))}</button></div></fieldset></form>
-  ${ed?`<div id="elvG">${guardList()}</div>`:""}</div></div>`;
+  <div class="row"><button type="submit">${esc(t("save"))}</button></div></fieldset></form>
+  ${ed?`<div id="elvG">${guardList()}</div>`:""}
+  <div class="elv-foot">${ed?`<button type="button" id="elvDone" data-action="NORIA_ELV.close">${esc(t("done"))}</button>`:`<button type="button" class="ghost" id="elvCancel" data-action="NORIA_ELV.close">${esc(t("cancel"))}</button>`}</div></div></div>`;
 }
 function paint(){ const b=box(); if(b) b.innerHTML=form(); if(CUR) showPhoto(CUR.id); const f=document.querySelector("#elvForm input[name=first_name]"); if(f) f.focus(); }
 
@@ -108,6 +110,11 @@ async function refresh(){
   const st=await api("/api/students").catch(()=>null);
   if(st&&st.status===200&&window.KL&&KL.setStudents){ KL.setStudents(st.body); if(KL.refresh) KL.refresh(); }
 }
+// Fermer la fiche (Retour, Terminer, Échap, clic sur le fond) : revient à la liste des élèves, rafraîchie.
+async function close(){ const b=box(); const had=!!CUR; if(b) b.innerHTML=""; CUR=null; G=[]; PH=null; if(had) await refresh(); }
+const isOpen=()=>!!document.querySelector("#stuModal .elv-modal");
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&isOpen()){ e.preventDefault(); close(); } });
+document.addEventListener("click",e=>{ if(e.target&&e.target.classList&&e.target.classList.contains("elv-modal")) close(); });
 const val=(f,n)=>(f.elements[n]?String(f.elements[n].value||"").trim():"");
 async function save(ev,confirmDup){
   const f=document.getElementById("elvForm"); if(!f) return;
@@ -150,5 +157,5 @@ async function drop(gid){
   if(!r||r.status!==200){ toast(errOf(r)); return; }
   G=(await api(`/api/students/${CUR.id}/tuteurs`)).body||[]; document.getElementById("elvG").innerHTML=guardList();
 }
-window.NORIA_ELV=Object.freeze({open,pickPhoto,save:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return save(ev,false); },saveDup:()=>save(null,true),addGuard:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return addGuard(); },primary,drop});
+window.NORIA_ELV=Object.freeze({open,close,pickPhoto,save:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return save(ev,false); },saveDup:()=>save(null,true),addGuard:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return addGuard(); },primary,drop});
 })();
