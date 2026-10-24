@@ -11,7 +11,7 @@ function safeUrl(u){ try{ const x=new URL(String(u??"").trim()); return x.protoc
 
 // Délégation (CSP stricte) : data-action[-change|-input|-submit]="KL.go", arguments data-a0… :
 // s:texte n:nombre j:json v=valeur c=coché k=coché 1/0 t=élément e=événement (voir src/README.md).
-const NS={KL:1,KLX:1,NORIA_SCO:1,NORIA_GES:1,NORIA_ECO:1,NORIA_ECOG:1,NORIA_ADM:1,NORIA_ADM_DEM:1,NORIA_BAD:1,NORIA_SEC:1,NORIA_TRF:1,NORIA_PORT:1,NORIA_PORT_ADM:1,NORIA_MIN:1,NORIA_DECL:1,NORIA_ADM_MIN:1,NORIA_EMAILS:1,NORIA_MYMAIL:1};
+const NS={KL:1,KLX:1,NORIA_SCO:1,NORIA_GES:1,NORIA_ECO:1,NORIA_ECOG:1,NORIA_ADM:1,NORIA_ADM_DEM:1,NORIA_BAD:1,NORIA_SEC:1,NORIA_TRF:1,NORIA_PORT:1,NORIA_PORT_ADM:1,NORIA_MIN:1,NORIA_DECL:1,NORIA_ADM_MIN:1,NORIA_EMAILS:1,NORIA_MYMAIL:1,NORIA_STR:1,NORIA_TAB:1};
 const BUILTIN={print:()=>print(),vider:s=>{const m=document.querySelector(s); if(m) m.innerHTML="";},retirer:(s,el)=>{const m=el.closest(s); if(m) m.remove();}};
 function arg(c,el,ev){ const v=c.slice(2); switch(c[0]){ case"s":return v; case"n":return Number(v); case"j":return JSON.parse(v); case"v":return el.value; case"c":return el.checked; case"k":return el.checked?1:0; case"t":return el; case"e":return ev; } }
 function run(el,name,ev){ const a=[]; for(let i=0;el.hasAttribute("data-a"+i);i++) a.push(arg(el.getAttribute("data-a"+i),el,ev));

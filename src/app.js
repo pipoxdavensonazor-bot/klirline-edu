@@ -91,6 +91,7 @@ function render(){
 
 /* ---------- DASHBOARD ---------- */
 function vDash(){
+  if(SERVER&&window.NORIA_TAB) return NORIA_TAB.dash(S); // lot 1 : chiffres réels du serveur
   const atts=Object.values(S.attendance);
   const rate=atts.length?Math.round(atts.flatMap(a=>Object.values(a.records||{})).filter(x=>x==="P").length/Math.max(1,atts.flatMap(a=>Object.values(a.records||{})).length)*100):87;
   const collected=S.payments.reduce((a,p)=>a+ +p.amount,0);
@@ -114,11 +115,12 @@ function vDash(){
   </div>`;
 }
 function kpi(n,l){ return `<div class="card"><div class="kpi">${n}</div><div class="kpi-sub">${l}</div></div>`; }
-function commsPreview(){ return `<div class="u3 card"><h3>${t("announcements")}</h3>${S.announces.slice(0,4).map(a=>`<div class="u4"><b>${esc(a.title)}</b> <span class="mut small">• ${esc(a.date)}</span><div class="small">${esc(a.text)}</div></div>`).join("")}</div>`; }
+function commsPreview(){ if(SERVER) return ""; return `<div class="u3 card"><h3>${t("announcements")}</h3>${S.announces.slice(0,4).map(a=>`<div class="u4"><b>${esc(a.title)}</b> <span class="mut small">• ${esc(a.date)}</span><div class="small">${esc(a.text)}</div></div>`).join("")}</div>`; }
 
 /* ---------- ELEVES ---------- */
 let stuQ="";
 function vStudents(){
+  if(SERVER&&window.NORIA_TAB&&!S.students.length) return `<h2 class="u6">${t("students")}</h2>`+(S.classes.length?NORIA_TAB.emptyStudents():NORIA_TAB.noClasses());
   const full=["direction","secretariat"].includes(S.role);
   const q=stuQ.toLowerCase();
   const f=S.students.filter(s=>!q||(s.firstName+" "+s.lastName+" "+s.code).toLowerCase().includes(q)).slice(0,60);
@@ -140,7 +142,7 @@ function vStudents(){
 }
 function bStu(){ const f=$("#csvIn"); if(f) f.onchange=e=>{ const fl=e.target.files[0]; if(!fl)return; const r=new FileReader(); r.onload=()=>{ const lines=String(r.result).split("\n").slice(1).filter(Boolean); let add=0; lines.forEach((ln,i)=>{ const p=ln.split(",").map(x=>x.replace(/^"|"$/g,"")); if(p.length<3)return; const fn=p[0]||"Prénom"+i,ln2=p[1]||"Nom",cl=p[2]||"c7a"; S.students.push({id:"e"+Date.now()+i,code:"KL-2025-"+String(S.students.length+1).padStart(3,"0"),firstName:fn,lastName:ln2,sex:"M",birth:"2012-01-01",level:classById(cl)?.level||"7e AF",classId:cl,campus:"Delmas",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}); add++; }); save(); render(); toast(add+" importés"); }; r.readAsText(fl); }; }
 KL.stuQ=v=>{stuQ=v; const i=$("#stuQ"); render(); const n=$("#stuQ"); if(n){n.focus(); n.setSelectionRange(n.value.length,n.value.length);}};
-KL.stuCSV=()=>{ if(!["direction","secretariat","comptable"].includes(S.role)){toast(t("noAccess"));return;} const rows=[["prenom","nom","classe","code","niveau","statut"],...S.students.map(s=>[s.firstName,s.lastName,s.classId,s.code,s.level,s.status])]; dl("eleves.csv","\uFEFF"+toCSV(rows),"text/csv"); logExport("CSV","eleves.csv ("+S.students.length+")"); toast(t("savedOk")); };
+KL.stuCSV=()=>{ if(SERVER&&window.NORIA_TAB){ NORIA_TAB.exportStudents(); return; } if(!["direction","secretariat","comptable"].includes(S.role)){toast(t("noAccess"));return;} const rows=[["prenom","nom","classe","code","niveau","statut"],...S.students.map(s=>[s.firstName,s.lastName,s.classId,s.code,s.level,s.status])]; dl("eleves.csv","\uFEFF"+toCSV(rows),"text/csv"); logExport("CSV","eleves.csv ("+S.students.length+")"); toast(t("savedOk")); };
 KL.stuModal=id=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;} const s=id?stuById(id):{firstName:"",lastName:"",sex:"F",birth:"2013-05-01",level:"7e AF",classId:"c7a",campus:"Delmas",guardians:[{name:"",link:"Manman",phone:""}]};
   const dups=!id?S.students.filter(x=>x.firstName.toLowerCase()===String($("#stuQ")?.value||"").toLowerCase().slice(0,4)): [];
   $("#stuModal").innerHTML=`<div class="modal"><div class="sheet"><h3>${id?t("edit"):t("newStudent")}</h3>
@@ -165,6 +167,7 @@ KL.stuFile=id=>{ if(denyLeak("fiche",id)) return; const box=$("#stuModal"); if(!
 
 /* ---------- CLASSES ---------- */
 function vClasses(){
+  if(SERVER&&window.NORIA_TAB) return NORIA_TAB.classes(S);
   const list=S.role==="enseignant"?S.classes.filter(c=>teacherClasses().includes(c.id)):S.classes;
   return `<h2 class="u6">${t("classes")}</h2><div class="u8 grid g2">
   ${list.map(c=>{const n=S.students.filter(s=>s.classId===c.id).length;const te=S.staff.find(x=>x.id===c.teacherId);
@@ -172,7 +175,7 @@ function vClasses(){
   <div class="toolbar"><button class="soft" data-action="KL.attGo" data-a0="s:${esc(c.id)}">${t("rollCall")}</button><button class="ghost" data-action="KL.clList" data-a0="s:${esc(c.id)}">${t("classLists")} / ${t("print")}</button></div></div>`;}).join("")}</div>
   <div class="u3 card"><h3>${t("yearConfig")}</h3><div class="small">Année: <b>${esc(S.year)}</b> • Périodes: ${S.periods.join(", ")} • Niveaux: ${S.levels.join(", ")} • Barème: /${S.scale.max}, passage ${S.scale.pass}, arrondi ${S.scale.round}</div></div>`;
 }
-KL.clList=id=>{ if(S.role==="enseignant"&&!teacherClasses().includes(id)){toast(t("noAccess"));return;} const c=classById(id); const rows=S.students.filter(s=>s.classId===id);
+KL.clList=id=>{ if(SERVER&&window.NORIA_TAB){ const c=classById(id); if(c&&c.serverId) NORIA_TAB.exportStudents(c.serverId); return; } if(S.role==="enseignant"&&!teacherClasses().includes(id)){toast(t("noAccess"));return;} const c=classById(id); const rows=S.students.filter(s=>s.classId===id);
   dl(`liste-${c.name}.csv`,"\uFEFF"+toCSV([["code","prenom","nom","sexe"],...rows.map(s=>[s.code,s.firstName,s.lastName,s.sex])]),"text/csv"); logExport("CSV","liste "+c.name); toast(t("savedOk")); };
 
 /* ---------- PRESENCES ---------- */
@@ -413,6 +416,7 @@ KL.reserve=bid=>toast(t("requestSent"));
 
 /* ---------- RAPPORTS ---------- */
 function vRep(){
+  if(SERVER&&window.NORIA_TAB) return NORIA_TAB.rep(S);
   const finOk=["direction","comptable"].includes(S.role);
   const classes=S.role==="enseignant"?S.classes.filter(c=>teacherOwns(c.id)):S.classes;
   const byClass=classes.map(c=>{const st=S.students.filter(s=>s.classId===c.id);const keys=Object.entries(S.attendance).filter(([k,a])=>a.classId===c.id);const all=keys.flatMap(([k,a])=>Object.values(a.records));const r=all.length?Math.round(all.filter(x=>x==="P").length/all.length*100):100;return {c,n:st.length,r};});
@@ -424,12 +428,13 @@ function vRep(){
   <div class="card"><h3>${t("exportLog")}</h3>${S.exportLog.slice(0,8).map(e=>`<div class="small">${esc(e.date)} — ${esc(e.by)} — ${esc(e.kind)} : ${esc(e.detail)}</div>`).join("")||`<span class="mut small">${t("empty")}</span>`}<div class="toolbar"><button class="ghost" data-action="KL.csvStu">${t("students")} CSV</button>${S.role==="direction"?`<button class="ghost" data-action="KL.allJSON">${t("exportAll")}</button>`:""}</div></div></div>
   <p class="small mut">${esc(t("menfpNote"))}</p>`;
 }
-KL.csvPay=()=>{ if(!["direction","comptable"].includes(S.role)){toast(t("noAccess"));return;} dl("paiements.csv","\uFEFF"+toCSV([["recu","eleve","montant","mode","date"],...S.payments.map(p=>{const s=stuById(p.studentId);return [p.ref,(s?.firstName||"")+" "+(s?.lastName||""),p.amount,p.method,p.date];})]),"text/csv"); logExport("CSV","paiements"); };
+KL.csvPay=()=>{ if(SERVER&&window.NORIA_TAB){ NORIA_TAB.exportFinance(); return; } if(!["direction","comptable"].includes(S.role)){toast(t("noAccess"));return;} dl("paiements.csv","\uFEFF"+toCSV([["recu","eleve","montant","mode","date"],...S.payments.map(p=>{const s=stuById(p.studentId);return [p.ref,(s?.firstName||"")+" "+(s?.lastName||""),p.amount,p.method,p.date];})]),"text/csv"); logExport("CSV","paiements"); };
 KL.csvStu=()=>KL.stuCSV();
 KL.allJSON=()=>{ if(S.role!=="direction"){toast(t("noAccess"));return;} dl("klirline-export.json",JSON.stringify(S,null,2),"application/json"); logExport("JSON","export complet"); toast(t("savedOk")); };
 
 /* ---------- PARAMETRES ---------- */
 function vSet(){
+  if(SERVER&&window.NORIA_TAB) return NORIA_TAB.settings(S);
   const mat=[["direction","Tout établissement"],["secretariat","Dossiers nécessaires"],["enseignant","Classes attribuées"],["comptable","Finances uniquement"],["bibliothecaire","Bibliothèque"],["parent","Enfants reliés"],["eleve","Ses infos"]];
   return `<h2 class="u6">${t("settings")}</h2><div class="u8 grid g2">
   <div class="card"><h3>${t("yearConfig")}</h3><div class="fld"><label>${t("schoolYear")}</label><select data-action-change="KL.setYear" data-a0="v">${S.years.map(y=>`<option ${y===S.year?"selected":""}>${y}</option>`).join("")}</select></div><div class="small mut">Périodes: ${S.periods.join(", ")} • Passage: ${S.scale.pass}/${S.scale.max}</div>
@@ -461,22 +466,28 @@ function stuFromServer(x,byId){ const c=byId[x.class_id]; return {id:"s"+x.id,se
 KL.setStudents=list=>{ if(!S||!Array.isArray(list)) return; const byId=Object.fromEntries(S.classes.filter(c=>c.serverId).map(c=>[c.serverId,c])); S.students=list.map(x=>stuFromServer(x,byId)); };
 KL.applyServer=d=>{
   if(!S) load();
-  const cls=d.classes.map(c=>({id:"c"+c.id,serverId:c.id,name:c.name,level:c.level,campus:c.campus,teacherId:null,room:"—"}));
+  const cls=d.classes.map(c=>({id:"c"+c.id,serverId:c.id,name:c.name,level:c.level,campus:c.campus,teacherId:null,room:c.room||"—"}));
   const byId=Object.fromEntries(cls.map(c=>[c.serverId,c]));
   const stu=d.students.map(x=>stuFromServer(x,byId));
   const role=ROLE_ORDER.find(r=>d.me.roles.includes(r))||"eleve";
-  SERVER={me:d.me}; if(window.NORIA_SCO) NORIA_SCO.reset(); if(window.NORIA_GES) NORIA_GES.reset();
+  SERVER={me:d.me}; if(window.NORIA_SCO) NORIA_SCO.reset(); if(window.NORIA_GES) NORIA_GES.reset(); if(window.NORIA_TAB) NORIA_TAB.reset();
+  // Lot 1 : aucune donnée de démonstration après connexion (paiements, prêts, annonces, présences locales, file d'attente).
+  Object.assign(S,{payments:[],loans:[],announces:[],queue:[],attendance:{},staff:[],calendar:[]});
   S.role=ROLE_MAP[role]; S.students=stu; S.classes=cls;
   S.currentUser=Object.assign({},S.currentUser,{name:d.me.name,parentKids:stu.map(x=>x.id),studentId:stu[0]?.id||null});
   ROUTE="dashboard"; render();
 };
 KL.serverMode=()=>!!SERVER;
+KL.can=m=>can(m); // utilisé par tableau.js (boutons « prochaine action » selon les droits)
+// Après une modification de la structure (structure.js) : relit les classes actives du serveur.
+KL.reloadClasses=async()=>{ if(!SERVER) return; try{ const r=await fetch("/api/classes",{credentials:"same-origin",cache:"no-store"}); if(!r.ok) return; const d=await r.json();
+  const old=Object.fromEntries(S.classes.map(c=>[c.serverId,c])); S.classes=d.map(c=>Object.assign(old[c.id]||{},{id:"c"+c.id,serverId:c.id,name:c.name,level:c.level,campus:c.campus,teacherId:null,room:c.room||"—"})); }catch(e){} };
 if(window.NORIA_OFF) NORIA_OFF.onChange(onOfflineChange);
 // En mode serveur, les modules additionnels lisent l'état en mémoire (rôle et élèves du serveur) au lieu de localStorage.
 KL.serverState=()=>SERVER?S:null;
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};
 KL.sync=()=>{ if(!S.online){toast(t("offline"));return;} const n=S.queue.length; S.queue=[]; Object.values(S.attendance).forEach(a=>{if(a.sync==="pending")a.sync="synced";}); save(); render(); toast(t("syncedOk")+(n?` (${n})`:"")); };
-function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); if(window.NORIA_GES) NORIA_GES.bind(()=>{ if(SERVER) render(); }); try{ load(); render(); }catch(e){ console.error(e); } }
+function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); if(window.NORIA_GES) NORIA_GES.bind(()=>{ if(SERVER) render(); }); if(window.NORIA_TAB) NORIA_TAB.bind(()=>{ if(SERVER) render(); }); try{ load(); render(); }catch(e){ console.error(e); } }
 if(document.readyState!=="loading") boot(); else document.addEventListener("DOMContentLoaded",boot);
 window.KL=KL;
 })();

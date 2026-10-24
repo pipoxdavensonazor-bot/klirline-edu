@@ -23,6 +23,9 @@ const appareils = require('./appareils');
 const whatsapp = require('./whatsapp');
 const telegram = require('./telegram');
 const activation = require('./activation');
+// Lot 0 : structure de l'école (années, niveaux, classes, périodes, matières, affectations) ; lot 1 : tableau de bord et rapports réels.
+const structure = require('./structure');
+const tableau = require('./tableau');
 
 const COOKIE = 'noria_session';
 const ROLES = ['direction', 'secretariat', 'enseignant', 'comptabilite', 'bibliotheque', 'parent', 'eleve'];
@@ -341,10 +344,11 @@ const routes = [
       sc = { sql: `c.school_id = ? AND c.id IN (SELECT e.class_id FROM enrollment e JOIN student st ON st.id = e.student_id AND st.school_id = e.school_id WHERE e.status = 'actif' AND ${st.sql})`, params: [u.school_id, ...st.params] };
     }
     if (sc === P.NONE) forbid();
-    return db.all(`SELECT c.id, c.name, l.name AS level, ca.name AS campus FROM class c
+    // Classes actives seulement (non archivées, année courante) : structure.js.
+    return db.all(`SELECT c.id, c.name, c.room, c.level_id, c.school_year_id, l.name AS level, ca.name AS campus FROM class c
       JOIN level l ON l.id = c.level_id AND l.school_id = c.school_id
       JOIN campus ca ON ca.id = c.campus_id AND ca.school_id = c.school_id
-      WHERE ${sc.sql} ORDER BY c.name`, ...sc.params);
+      WHERE ${sc.sql} AND ${structure.activeClass('c')} ORDER BY l.position, c.name`, ...sc.params);
   }],
   ['GET', /^\/api\/me$/, async (db, req, u) => {
     const school = ecoles.publicProfile(await db.get('SELECT * FROM school WHERE id = ?', u.school_id));
@@ -487,6 +491,7 @@ const routes = [
 // Jour civil de l'école (Haïti par défaut) : sert à la règle « correction le jour même ».
 const localDay = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.NORIA_TZ || 'America/Port-au-Prince' });
 routes.push(...scolaire.routes, ...scolaire.publicRoutes, ...require('./gestion').routes);
+routes.push(...structure.routes, ...tableau.routes);
 function setSessionCookie(req, ctx, token) {
   req.setCookie(`${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}${ctx.secureCookie ? '; Secure' : ''}`);
 }

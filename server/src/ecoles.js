@@ -6,6 +6,7 @@
 const P = require('./policy');
 const { HttpError, forbid, notFound, audit, refuse } = require('./common');
 const I = require('./identite');
+const { activeClass } = require('./structure');
 const X = require('./xlsx');
 const auth = require('./auth');
 
@@ -114,7 +115,7 @@ async function analyse(db, u, rows, normalizePhone) {
     // Lignes de notes du modèle (une seule cellule remplie, en première colonne, sans les autres champs) : ignorées.
     .filter(({ r }) => !(r.filter((c) => String(c || '').trim()).length === 1 && /obligatoires|obligatwa|efase|supprimez|NORIA/i.test(String(r[0]))));
   if (body.length > MAX_ROWS) throw new HttpError(413, `trop de lignes (${MAX_ROWS} au plus)`);
-  const classes = await db.all('SELECT id, name FROM class WHERE school_id = ?', u.school_id);
+  const classes = await db.all(`SELECT c.id, c.name FROM class c WHERE c.school_id = ? AND ${activeClass('c')}`, u.school_id); // classes actives (structure.js)
   const classByName = new Map(classes.map((c) => [I.strip(c.name).toLowerCase().replace(/\s+/g, ' ').trim(), c]));
   const existing = new Set((await db.all('SELECT first_name, last_name, birth_date FROM student WHERE school_id = ?', u.school_id)).map(dupKey));
   const seen = new Map();

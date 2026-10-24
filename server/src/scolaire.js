@@ -6,6 +6,7 @@ const P = require('./policy');
 const { HttpError, forbid, notFound, audit, refuse, isUnique } = require('./common');
 const { reportCardPdf } = require('./pdf');
 const { schoolProfile } = require('./identite');
+const { workingYear } = require('./structure');
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const AUDIENCES = ['ecole', 'classe', 'parents', 'enseignants'];
@@ -188,12 +189,18 @@ function publicUrl(req, ctx) {
 }
 
 const routes = [
-  ['GET', /^\/api\/terms$/, async (db, req, u) => db.all(`SELECT t.id, t.name, t.position, t.starts_on, t.ends_on, y.label AS year FROM term t
-    JOIN school_year y ON y.id = t.school_year_id AND y.school_id = t.school_id WHERE t.school_id = ? ORDER BY y.label, t.position`, u.school_id)],
+  // Périodes de l'année de travail (courante, sinon la plus récente non archivée) : structure.js.
+  ['GET', /^\/api\/terms$/, async (db, req, u) => {
+    const y = await workingYear(db, u.school_id); if (!y) return [];
+    return db.all(`SELECT t.id, t.name, t.position, t.starts_on, t.ends_on, y.label AS year FROM term t
+      JOIN school_year y ON y.id = t.school_year_id AND y.school_id = t.school_id WHERE t.school_id = ? AND t.school_year_id = ? ORDER BY t.position`, u.school_id, y.id);
+  }],
   ['GET', /^\/api\/subjects$/, async (db, req, u) => {
-    if (P.has(u, 'direction', 'secretariat')) return db.all('SELECT id, name, coefficient FROM subject WHERE school_id = ? ORDER BY name', u.school_id);
-    if (P.has(u, 'enseignant')) return db.all(`SELECT DISTINCT s.id, s.name, s.coefficient, ta.class_id FROM subject s
-      JOIN teacher_assignment ta ON ta.subject_id = s.id AND ta.school_id = s.school_id WHERE s.school_id = ? AND ta.teacher_user_id = ? ORDER BY s.name`, u.school_id, u.id);
+    // Matières actives de l'année de travail ; level_id : matière propre à un niveau (NULL = toutes les classes).
+    const y = await workingYear(db, u.school_id); if (!y) return [];
+    if (P.has(u, 'direction', 'secretariat')) return db.all('SELECT id, name, coefficient, level_id FROM subject WHERE school_id = ? AND school_year_id = ? AND archived_at IS NULL ORDER BY name', u.school_id, y.id);
+    if (P.has(u, 'enseignant')) return db.all(`SELECT DISTINCT s.id, s.name, s.coefficient, s.level_id, ta.class_id FROM subject s
+      JOIN teacher_assignment ta ON ta.subject_id = s.id AND ta.school_id = s.school_id WHERE s.school_id = ? AND s.school_year_id = ? AND s.archived_at IS NULL AND ta.teacher_user_id = ? ORDER BY s.name`, u.school_id, y.id, u.id);
     forbid();
   }],
 
