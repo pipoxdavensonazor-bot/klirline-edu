@@ -14,7 +14,7 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   'parent_link', 'teacher_assignment', 'enrollment', 'finance_entry', 'account_token', 'login_code', 'audit_log',
   'attendance', 'attendance_history', 'sync_op', 'sync_conflict',
   'evaluation', 'grade', 'grade_history', 'grade_conflict', 'report_card', 'bulletin_appreciation', 'announcement', 'school_event',
-  'book', 'loan', 'payment', 'student_code', 'platform_admin', 'platform_audit',
+  'book', 'loan', 'payment', 'student_code', 'platform_admin', 'platform_audit', 'billing_plan', 'school_billing', 'billing_invoice', 'billing_payment', 'billing_reminder',
   // Phase 6 : photos, badges, relevés, notifications, clés Ed25519 des écoles.
   'student_photo', 'badge', 'transcript', 'notification', 'school_key',
   // Assistant sécurité : événements, alertes, actions (journal), blocages d'IP, anti-répétition des notifications.
@@ -57,7 +57,7 @@ const EXCLUDED = {
 
 // Tables sans colonne id : ordre de sortie stable par clé primaire.
 const ORDER = { public_follow: 'account_id, school_id', school_thread_read: 'thread_id, user_id', parent_meeting_attendance: 'meeting_id, user_id', user_role: 'user_id, role', sync_op: 'school_id, op_id', student_code: 'school_id, code', student_photo: 'school_id, student_id',
-  school_key: 'school_id', security_notice: 'rule', portal_ad_click: 'ad_id, day', school_email_settings: 'school_id' };
+  school_key: 'school_id', security_notice: 'rule', portal_ad_click: 'ad_id, day', school_email_settings: 'school_id', school_billing: 'school_id' };
 const WITH_ID = new Set(TABLES.filter((t) => !ORDER[t]));
 const orderOf = (t) => (WITH_ID.has(t) ? 'id' : ORDER[t]);
 const digest = (tables) => crypto.createHash('sha256').update(JSON.stringify(tables)).digest('hex');

@@ -23,6 +23,15 @@ function inviteHtml(v, lang) {
 }
 
 const T = {
+  // Facturation : rappel de facture (super-admin → direction). Paiement manuel avec référence, aucune passerelle.
+  facturation_rappel: {
+    fr: (v) => ({ sms: `NORIA : facture ${v.number} (${v.amount}) ${v.late ? 'en retard' : 'à payer'}, échéance ${v.due}. Abonnement : ${v.link}`,
+      subject: `NORIA — facture ${v.number} ${v.late ? 'en retard' : 'à payer'}`,
+      text: `Bonjour,\n\nLa facture ${v.number} de ${v.school} (${v.label}) d'un montant de ${v.amount} est ${v.late ? 'en retard' : 'à payer'} (échéance : ${v.due}).\n\nModes de paiement acceptés : MonCash, NatCash, virement bancaire ou espèces. Indiquez le numéro ${v.number} comme référence, puis transmettez-nous la référence de la transaction.\n${v.late && v.readOnlyOn ? `\nSans règlement, votre espace passera en lecture seule le ${v.readOnlyOn} (aucune donnée n'est supprimée).\n` : ''}\nDétails : ${v.link}\n\nNORIA` }),
+    ht: (v) => ({ sms: `NORIA : fakti ${v.number} (${v.amount}) ${v.late ? 'an reta' : 'pou peye'}, dat limit ${v.due}. Abònman : ${v.link}`,
+      subject: `NORIA — fakti ${v.number} ${v.late ? 'an reta' : 'pou peye'}`,
+      text: `Bonjou,\n\nFakti ${v.number} ${v.school} (${v.label}) ki se ${v.amount} ${v.late ? 'an reta' : 'pou peye'} (dat limit : ${v.due}).\n\nNou aksepte MonCash, NatCash, vèsman labank oswa kach. Mete nimewo ${v.number} kòm referans, epi voye referans tranzaksyon an ba nou.\n${v.late && v.readOnlyOn ? `\nSi pa gen peman, espas ou ap pase an lekti sèlman ${v.readOnlyOn} (pa gen okenn done ki efase).\n` : ''}\nDetay : ${v.link}\n\nNORIA` }),
+  },
   code: {
     fr: (v) => ({ sms: `NORIA : votre code est ${v.code}. Valable ${v.minutes} min. Ne le donnez à personne.`,
       subject: `Votre code de connexion NORIA : ${v.code}`,

@@ -515,6 +515,8 @@ const portail = require('./portail');
 routes.push(...portail.schoolRoutes());
 // Bloc 6 : déclaration annuelle au ministère (direction). Routes 404 tant que NORIA_MINISTERE ne vaut pas 1.
 routes.push(...ministere.schoolRoutes());
+const facturation = require('./facturation');
+routes.push(...facturation.schoolRoutes);
 routes.push(...emailsEleves.schoolRoutes(), ...emailsEleves.inboundRoutes());
 // Lot 3 : messagerie familles ↔ école, réunions de parents à grande audience, inscriptions en ligne.
 routes.push(...require('./messagerie').routes, ...require('./reunions-parents').routes, ...require('./candidatures').routes);
@@ -814,6 +816,8 @@ function createServer(db, options = {}) {
         if (!opts.public) { user = await loadSession(db, req.token); if (!user) throw new HttpError(401, 'connexion requise'); }
         else if (opts.optionalUser && req.token) user = await loadSession(db, req.token);
         req.user = user;
+        // Abonnement impayé après le délai de grâce : école en lecture seule (écritures refusées, données intactes).
+        if (user && !opts.public) await facturation.guardWrite(db, req, url, user, ctx);
         // Utilisateur connecté : tout passe par asSchool (en PostgreSQL, rôle noria_app + RLS sur son école).
         // Routes « system » (adhésions de la personne connectée) : connexion système, la lecture des données d'une école
         // y repasse par db.asSchool. Toutes les autres : transaction RLS de l'école active.

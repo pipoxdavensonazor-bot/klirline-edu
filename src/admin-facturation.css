@@ -1,0 +1,7 @@
+/* Facturation (super-admin) */
+.fac-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.fac-row input,.fac-row select{max-width:180px}
+.fac-st{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.85em;background:#eef}
+.fac-payee{background:#e6f6ec;color:#1d5e33}.fac-en_retard{background:#fde2e1;color:#8a1c14}.fac-annulee{background:#eee;color:#555}.fac-a_payer{background:#fff4d6;color:#7a5600}
+.fac-ro{color:#8a1c14}
+.fac .okbox{border-left:4px solid #1d7a3e;background:#e6f6ec;padding:10px 12px;border-radius:8px;margin:10px 0}

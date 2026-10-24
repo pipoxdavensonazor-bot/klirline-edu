@@ -32,12 +32,25 @@ function selectedKid(kids,schoolId){
   return k&&k.school_id===schoolId?k:null;
 }
 // Contexte reçu de login.js après /api/me (aussi rejoué hors ligne depuis la copie locale).
-function set(ctx){ C=Object.assign({me:null,schools:[],kids:[],kid:null},ctx||{}); headerSwitch(); }
+function set(ctx){ C=Object.assign({me:null,schools:[],kids:[],kid:null},ctx||{}); headerSwitch(); checkAbo(); }
+// Abonnement : bandeau « lecture seule » ou « facture en retard » (direction, secrétariat, comptabilité). Erreur → rien.
+let ABO=null;
+function checkAbo(){
+  ABO=null; const me=C.me; if(!me||!me.school) return;
+  fetch("/api/abonnement",{credentials:"same-origin",cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{ ABO=d; const el=document.getElementById("aboBanner"); if(el) el.outerHTML=aboBanner(); }).catch(()=>{});
+}
+function aboBanner(){
+  const a=ABO; const ht=document.documentElement.lang==="ht";
+  if(!a||!a.configured||(!a.read_only&&!a.late_invoice)) return `<div id="aboBanner" hidden></div>`;
+  const msg=a.read_only?(ht?"Espas lekòl la an lekti sèlman (abònman pa peye). Done yo toujou la ; ou ka konsilte ak ekspòte.":"Espace en lecture seule (abonnement impayé). Vos données sont conservées : consultation et exports restent possibles.")
+    :(ht?`Fakti ${a.late_invoice.number} an reta. Lekti sèlman apati ${a.read_only_on}.`:`Facture ${a.late_invoice.number} en retard. Lecture seule à partir du ${a.read_only_on}.`);
+  return `<div id="aboBanner" class="${a.read_only?"badbox":"warnbox"} abo-banner" role="alert">${esc(msg)} <button type="button" class="btn-sm" data-action="KL.go" data-a0="s:abonnement">${ht?"Wè abònman an":"Voir l'abonnement"}</button></div>`;
+}
 
 function banner(){
   const me=C.me; if(!me||!me.school) return "";
   const s=me.school, info=[s.address,s.phone,s.email].filter(Boolean).map(esc).join(" · ");
-  return `<section class="eco-banner" aria-label="${esc(t("school"))}">${mark(s,"eco-lg")}<div class="eco-txt"><p class="eco-hello small">${esc(t("welcome"))}, ${esc(me.name)}</p><h2 class="eco-name">${esc(s.name)}</h2>
+  return aboBanner()+`<section class="eco-banner" aria-label="${esc(t("school"))}">${mark(s,"eco-lg")}<div class="eco-txt"><p class="eco-hello small">${esc(t("welcome"))}, ${esc(me.name)}</p><h2 class="eco-name">${esc(s.name)}</h2>
     ${s.motto?`<p class="eco-motto">« ${esc(s.motto)} »</p>`:""}${info?`<p class="eco-info small">${info}</p>`:""}</div></section>${kidBar()}`;
 }
 // Sélecteur d'enfant (parent) : avatar aux initiales, nom, initiales de l'école ; « Tous » = enfants de l'école active.
@@ -90,7 +103,8 @@ function view(m){
     // Bloc 6 (déclaration annuelle au ministère) : idem.
     // Bloc 7 (adresses e-mail des élèves) : deux modules, direction et élève/parent.
     // Bloc 9 (connexion et appareils, codes d'activation) : idem.
-    const b2=m==="scan"||m==="badges"||m==="releves", b4=m==="transferts", b5=m==="portail", b6=m==="declaration", b7=m==="emails", b7m=m==="monemail", b9=m==="connexion"||m==="codesActivation";
+    const b2=m==="scan"||m==="badges"||m==="releves", b4=m==="transferts", b5=m==="portail", b6=m==="declaration", b7=m==="emails", b7m=m==="monemail", b9=m==="connexion"||m==="codesActivation", bA=m==="abonnement";
+    if(bA){ await load("src/abonnement.js"); if(document.getElementById("ecoView")===el) window.NORIA_ABO.render(el); return; }
     try{ await load(b9?"src/connexion.js":b7?"src/emails-eleves.js":b7m?"src/mon-email.js":b6?"src/declaration.js":b5?"src/portail-ecole.js":b4?"src/transferts.js":b2?"src/badges.js":"src/ecoles-gestion.js"); if(document.getElementById("ecoView")===el) (b9?window.NORIA_CNX:b7?window.NORIA_EMAILS:b7m?window.NORIA_MYMAIL:b6?window.NORIA_DECL:b5?window.NORIA_PORT:b4?window.NORIA_TRF:b2?window.NORIA_BAD:window.NORIA_ECOG).render(m,el,C); }
     catch(e){ el.innerHTML=`<div class="badbox">${esc(t("loadErr"))}</div>`; }
   },0);

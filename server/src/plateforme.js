@@ -209,6 +209,7 @@ ROUTES.push(...require('./transferts').adminRoutes({ log }));
 ROUTES.push(...require('./portail').adminRoutes({ log }));
 // Bloc 6 : comptes du ministère (création, désactivation) et journal de leurs consultations (404 si NORIA_MINISTERE=0).
 ROUTES.push(...require('./ministere').adminRoutes({ log }));
+ROUTES.push(...require('./facturation').adminRoutes({ log }));
 // Bloc 8 : demandes d'inscription des écoles (accepter, refuser) et invitation de la direction d'une école.
 ROUTES.push(...require('./portail-public').adminRoutes({ log, createSchool }));
 
