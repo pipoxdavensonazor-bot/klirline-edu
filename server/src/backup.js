@@ -13,7 +13,7 @@ const zlib = require('node:zlib');
 const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'subject', 'person', 'app_user', 'user_role', 'student',
   'parent_link', 'teacher_assignment', 'enrollment', 'finance_entry', 'account_token', 'login_code', 'audit_log',
   'attendance', 'attendance_history', 'sync_op', 'sync_conflict',
-  'evaluation', 'grade', 'grade_history', 'grade_conflict', 'report_card', 'announcement', 'school_event',
+  'evaluation', 'grade', 'grade_history', 'grade_conflict', 'report_card', 'bulletin_appreciation', 'announcement', 'school_event',
   'book', 'loan', 'payment', 'student_code', 'platform_admin', 'platform_audit',
   // Phase 6 : photos, badges, relevés, notifications, clés Ed25519 des écoles.
   'student_photo', 'badge', 'transcript', 'notification', 'school_key',

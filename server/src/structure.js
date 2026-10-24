@@ -62,7 +62,7 @@ async function defaultCampus(db, schoolId) {
 /* ---------- modèle haïtien (modifiable dans l'assistant et après) ----------
    Fondamental 9 ans : 1er cycle (1re–4e AF), 2e cycle (5e–6e AF), 3e cycle (7e–9e AF) ; Nouveau secondaire NS1–NS4
    (tronc commun NS1–NS2, séries en NS3–NS4). Préscolaire facultatif. Disciplines : Cadre d'orientation curriculaire et
-   programmes du 3e cycle (MENFP, 2022). Coefficients à 1 par défaut : chaque école saisit les siens. */
+   programmes du 3e cycle (MENFP, 2022). Coefficients : MENFP au 3e cycle, 1 ailleurs ; chaque école les ajuste. Préscolaire : appréciations, pas de notes. */
 const CYCLES = [
   { id: 'prescolaire', fr: 'Préscolaire', ht: 'Prekolè', on: false, levels: ['Préscolaire 1', 'Préscolaire 2', 'Préscolaire 3'] },
   { id: 'fondamental-1', fr: 'Fondamental — 1er cycle', ht: 'Fondamantal — 1ye sik', on: true, levels: ['1re AF', '2e AF', '3e AF', '4e AF'] },
@@ -81,6 +81,13 @@ const SUBJECTS = {
     'Sciences économiques et sociales', 'Anglais', 'Espagnol', 'Éducation esthétique et artistique', 'Éducation physique et sportive'],
 };
 const SUBJECTS_EXTRA = { NS3: ['Philosophie'], NS4: ['Philosophie'] };
+// Coefficients indicatifs du 3e cycle : décision du MENFP du 14 juin 2023 (examens de 9e AF, en points : 300 → 3, 200 → 2),
+// appliquée par défaut de la 7e à la 9e AF. Ailleurs, aucun barème officiel unique trouvé : coefficient 1 (docs/bulletins-menfp.md).
+const COEF_3E_CYCLE = { 'Mathématiques': 3, 'Créole': 3, 'Français': 3, 'Sciences sociales': 3, 'Sciences expérimentales': 3,
+  'Anglais': 2, 'Espagnol': 2, 'Éducation esthétique et artistique': 2, 'Éducation physique et sportive': 2,
+  'Initiation à la technologie et aux activités productives': 2 };
+const COEFS = { 'fondamental-3': COEF_3E_CYCLE };
+const coefsFor = (cycle, subjects) => Object.fromEntries(subjects.map((n) => [n, (COEFS[cycle] && COEFS[cycle][n]) || 1]));
 function defaultYearLabel(d = new Date()) { const y = d.getFullYear(); return d.getMonth() >= 6 ? `${y}-${y + 1}` : `${y - 1}-${y}`; }
 function defaultTerms(label) {
   const [a, b] = label.split('-').map(Number);
@@ -95,8 +102,9 @@ function template(label) {
   return {
     year: label, terms: defaultTerms(label),
     cycles: CYCLES.map((c) => ({ id: c.id, fr: c.fr, ht: c.ht, on: c.on,
-      levels: c.levels.map((name) => ({ name, position: (pos += 10), subjects: [...SUBJECTS[c.id], ...(SUBJECTS_EXTRA[name] || [])] })) })),
-    note: 'Modèle indicatif (MENFP) : niveaux, matières et dates sont modifiables ; coefficients à 1 par défaut.',
+      levels: c.levels.map((name) => { const subjects = [...SUBJECTS[c.id], ...(SUBJECTS_EXTRA[name] || [])];
+        return { name, position: (pos += 10), subjects, coefficients: coefsFor(c.id, subjects), notation: c.id === 'prescolaire' ? 'appreciations' : 'notes' }; }) })),
+    note: 'Modèle indicatif (MENFP) : niveaux, matières et dates sont modifiables ; coefficients MENFP au 3e cycle (décision du 14 juin 2023), 1 ailleurs.',
   };
 }
 
@@ -118,7 +126,7 @@ async function readAll(db, u) {
     WHERE u.school_id = ? AND r.role = 'enseignant' AND u.state = 'actif' ORDER BY u.display_name`, sid);
   const assignments = await db.all(`SELECT ta.id, ta.teacher_user_id, ta.class_id, ta.subject_id FROM teacher_assignment ta WHERE ta.school_id = ? ORDER BY ta.id`, sid);
   const pending = await db.get(`SELECT COUNT(*) AS n FROM account_token WHERE school_id = ? AND kind = 'invitation' AND role = 'enseignant' AND used_at IS NULL AND expires_at > ?`, sid, now());
-  return { year: wy || null, years, levels, classes, terms, subjects, teachers, assignments, pending_teacher_invitations: Number(pending ? pending.n : 0), can_manage: canManage(u) };
+  return { year: wy || null, years, levels, classes, terms, subjects, teachers, assignments, pending_teacher_invitations: Number(pending ? pending.n : 0), can_manage: canManage(u), can_bulletins: P.has(u, 'direction', 'secretariat') };
 }
 
 /* ---------- assistant (idempotent : ce qui existe est réutilisé, jamais modifié) ---------- */
@@ -345,4 +353,4 @@ const routes = [
   })],
 ];
 
-module.exports = { routes, activeClass, workingYear, template, defaultYearLabel, CYCLES, SUBJECTS };
+module.exports = { routes, activeClass, workingYear, template, defaultYearLabel, CYCLES, SUBJECTS, COEF_3E_CYCLE };

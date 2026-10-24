@@ -181,6 +181,10 @@ function reportCardPdf(snap, verifyUrl, school) {
   p.rect(L, y - 8, R - L, 26, 0.88);
   p.text(L + 8, y, 'Moyenne générale / Mwayèn jeneral', { bold: true, size: 11 });
   p.text(490, y, snap.general == null ? '-' : snap.general.toFixed(2), { bold: true, size: 12 });
+  if (snap.menfp) {
+    y -= 22; const m = snap.menfp;
+    p.text(L + 8, y, `Sur ${m.echelle} : ${m.average == null ? '-' : m.average.toFixed(2)}   ·   Rang : ${m.rank == null ? '-' : `${m.rank}${m.rank === 1 ? 'er' : 'e'}${m.exAequo ? ' ex aequo' : ''} sur ${m.classes}`}   ·   Mention : ${m.mention || '-'}`, { bold: true, size: 10 });
+  }
   y -= 34;
   p.text(L, y, `Calcul : notes publiées seulement, ramenées sur ${snap.scale}, pondérées par le coefficient de l'évaluation,`, { size: 8, gray: 0.35 });
   p.text(L, y - 11, 'puis moyenne générale pondérée par le coefficient de la matière. Notes absentes ou dispensées non comptées.', { size: 8, gray: 0.35 });

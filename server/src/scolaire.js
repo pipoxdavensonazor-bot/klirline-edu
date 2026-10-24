@@ -329,11 +329,17 @@ const routes = [
     const avg = await computeAverages(db, u.school_id, st.id, term.id);
     if (!avg.subjects.length) throw new HttpError(409, 'aucune note publiée pour cette période');
     const school = await db.get('SELECT name FROM school WHERE id = ?', u.school_id);
-    const cls = await db.get(`SELECT c.name FROM class c JOIN enrollment e ON e.class_id = c.id AND e.school_id = c.school_id
+    const cls = await db.get(`SELECT c.id, c.name FROM class c JOIN enrollment e ON e.class_id = c.id AND e.school_id = c.school_id
       WHERE e.student_id = ? AND e.school_id = ? AND e.status = 'actif'`, st.id, u.school_id);
     const code = verifyCode();
     const snap = { school: school.name, term: term.name, year: term.year, student: `${st.first_name} ${st.last_name}`, studentCode: st.code,
       className: cls ? cls.name : null, ...avg, code: fmtCode(code), issuedAt: new Date().toISOString(), issuer: u.display_name };
+    // Format haïtien (bulletins.js) : rang dans la classe, mention et moyenne sur l'échelle de l'école, figés dans le bulletin.
+    if (cls) {
+      const cb = await require('./bulletins').classBulletin(db, u.school_id, cls.id, term.id);
+      const me = cb.mode === 'notes' && cb.students.find((x) => x.id === st.id);
+      if (me) snap.menfp = { echelle: cb.rules.echelle, average: me.average, rank: me.rank ?? null, exAequo: !!me.ex_aequo, classes: cb.stats.classes, mention: me.mention };
+    }
     const id = await db.tx(async (t) => {
       // Un nouveau bulletin remplace le précédent pour la même période : l'ancien code est annulé.
       await t.run(`UPDATE report_card SET revoked_at = CURRENT_TIMESTAMP, revoked_reason = 'remplacé par un bulletin plus récent'

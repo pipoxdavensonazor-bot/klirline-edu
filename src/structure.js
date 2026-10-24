@@ -7,7 +7,7 @@
 const esc=window.NORIA_U.esc;
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
 const T={
-  fr:{title:"Structure de l'école",tabs:{classes:"Classes",levels:"Niveaux",years:"Année et trimestres",subjects:"Matières",teachers:"Enseignants",wizard:"Assistant"},
+  fr:{title:"Structure de l'école",tabs:{classes:"Classes",levels:"Niveaux",years:"Année et trimestres",subjects:"Matières",teachers:"Enseignants",bulletins:"Bulletins",wizard:"Assistant"},
     ro:"Lecture seule : seule la direction modifie la structure.",loading:"Chargement…",err:"Refusé : ",net:"Réseau indisponible.",needNet:"Réseau nécessaire pour modifier la structure.",saved:"Enregistré.",
     noYear:"Aucune année scolaire.",yearLbl:"Année de travail",cur:"courante",arch:"archivée",archived:"Archivés",restore:"Restaurer",archive:"Archiver",edit:"Modifier",save:"Enregistrer",cancel:"Annuler",del:"Supprimer",add:"Ajouter",
     confirmArch:"Archiver cet élément ? Il disparaîtra des listes, sans rien effacer.",confirmDel:"Supprimer cette période ?",
@@ -22,12 +22,12 @@ const T={
     step:(i,n)=>`Étape ${i} sur ${n}`,s1:"Année scolaire et trimestres",s2:"Niveaux",s3:"Classes",s4:"Matières",s5:"Vérifier et créer",next:"Suivant",back:"Retour",create:"Créer la structure",
     yearHelp:"Format AAAA-AAAA. Les dates des trimestres sont modifiables (indicatives).",model:"Modèle indicatif (MENFP) : à vérifier et adapter à votre école.",
     otherLevels:"Autres niveaux (un par ligne, facultatif)",countHelp:"Nombre de classes par niveau (0 = aucune). Plusieurs classes : A, B, C…",
-    subjOn:"Créer les matières du modèle pour chaque niveau choisi (coefficient 1, modifiable ensuite)",subjPreview:"Matières proposées",
+    subjOn:"Créer les matières du modèle pour chaque niveau choisi (coefficients MENFP au 3e cycle, 1 ailleurs ; modifiables ensuite)",subjPreview:"Matières proposées",
     sum:{year:"Année",terms:"Périodes",levels:"Niveaux",classes:"Classes",subjects:"Matières"},
     result:(c,e)=>`Créés : ${c.classes} classe(s), ${c.levels} niveau(x), ${c.subjects} matière(s), ${c.terms} période(s)${e.classes+e.levels+e.subjects+e.terms?` — déjà présents : ${e.classes+e.levels+e.subjects+e.terms}`:""}.`,
     next1:"Étapes suivantes",nx:["Invitez vos enseignants (Comptes), puis affectez-les à leurs classes (onglet Enseignants).","Importez la liste des élèves (Import des élèves).","Vérifiez les dates des trimestres et les coefficients."],
     openWz:"Ouvrir l'assistant",wzAgain:"Compléter avec l'assistant",startT:"Commencez par créer vos classes",startHelp:"L'assistant crée l'année, les trimestres, les niveaux, les classes et les matières en une fois."},
-  ht:{title:"Estrikti lekòl la",tabs:{classes:"Klas",levels:"Nivo",years:"Ane ak trimès",subjects:"Matyè",teachers:"Pwofesè",wizard:"Asistan"},
+  ht:{title:"Estrikti lekòl la",tabs:{classes:"Klas",levels:"Nivo",years:"Ane ak trimès",subjects:"Matyè",teachers:"Pwofesè",bulletins:"Bilten",wizard:"Asistan"},
     ro:"Lekti sèlman : se direksyon an sèlman ki chanje estrikti a.",loading:"Ap chaje…",err:"Refize : ",net:"Rezo a pa disponib.",needNet:"Fò gen rezo pou chanje estrikti a.",saved:"Anrejistre.",
     noYear:"Pa gen ane lekòl.",yearLbl:"Ane n ap travay la",cur:"kounye a",arch:"achive",archived:"Achive",restore:"Remete",archive:"Achive",edit:"Chanje",save:"Anrejistre",cancel:"Anile",del:"Efase",add:"Ajoute",
     confirmArch:"Achive eleman sa a ? L ap disparèt nan lis yo, san anyen pa efase.",confirmDel:"Efase peryòd sa a ?",
@@ -42,7 +42,7 @@ const T={
     step:(i,n)=>`Etap ${i} sou ${n}`,s1:"Ane lekòl ak trimès",s2:"Nivo",s3:"Klas",s4:"Matyè",s5:"Verifye epi kreye",next:"Apre",back:"Tounen",create:"Kreye estrikti a",
     yearHelp:"Fòma AAAA-AAAA. Ou ka chanje dat trimès yo (se endikasyon).",model:"Modèl endikatif (MENFP) : verifye l epi adapte l pou lekòl ou.",
     otherLevels:"Lòt nivo (youn pa liy, si genyen)",countHelp:"Konbyen klas pou chak nivo (0 = okenn). Plizyè klas : A, B, C…",
-    subjOn:"Kreye matyè modèl la pou chak nivo ou chwazi (koefisyan 1, ou ka chanje l apre)",subjPreview:"Matyè yo pwopoze",
+    subjOn:"Kreye matyè modèl la pou chak nivo ou chwazi (koefisyan MENFP nan 3yèm sik, 1 lòt kote ; ou ka chanje yo apre)",subjPreview:"Matyè yo pwopoze",
     sum:{year:"Ane",terms:"Peryòd",levels:"Nivo",classes:"Klas",subjects:"Matyè"},
     result:(c,e)=>`Kreye : ${c.classes} klas, ${c.levels} nivo, ${c.subjects} matyè, ${c.terms} peryòd${e.classes+e.levels+e.subjects+e.terms?` — te la deja : ${e.classes+e.levels+e.subjects+e.terms}`:""}.`,
     next1:"Pwochen etap yo",nx:["Envite pwofesè ou yo (Kont), epi ba yo klas yo (onglè Pwofesè).","Enpòte lis elèv yo (Enpòtasyon elèv).","Verifye dat trimès yo ak koefisyan yo."],
@@ -78,11 +78,16 @@ function draw(){
   const d=ST.data;
   if(!d) { EL.innerHTML=`<p class="mut">${esc(t("loading"))}</p>`; return; }
   if(d.__err!==undefined){ EL.innerHTML=`<div class="badbox">${esc(t("err"))}${esc(d.__err)}</div>`; return; }
-  const tabs=["classes","levels","years","subjects","teachers"].concat(d.can_manage?["wizard"]:[]);
+  const tabs=["classes","levels","years","subjects","teachers"].concat(d.can_bulletins?["bulletins"]:[]).concat(d.can_manage?["wizard"]:[]);
   EL.innerHTML=`<div class="row sp"><h2 class="u6">${esc(t("title"))}</h2>${d.year?`<span class="badge b-paid">${esc(t("yearLbl"))} : ${esc(d.year.label)}</span>`:`<span class="badge b-pending">${esc(t("noYear"))}</span>`}</div>
     ${d.can_manage?"":`<p class="small mut">${esc(t("ro"))}</p>`}
     <div class="str-tabs" role="tablist">${tabs.map(k=>`<button type="button" role="tab" class="${ST.tab===k?"on":"ghost"}" aria-selected="${ST.tab===k}" data-action="NORIA_STR.tab" data-a0="s:${k}">${esc(t("tabs")[k])}</button>`).join("")}</div>
-    <div class="str-body">${({classes:vClasses,levels:vLevels,years:vYears,subjects:vSubjects,teachers:vTeachers,wizard:vWizard}[ST.tab]||vClasses)(d)}</div>`;
+    <div class="str-body">${({classes:vClasses,levels:vLevels,years:vYears,subjects:vSubjects,teachers:vTeachers,bulletins:vBulletins,wizard:vWizard}[ST.tab]||vClasses)(d)}</div>`;
+}
+function vBulletins(){
+  setTimeout(()=>{ const el=document.getElementById("strBul"); if(!el) return;
+    (window.NORIA_ECO?NORIA_ECO.load("src/bulletins-menfp.js"):Promise.reject()).then(()=>{ if(el.isConnected) NORIA_BUL.render(el,ST.data); }).catch(()=>{ el.innerHTML=`<div class="badbox">${esc(t("err"))}</div>`; }); },0);
+  return `<div id="strBul"><p class="mut">${esc(t("loading"))}</p></div>`;
 }
 const M=()=>ST.data&&ST.data.can_manage;
 const yid=()=>ST.data.year&&ST.data.year.id;
@@ -222,14 +227,14 @@ async function wizStart(){
   draw();
 }
 function chosen(){ const w=ST.wiz, m=ST.model; const out=[];
-  m.cycles.forEach(c=>c.levels.forEach(l=>{ if(w.levels[l.name]) out.push({name:l.name,cycle:c.id,position:l.position,subjects:l.subjects}); }));
+  m.cycles.forEach(c=>c.levels.forEach(l=>{ if(w.levels[l.name]) out.push({name:l.name,cycle:c.id,position:l.position,subjects:l.subjects,coefs:l.coefficients||{}}); }));
   w.custom.forEach((n,i)=>out.push({name:n,cycle:null,position:1000+i*10,subjects:[]})); return out; }
 function classNames(level,n){ return n<=0?[]:n===1?[level]:Array.from({length:Math.min(n,12)},(_,i)=>`${level} ${LETTERS[i]}`); }
 function body(){ const w=ST.wiz, lv=chosen();
   return { year:w.year, current:true, terms:w.terms,
     levels:lv.map(l=>({name:l.name,cycle:l.cycle,position:l.position})),
     classes:lv.flatMap(l=>classNames(l.name,Number(w.counts[l.name]??1)).map(n=>({name:n,level:l.name}))),
-    subjects:w.subjects?lv.flatMap(l=>l.subjects.map(s=>({name:s,level:l.name,coefficient:1}))):[] }; }
+    subjects:w.subjects?lv.flatMap(l=>l.subjects.map(s=>({name:s,level:l.name,coefficient:(l.coefs&&l.coefs[s])||1}))):[] }; }
 function vWizard(d){
   if(!M()) return `<p class="small mut">${esc(t("ro"))}</p>`;
   const w=ST.wiz;
@@ -245,7 +250,7 @@ function vWizard(d){
     <label class="fld">${esc(t("otherLevels"))}<textarea name="custom" rows="2" maxlength="600">${esc(w.custom.join("\n"))}</textarea></label>`;
   if(w.step===3) f=`<p class="small mut">${esc(t("countHelp"))}</p><div class="str-counts">${chosen().map((l,i)=>`<label class="fld"><span>${esc(l.name)}</span><input name="n${i}" type="number" min="0" max="12" value="${esc(w.counts[l.name]??1)}"></label>`).join("")}</div>
     <p class="small mut">${esc(body().classes.slice(0,12).map(c=>c.name).join(", "))}${body().classes.length>12?"…":""}</p>`;
-  if(w.step===4){ const lv=chosen(); const groups={}; lv.forEach(l=>{ const k=l.subjects.join(", "); (groups[k]=groups[k]||[]).push(l.name); });
+  if(w.step===4){ const lv=chosen(); const groups={}; lv.forEach(l=>{ const k=l.subjects.map(s=>s+((l.coefs&&l.coefs[s]>1)?` (coef. ${l.coefs[s]})`:"")).join(", "); (groups[k]=groups[k]||[]).push(l.name); });
     f=`<label class="str-chk"><input type="checkbox" name="subj"${w.subjects?" checked":""}> ${esc(t("subjOn"))}</label><h3 class="u3">${esc(t("subjPreview"))}</h3>${Object.entries(groups).map(([s,ls])=>`<p class="small"><b>${esc(ls.join(", "))}</b> : ${esc(s||"—")}</p>`).join("")}<p class="small mut">${esc(t("model"))}</p>`; }
   if(w.step===5){ const b=body(); f=`<div class="grid g3">${[["year",b.year],["terms",b.terms.length],["levels",b.levels.length],["classes",b.classes.length],["subjects",b.subjects.length]].map(([k,v])=>`<div class="card"><div class="kpi">${esc(v)}</div><div class="kpi-sub">${esc(t("sum")[k])}</div></div>`).join("")}</div>
     <p class="small mut u8">${esc(t("wzHelp"))}</p>`; }

@@ -522,6 +522,8 @@ routes.push(...require('./messagerie').routes, ...require('./reunions-parents').
 routes.push(...require('./diffusion').routes, ...require('./diffusion').publicRoutes);
 // Prise de parole audio des parents (accordée par la direction seulement), mélangée par la direction dans la diffusion.
 routes.push(...require('./parole').routes);
+// Bulletins au format haïtien (MENFP) : règles, rang, mentions, décisions, appréciations du préscolaire, PDF de classe.
+routes.push(...require('./bulletins').routes);
 // Bloc 9 : codes de connexion gratuits. WhatsApp et Telegram : routes 404 tant qu'ils ne sont pas configurés.
 const dev = appareils.createRoutes({ startSession });
 const tg = telegram.createRoutes();
