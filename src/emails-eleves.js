@@ -65,6 +65,8 @@ function draw(){
    ${w?`<div class="grid g2"><form class="card em-form" data-action-submit="NORIA_EMAILS.save"><h3>${esc(t("settings"))}</h3>
      <label class="small">${esc(t("sub"))}<input id="emSub" maxlength="30" value="${esc(d.reglages.sous_domaine||"")}" placeholder="lycee-exemple" autocomplete="off"></label>
      <label class="small">${esc(t("pre"))}<input id="emPre" maxlength="20" value="${esc(d.reglages.prefixe||"")}" placeholder="lex" autocomplete="off"></label>
+     <label class="small">Format${lang()==="ht"?" adrès la":" de l'adresse"}<select id="emFmt">${(d.formats||["code"]).map(f=>`<option value="${esc(f)}"${d.reglages.format===f?" selected":""}>${esc({"code":"code élève (ex. 7k3m9p2x)","prenom.nom":"prenom.nom","p.nom":"p.nom","prenom.nom.annee":"prenom.nom.2026"}[f]||f)}</option>`).join("")}</select></label>
+     <label class="small"><input type="checkbox" id="emAuto"${d.reglages.auto?" checked":""}> ${esc(lang()==="ht"?"Kreye adrès la otomatikman lè yon elèv enskri":"Créer l'adresse automatiquement à l'inscription")}</label>
      <p class="small mut">${esc(t("settingsNote"))}</p><p><button type="submit" class="ghost">${esc(t("save"))}</button></p></form>
     <form class="card em-form" data-action-submit="NORIA_EMAILS.preview"><h3>${esc(t("bulk"))}</h3>
      <label class="small">${esc(t("cls"))}<select id="emCls"><option value="">${esc(t("all"))}</option>${d.classes.map(c=>`<option value="${c.id}"${String(c.id)===SEL?" selected":""}>${esc(c.nom)} (${c.eleves})</option>`).join("")}</select></label>
@@ -101,7 +103,7 @@ async function open(id){
   if(OPEN&&!JOUR[id]){ const r=await api(`/api/emails/${id}/journal`).catch(()=>null); if(r&&r.status===200){ JOUR[id]=r.body.evenements; if(OPEN===id) draw(); } }
 }
 async function save(){
-  const r=await api("/api/emails/reglages",{method:"PUT",body:JSON.stringify({sous_domaine:$("emSub").value.trim()||null,prefixe:$("emPre").value.trim()||null})}).catch(()=>null);
+  const r=await api("/api/emails/reglages",{method:"PUT",body:JSON.stringify({sous_domaine:$("emSub").value.trim()||null,prefixe:$("emPre").value.trim()||null,format:$("emFmt")?$("emFmt").value:undefined,auto:$("emAuto")?$("emAuto").checked:undefined})}).catch(()=>null);
   if(r&&r.status===200){ toast(t("saved")); PREV=null; render("emails",EL,C); } else fail(r);
 }
 function sel(){ const v=$("emCls")?$("emCls").value:""; SEL=v; return v?{class_id:Number(v)}:{tout:true}; }

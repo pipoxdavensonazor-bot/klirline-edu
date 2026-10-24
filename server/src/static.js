@@ -25,7 +25,7 @@ const VERSIONNES = /^\/src\/.+\.(?:js|css)$/;
 // Le test test/csp.test.js échoue si un attribut on* ou style="" réapparaît dans le HTML ou les gabarits JS.
 const HTML_CSP = [
   "default-src 'self'", "script-src 'self'", "style-src 'self'",
-  "img-src 'self' data:", "connect-src 'self'", "frame-src https://meet.systemli.org", "object-src 'none'",
+  "img-src 'self' data:", "connect-src 'self'", "media-src 'self' https:", "frame-src https://meet.systemli.org", "object-src 'none'",
   "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');
 

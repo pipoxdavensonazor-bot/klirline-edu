@@ -119,3 +119,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .ges-new{margin-top:12px}
 .ges-cancel>span:first-child{text-decoration:line-through;opacity:.7}
 .ges-due{color:var(--bad,#b42318)}
+/* Lot 3 */
+.l3-mine{border-left:4px solid var(--accent,#2563eb)}.l3-other{border-left:4px solid #94a3b8}.l3-body{white-space:pre-wrap}
+.l3-badge svg{max-width:100%;height:auto}.l3-qr svg{width:160px;height:160px}.l3-bar svg{width:100%;max-width:320px;height:70px}
