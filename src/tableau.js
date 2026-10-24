@@ -27,7 +27,7 @@ const T={
     libT:"Bibliothèque",libH:"Durée d'un prêt : 14 jours ; 3 prêts en cours au plus par élève. Valeurs fixées par le serveur (réglage par école prévu plus tard).",
     rolesT:"Droits par rôle",rolesH:"Information : ces règles sont appliquées par le serveur, quel que soit l'appareil.",
     roles:[["Direction","toute l'école"],["Secrétariat","dossiers des élèves, présences, comptes"],["Enseignant","ses classes affectées"],["Comptabilité","finances seulement"],["Bibliothèque","catalogue et prêts"],["Parent","ses enfants reliés"],["Élève","ses propres informations"]],
-    importGo:"Importer des élèves",noStu:"Aucun élève pour l'instant.",noStuHelp:"Créez d'abord vos classes, puis importez la liste des élèves (Excel ou CSV).",classesGo:"Créer les classes",
+    importGo:"Importer des élèves",noStu:"Aucun élève pour l'instant.",noStuHelp:"Ajoutez un élève avec « Ajouter un élève », ou importez la liste de la classe (Excel ou CSV).",classesGo:"Créer les classes",
     noClasses:"Aucune classe pour l'instant.",noClassesHelp:"La direction crée les classes dans « Classes ».",info:"information"},
   ht:{hello:"Jodi a",students:"Elèv",classes:"Klas",rollToday:"Apèl jodi a",att30:"Prezans (30 jou)",collected:"Lajan ki rantre",balance:"Sa ki rete pou rantre",loans:"Liv ki prete",late:"an reta",
     start:"Kòmanse pa kreye klas ou yo",startHelp:"Asistan an prepare ane lekòl la, trimès yo, nivo yo (modèl ayisyen ou ka chanje), klas yo ak matyè yo. W ap ka chanje tout bagay apre.",
@@ -49,7 +49,7 @@ const T={
     libT:"Bibliyotèk",libH:"Yon prè dire 14 jou ; 3 prè an menm tan pou chak elèv. Se sèvè a ki fikse valè sa yo (y ap ka chanje pa lekòl pita).",
     rolesT:"Dwa chak wòl",rolesH:"Enfòmasyon : se sèvè a ki aplike règ sa yo, kèlkeswa aparèy la.",
     roles:[["Direksyon","tout lekòl la"],["Sekretarya","dosye elèv, prezans, kont"],["Pwofesè","klas yo ba li"],["Kontablite","finans sèlman"],["Bibliyotèk","katalòg ak prè"],["Paran","pitit ki lye ak li"],["Elèv","pwòp enfòmasyon li"]],
-    importGo:"Enpòte elèv",noStu:"Poko gen elèv.",noStuHelp:"Kreye klas ou yo anvan, epi enpòte lis elèv yo (Excel oswa CSV).",classesGo:"Kreye klas yo",
+    importGo:"Enpòte elèv",noStu:"Poko gen elèv.",noStuHelp:"Ajoute yon elèv ak « Ajoute yon elèv », oswa enpòte lis klas la (Excel oswa CSV).",classesGo:"Kreye klas yo",
     noClasses:"Poko gen klas.",noClassesHelp:"Direksyon an kreye klas yo nan « Klas ».",info:"enfòmasyon"},
 };
 const t=k=>T[lang()][k];

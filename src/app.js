@@ -120,12 +120,14 @@ function commsPreview(){ if(SERVER) return ""; return `<div class="u3 card"><h3>
 /* ---------- ELEVES ---------- */
 let stuQ="";
 function vStudents(){
-  if(SERVER&&window.NORIA_TAB&&!S.students.length) return `<h2 class="u6">${t("students")}</h2>`+(S.classes.length?NORIA_TAB.emptyStudents():NORIA_TAB.noClasses());
+  // Liste vide : le bouton « Ajouter un élève » reste visible pour la direction et le secrétariat (fiche manuelle, avec photo).
+  if(SERVER&&window.NORIA_TAB&&!S.students.length){ const add=["direction","secretariat"].includes(S.role)?`<button id="stuAdd" data-action="KL.stuAdd">${t("addStudent")}</button>`:"";
+    return `<div class="row sp"><h2 class="u6">${t("students")}</h2>${add}</div>`+(S.classes.length?NORIA_TAB.emptyStudents():NORIA_TAB.noClasses())+`<div id="stuModal"></div>`; }
   const full=["direction","secretariat"].includes(S.role);
   const q=stuQ.toLowerCase();
   const f=S.students.filter(s=>!q||(s.firstName+" "+s.lastName+" "+s.code).toLowerCase().includes(q)).slice(0,60);
   const canEdit=full;
-  const tools=`<span class="row"><input id="stuQ" placeholder="${t("search")}" value="${esc(stuQ)}" data-action-input="KL.stuQ" data-a0="v">${canEdit?`<button data-action="KL.stuModal">${t("newStudent")}</button>`:""}${(full||S.role==="comptable")?`<button class="ghost" data-action="KL.stuCSV">${t("export")}</button>`:""}${canEdit?`<label class="u5 pill">${t("import")} CSV<input type="file" id="csvIn" accept=".csv" hidden></label>`:""}</span>`;
+  const tools=`<span class="row"><input id="stuQ" placeholder="${t("search")}" value="${esc(stuQ)}" data-action-input="KL.stuQ" data-a0="v">${canEdit?`<button id="stuAdd" data-action="KL.stuAdd">${t("addStudent")}</button>`:""}${(full||S.role==="comptable")?`<button class="ghost" data-action="KL.stuCSV">${t("export")}</button>`:""}${canEdit?`<label class="u5 pill">${t("import")} CSV<input type="file" id="csvIn" accept=".csv" hidden></label>`:""}</span>`;
   const head=`<div class="row sp"><h2 class="u6">${t("students")} (${S.students.length})</h2>${tools}</div>`;
   if(full) return head+`
   <div class="card"><div class="u7"><table><tr><th>Code</th><th>${t("firstName")} / ${t("lastName")}</th><th>${t("class")}</th><th>${t("guardians")}</th><th>${t("status")}</th><th>${t("actions")}</th></tr>
@@ -143,6 +145,10 @@ function vStudents(){
 function bStu(){ const f=$("#csvIn"); if(f) f.onchange=e=>{ const fl=e.target.files[0]; if(!fl)return; const r=new FileReader(); r.onload=()=>{ const lines=String(r.result).split("\n").slice(1).filter(Boolean); let add=0; lines.forEach((ln,i)=>{ const p=ln.split(",").map(x=>x.replace(/^"|"$/g,"")); if(p.length<3)return; const fn=p[0]||"Prénom"+i,ln2=p[1]||"Nom",cl=p[2]||"c7a"; S.students.push({id:"e"+Date.now()+i,code:"KL-2025-"+String(S.students.length+1).padStart(3,"0"),firstName:fn,lastName:ln2,sex:"M",birth:"2012-01-01",level:classById(cl)?.level||"7e AF",classId:cl,campus:"Delmas",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}); add++; }); save(); render(); toast(add+" importés"); }; r.readAsText(fl); }; }
 KL.stuQ=v=>{stuQ=v; const i=$("#stuQ"); render(); const n=$("#stuQ"); if(n){n.focus(); n.setSelectionRange(n.value.length,n.value.length);}};
 KL.stuCSV=()=>{ if(SERVER&&window.NORIA_TAB){ NORIA_TAB.exportStudents(); return; } if(!["direction","secretariat","comptable"].includes(S.role)){toast(t("noAccess"));return;} const rows=[["prenom","nom","classe","code","niveau","statut"],...S.students.map(s=>[s.firstName,s.lastName,s.classId,s.code,s.level,s.status])]; dl("eleves.csv","\uFEFF"+toCSV(rows),"text/csv"); logExport("CSV","eleves.csv ("+S.students.length+")"); toast(t("savedOk")); };
+// Sans classe : on explique et on envoie vers la création des classes (direction) au lieu d'ouvrir une fiche impossible à classer.
+KL.stuAdd=()=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;}
+  if(SERVER&&!S.classes.length){ toast(t("addNeedClass")); if(S.role==="direction"&&can("classes")) KL.go("classes"); return; }
+  KL.stuModal(); };
 KL.stuModal=id=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;} 
   // Mode serveur (lot 2) : fiche enregistrée sur le serveur (création, motif, classe, responsables), module chargé à la demande.
   if(SERVER&&window.NORIA_ECO){ const sv=id?stuById(id):null; NORIA_ECO.load("src/eleves-fiche.js").then(()=>NORIA_ELV.open(sv?sv.serverId:null,S.classes)).catch(()=>toast(t("noAccess"))); return; }

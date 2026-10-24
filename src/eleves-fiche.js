@@ -6,7 +6,7 @@
 const esc=window.NORIA_U.esc;
 const lang=()=>{ const s=document.getElementById("langSel"); return s&&s.value==="ht"?"ht":"fr"; };
 const T={
-  fr:{newStu:"Nouvel élève",edit:"Modifier l'élève",fn:"Prénom",ln:"Nom",sex:"Sexe",none:"—",birth:"Date de naissance",cls:"Classe",health:"Santé (allergies, traitement)",family:"Remarques famille",
+  fr:{photo:"Photo (facultatif, pour la carte d’élève)",phFile:"Choisir une photo",phCam:"Prendre une photo",phHelp:"Recadrée en portrait et compressée sur cet appareil ; aucune donnée de localisation gardée. Privée : jamais publiée.",phSaved:"Photo enregistrée.",phReady:"Photo prête : elle sera enregistrée avec la fiche.",phBad:"Image illisible ou trop grande.",newStu:"Nouvel élève",edit:"Modifier l'élève",fn:"Prénom",ln:"Nom",sex:"Sexe",none:"—",birth:"Date de naissance",cls:"Classe",health:"Santé (allergies, traitement)",family:"Remarques famille",
     reason:"Motif de la modification (journalisé)",reasonNew:"Motif (facultatif)",reasonPh:"ex. correction de l'orthographe du nom",save:"Enregistrer",cancel:"Fermer",
     guard:"Responsables",gName:"Nom du responsable",gRel:"Lien",gPhone:"Téléphone",gEmail:"E-mail",gPickup:"Peut récupérer l'enfant",gPrimary:"Principal",add:"Ajouter ce responsable",
     noGuard:"Aucun responsable enregistré.",del:"Retirer",delReason:"Motif du retrait",make:"Rendre principal",
@@ -14,7 +14,7 @@ const T={
     created:c=>`Élève créé : code ${c}.`,saved:"Fiche enregistrée.",moved:"Classe changée.",err:"Refusé : ",net:"Réseau nécessaire pour cette action.",
     dup:"Un élève porte déjà ce nom et cette date de naissance. Enregistrer quand même ?",confirm:"Oui, c'est un autre élève",need:"Prénom, nom et classe sont obligatoires.",
     needReason:"Indiquez le motif de la modification (3 caractères au moins).",help:"Le code élève est créé automatiquement. Le premier responsable est le contact principal.",loading:"Chargement…",archived:"Dossier archivé (élève transféré) : lecture seule."},
-  ht:{newStu:"Nouvo elèv",edit:"Modifye elèv la",fn:"Prenon",ln:"Non",sex:"Sèks",none:"—",birth:"Dat nesans",cls:"Klas",health:"Sante (alèji, tretman)",family:"Remak sou fanmi an",
+  ht:{photo:"Foto (si ou vle, pou kat elèv la)",phFile:"Chwazi yon foto",phCam:"Pran yon foto",phHelp:"Nou koupe l an pòtrè epi nou konprese l sou aparèy sa a ; nou pa kenbe done lokalizasyon. Prive : yo pa janm pibliye l.",phSaved:"Foto a anrejistre.",phReady:"Foto a pare : l ap anrejistre ak fich la.",phBad:"Imaj la pa ka li oswa li twò gwo.",newStu:"Nouvo elèv",edit:"Modifye elèv la",fn:"Prenon",ln:"Non",sex:"Sèks",none:"—",birth:"Dat nesans",cls:"Klas",health:"Sante (alèji, tretman)",family:"Remak sou fanmi an",
     reason:"Rezon modifikasyon an (n ap note l)",reasonNew:"Rezon (si ou vle)",reasonPh:"egz. korije òtograf non an",save:"Anrejistre",cancel:"Fèmen",
     guard:"Responsab yo",gName:"Non responsab la",gRel:"Lyen",gPhone:"Telefòn",gEmail:"Imèl",gPickup:"Ka vin chèche timoun nan",gPrimary:"Prensipal",add:"Ajoute responsab sa a",
     noGuard:"Pa gen responsab anrejistre.",del:"Retire",delReason:"Rezon ou retire l",make:"Fè l prensipal",
@@ -62,16 +62,39 @@ function form(){
   <label class="fld">${esc(t("cls"))} *<select name="class_id" required><option value="">${esc(t("none"))}</option>${CL.map(c=>`<option value="${c.serverId}"${Number(s.class_id)===c.serverId?" selected":""}>${esc(c.name)}${c.level?" — "+esc(c.level):""}</option>`).join("")}</select></label></div>
   <label class="fld">${esc(t("health"))}<textarea name="health_notes" rows="2" maxlength="500">${v("health_notes")}</textarea></label>
   <label class="fld">${esc(t("family"))}<textarea name="family_notes" rows="2" maxlength="500">${v("family_notes")}</textarea></label>
+  <div class="elv-photo"><span id="elvPhPrev" class="elv-ph" aria-hidden="true">${esc(((s.first_name||"?")[0]+(s.last_name||"?")[0]).toUpperCase())}</span><div><p class="u6">${esc(t("photo"))}</p>
+  <div class="row"><label class="btn ghost elv-file">${esc(t("phFile"))}<input type="file" id="elvPh" accept="image/jpeg,image/png,image/webp" data-action-change="NORIA_ELV.pickPhoto" data-a0="t"></label><label class="btn ghost elv-file">${esc(t("phCam"))}<input type="file" id="elvPhCam" accept="image/*" capture="user" data-action-change="NORIA_ELV.pickPhoto" data-a0="t"></label></div>
+  <p class="small mut" id="elvPhMsg">${esc(t("phHelp"))}</p></div></div>
   ${ed?"":guardRow(0)+guardRow(1)}
   <label class="fld">${esc(ed?t("reason"):t("reasonNew"))}${ed?" *":""}<input name="reason" maxlength="300" placeholder="${esc(t("reasonPh"))}"${ed?" required":""}></label>
   <div id="elvDup"></div>
   <div class="row"><button type="submit">${esc(t("save"))}</button><button type="button" class="ghost" data-action="vider" data-a0="s:#stuModal">${esc(t("cancel"))}</button></div></fieldset></form>
   ${ed?`<div id="elvG">${guardList()}</div>`:""}</div></div>`;
 }
-function paint(){ const b=box(); if(b) b.innerHTML=form(); const f=document.querySelector("#elvForm input[name=first_name]"); if(f) f.focus(); }
+function paint(){ const b=box(); if(b) b.innerHTML=form(); if(CUR) showPhoto(CUR.id); const f=document.querySelector("#elvForm input[name=first_name]"); if(f) f.focus(); }
 
+// Photo : portrait 3:4 (300×400 au plus), JPEG ≤ 60 Ko, compressée ici ; le serveur vérifie et retire les métadonnées.
+let PH=null;
+const readUrl=f=>new Promise((ok,ko)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=ko; r.readAsDataURL(f); });
+const loadImg=u=>new Promise((ok,ko)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ko(new Error(t("phBad"))); i.src=u; });
+function portrait(img){
+  const w0=img.naturalWidth, h0=img.naturalHeight; let sw=w0, sh=Math.round(w0*4/3); if(sh>h0){ sh=h0; sw=Math.round(h0*3/4); }
+  for(const W of [300,240,192]){ const H=W*4/3; const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,W,H); g.drawImage(img,(w0-sw)/2,Math.max(0,(h0-sh)/2),sw,sh,0,0,W,H);
+    for(const q of [0.82,0.72,0.6,0.5]){ const b64=c.toDataURL("image/jpeg",q).split(",")[1]; if(b64.length*3/4<=60*1024) return b64; } }
+  throw new Error(t("phBad"));
+}
+function preview(url){ const p=document.getElementById("elvPhPrev"); if(!p) return; const i=document.createElement("img"); i.className="elv-ph"; i.id="elvPhPrev"; i.alt=t("photo"); i.width=90; i.height=120; i.src=url; p.replaceWith(i); }
+async function showPhoto(id){ try{ const r=await fetch(`/api/students/${Number(id)}/photo`,{credentials:"same-origin",cache:"no-store"}); if(r.status!==200) return; preview(await readUrl(await r.blob())); }catch(e){} }
+const putPhoto=id=>send("PUT",`/api/students/${Number(id)}/photo`,{photo:PH});
+async function pickPhoto(input){
+  const f=input&&input.files&&input.files[0]; const msg=document.getElementById("elvPhMsg"); if(!f) return;
+  try{ PH=portrait(await loadImg(await readUrl(f))); }catch(e){ PH=null; if(msg) msg.textContent=e.message; return; }
+  preview("data:image/jpeg;base64,"+PH);
+  if(!CUR){ if(msg) msg.textContent=t("phReady"); return; }
+  const r=await putPhoto(CUR.id); if(!r||r.status!==200){ if(msg) msg.textContent=errOf(r); return; } PH=null; toast(t("phSaved"));
+}
 async function open(serverId,classes){
-  CL=(classes||[]).filter(c=>c.serverId); CUR=null; G=[];
+  CL=(classes||[]).filter(c=>c.serverId); CUR=null; G=[]; PH=null;
   const b=box(); if(!b) return;
   if(serverId){
     b.innerHTML=`<div class="modal"><div class="sheet"><p class="mut">${esc(t("loading"))}</p></div></div>`;
@@ -96,7 +119,7 @@ async function save(ev,confirmDup){
     const r=await send("POST","/api/students",{...o,class_id:cid,reason,guardians,confirm_duplicate:!!confirmDup});
     if(r&&r.status===409&&/doublon/.test((r.body&&r.body.error)||"")){ document.getElementById("elvDup").innerHTML=`<div class="warnbox"><p>${esc(t("dup"))}</p><button type="button" data-action="NORIA_ELV.saveDup">${esc(t("confirm"))}</button></div>`; return; }
     if(!r||r.status!==200){ toast(errOf(r)); return; }
-    toast(t("created")(r.body.code)); await refresh(); return open(r.body.id,CL.length?CL:[]);
+    toast(t("created")(r.body.code)); if(PH){ const p=await putPhoto(r.body.id); if(!p||p.status!==200) toast(errOf(p)); else toast(t("phSaved")); PH=null; } await refresh(); return open(r.body.id,CL.length?CL:[]);
   }
   if(reason.length<3){ toast(t("needReason")); return; }
   const {sex,...fields}=o; // le sexe n'est pas modifiable par cette route (dossier officiel)
@@ -127,5 +150,5 @@ async function drop(gid){
   if(!r||r.status!==200){ toast(errOf(r)); return; }
   G=(await api(`/api/students/${CUR.id}/tuteurs`)).body||[]; document.getElementById("elvG").innerHTML=guardList();
 }
-window.NORIA_ELV=Object.freeze({open,save:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return save(ev,false); },saveDup:()=>save(null,true),addGuard:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return addGuard(); },primary,drop});
+window.NORIA_ELV=Object.freeze({open,pickPhoto,save:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return save(ev,false); },saveDup:()=>save(null,true),addGuard:ev=>{ if(ev&&ev.preventDefault) ev.preventDefault(); return addGuard(); },primary,drop});
 })();
