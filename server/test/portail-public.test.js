@@ -73,7 +73,7 @@ test('portail : bouton « Inscrire mon école » (FR/HT), encadré, mention du p
   // Lien sur l'écran de connexion de l'application.
   assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'src', 'login.js'), 'utf8'), /\/inscrire-ecole/);
   const f = await page('/inscrire-ecole');
-  assert.equal(f.status, 200); assert.equal(f.headers.get('cache-control'), 'no-store, private');
+  assert.equal(f.status, 200); assert.equal(f.headers.get('cache-control'), 'no-store, private, no-transform');
   assert.match(f.headers.get('content-security-policy'), /script-src 'self'/);
   assert.doesNotMatch(f.text, /<script>|style="|\son[a-z]+="/, 'aucun script ni style en ligne');
   for (const d of Pt.DEPARTMENTS) assert.match(f.text, new RegExp(`<option value="${d}"`));

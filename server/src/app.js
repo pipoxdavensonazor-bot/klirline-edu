@@ -658,6 +658,20 @@ function clientIp(req, trustProxy) {
   return req.socket.remoteAddress || 'inconnue';
 }
 
+// Pages HTML : « no-transform » ajouté au Cache-Control existant (sémantique de cache inchangée) pour que
+// Cloudflare ne modifie pas le HTML (injection du script Web Analytics, bloqué par notre CSP, etc.).
+function withNoTransform(headers) {
+  if (!headers || typeof headers !== 'object' || Array.isArray(headers)) return headers;
+  const k = Object.keys(headers);
+  const ct = k.find((x) => x.toLowerCase() === 'content-type');
+  if (!ct || !/^text\/html\b/i.test(String(headers[ct]))) return headers;
+  const cc = k.find((x) => x.toLowerCase() === 'cache-control');
+  const cur = cc ? String(headers[cc]) : '';
+  if (/\bno-transform\b/i.test(cur)) return headers;
+  const out = { ...headers }; if (cc) delete out[cc];
+  out['cache-control'] = cur ? `${cur}, no-transform` : 'no-transform';
+  return out;
+}
 function createServer(db, options = {}) {
   const ctx = {
     notifier: options.notifier || createNotifier(options.env || process.env),
@@ -692,6 +706,7 @@ function createServer(db, options = {}) {
   // Portail public (pages HTML rendues par le serveur, sans connexion) sur / et /ht/… ; l'application est sur /app.
   const portal = options.portal === false ? null : createPortal(db, { ctx, publicUrl: ctx.publicUrl, secureCookie: ctx.secureCookie, root: options.staticRoot || path.join(__dirname, '..', '..') });
   const srv = http.createServer(async (req, res) => {
+    { const wh = res.writeHead.bind(res); res.writeHead = (st, a, b) => (typeof a === 'object' && a && b === undefined ? wh(st, withNoTransform(a)) : wh(st, a, withNoTransform(b))); }
     let extra = {};
     const cookies = [];
     req.setCookie = (c) => cookies.push(c);
@@ -807,4 +822,4 @@ function createServer(db, options = {}) {
   return srv;
 }
 
-module.exports = { createServer, clientIp, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier, outbox, linkBase, INVITE_HOURS };
+module.exports = { createServer, withNoTransform, clientIp, createLimiter, csv, SECURITY_HEADERS, normalizePhone, parseIdentifier, outbox, linkBase, INVITE_HOURS };
