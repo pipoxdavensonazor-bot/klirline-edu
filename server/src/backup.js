@@ -30,7 +30,9 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   // Bloc 8 : demandes d'inscription des écoles, comptes grand public et leurs abonnements, journal des envois groupés.
   'school_request', 'public_account', 'public_digest',
   // Bloc 9 : liaisons Telegram (conversation du bot reliée à un compte ; jetons de lien expirés en 15 min).
-  'telegram_link'];
+  'telegram_link',
+  // Lot école : document officiel des demandes ; lot 2 : responsables des élèves ; lot 6 : salles de cours.
+  'school_request_document', 'student_guardian', 'class_session', 'class_resource', 'class_hand', 'class_poll', 'class_poll_vote'];
 
 // Tables volontairement exclues : rien de métier, et rien qu'il soit souhaitable de remettre en service.
 const EXCLUDED = {

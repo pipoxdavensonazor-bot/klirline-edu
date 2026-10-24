@@ -18,7 +18,17 @@ async function call(token, method, p, body, headers = {}) {
   const text = await res.text(); let json = null; try { json = JSON.parse(text); } catch {}
   return { status: res.status, json, text, headers: res.headers };
 }
+// Fichier PDF minimal fictif (signature %PDF-) joint par défaut aux demandes d'inscription (formulaire multipart).
+const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 async function form(p, data, headers = {}, b = base) {
+  if (/inscrire-ecole$/.test(p) && data.step === 'envoyer') {
+    const fd = new FormData(); const { __file, ...rest } = data;
+    for (const [k, v] of Object.entries(rest)) fd.append(k, v);
+    const f = __file === undefined ? { data: PDF, type: 'application/pdf', name: 'autorisation.pdf' } : __file;
+    if (f) fd.append('document', new Blob([f.data], { type: f.type }), f.name);
+    const res = await fetch(b + p, { method: 'POST', redirect: 'manual', headers, body: fd });
+    return { status: res.status, text: await res.text(), headers: res.headers };
+  }
   const res = await fetch(b + p, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers }, body: new URLSearchParams(data).toString() });
   return { status: res.status, text: await res.text(), headers: res.headers };
 }
@@ -27,7 +37,7 @@ const acall = (m, p, b) => call(admin, m, p, b);
 const ticketOf = (html) => html.match(/name="ticket" value="([^"]+)"/)[1];
 const lastTo = (to) => [...sent].reverse().find((m) => m.to === to);
 const codeIn = (m) => m.text.match(/(\d{6})/)[1];
-const DEMANDE = { step: 'envoyer', school_name: 'Collège Fictif de Jacmel', department: 'sud-est', commune: 'Jacmel', director_name: 'Directrice Fictive', email: 'direction@jacmel.exemple.invalid', phone: '3712 3456', students_approx: '320', message: 'Bonjour (fictif)' };
+const DEMANDE = { step: 'envoyer', school_name: 'Collège Fictif de Jacmel', department: 'sud-est', commune: 'Jacmel', director_name: 'Directrice Fictive', email: 'direction@jacmel.exemple.invalid', phone: '3712 3456', students_approx: '320', message: 'Bonjour (fictif)', doc_kind: 'autorisation_menfp' };
 
 before(async () => {
   db = await openTestDb(); await seedMulti(db, await seed(db));
@@ -147,6 +157,57 @@ test('super-admin : liste, accepter (école + invitation direction par e-mail), 
   assert.equal((await acall('POST', `/api/admin/demandes/${id2}/accepter`, {})).status, 409);
   const j = (await db.all("SELECT action FROM platform_audit WHERE action LIKE 'admin.demande.%' OR action = 'admin.direction.inviter'")).map((x) => x.action);
   for (const a of ['admin.demande.accepter', 'admin.demande.refuser', 'admin.direction.inviter']) assert.ok(j.includes(a), a);
+});
+
+test('document officiel : obligatoire, PDF/JPEG/PNG vérifiés par signature, 5 Mo, rattaché après le code, lu par le super-admin seul', async () => {
+  const D = { ...DEMANDE, email: 'doc@exemple.invalid', school_name: 'École Fictive du Document' };
+  const nDocs = async () => Number((await db.get('SELECT COUNT(*) AS n FROM school_request_document')).n);
+  const n0 = await nDocs();
+  const f = await page('/inscrire-ecole');
+  assert.match(f.text, /enctype="multipart\/form-data"/); assert.match(f.text, /name="document" type="file" required/); assert.match(f.text, /Autorisation de fonctionnement du MENFP/);
+  assert.match((await page('/ht/inscrire-ecole')).text, /Dokiman ofisyèl lekòl la/);
+  const none = await form('/inscrire-ecole', { ...D, __file: null });
+  assert.equal(none.status, 400); assert.match(none.text, /document officiel \(PDF, JPG ou PNG\)/); assert.match(none.text, /choisissez-le de nouveau/);
+  const exe = await form('/inscrire-ecole', { ...D, __file: { data: Buffer.from('MZ\x90\x00 programme fictif........'), type: 'application/pdf', name: 'faux.pdf' } });
+  assert.equal(exe.status, 400, 'signature non PDF refusée malgré le type annoncé'); assert.match(exe.text, /seuls les fichiers PDF, JPG et PNG/);
+  const html = await form('/inscrire-ecole', { ...D, __file: { data: Buffer.from('<html><script>alert(1)</script></html>'), type: 'text/html', name: 'x.html' } });
+  assert.equal(html.status, 400);
+  const mism = await form('/inscrire-ecole', { ...D, __file: { data: PDF, type: 'image/png', name: 'x.png' } });
+  assert.equal(mism.status, 400, 'type annoncé incohérent avec le contenu');
+  const big = Buffer.concat([PDF, Buffer.alloc(5 * 1024 * 1024)]);
+  const tooBig = await form('/inscrire-ecole', { ...D, __file: { data: big, type: 'application/pdf', name: 'gros.pdf' } });
+  assert.ok([400, 413].includes(tooBig.status), String(tooBig.status));
+  const noKind = await form('/inscrire-ecole', { ...D, doc_kind: '' });
+  assert.equal(noKind.status, 400); assert.match(noKind.text, /type de document/);
+  const ht = await form('/ht/inscrire-ecole', { ...D, __file: null }); assert.match(ht.text, /dokiman ofisyèl/);
+  assert.equal(await nDocs(), n0, 'rien n’est gardé en cas d’erreur');
+  // Envoi valide (PNG) : document en attente, lié au ticket, puis rattaché à la demande après le code.
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('image fictive')]);
+  const r = await form('/inscrire-ecole', { ...D, doc_kind: 'patente', __file: { data: png, type: 'image/png', name: 'Patente école été.png' } });
+  assert.equal(r.status, 200, r.text);
+  const pend = await db.get('SELECT * FROM school_request_document WHERE request_id IS NULL ORDER BY id DESC');
+  assert.ok(pend.ticket_hash); assert.equal(pend.mime, 'image/png'); assert.equal(pend.filename, 'Patente-ecole-ete.png'); assert.equal(pend.kind, 'patente');
+  const ok = await form('/inscrire-ecole', { step: 'code', ticket: ticketOf(r.text), code: codeIn(lastTo(D.email)) });
+  assert.equal(ok.status, 200);
+  const reqRow = await db.get('SELECT id FROM school_request WHERE email = ?', D.email);
+  const linked = await db.get('SELECT * FROM school_request_document WHERE request_id = ?', reqRow.id);
+  assert.equal(linked.id, pend.id); assert.equal(linked.ticket_hash, null);
+  // Le super-admin voit les métadonnées dans la liste et lit le fichier ; personne d'autre.
+  const list = await acall('GET', '/api/admin/demandes');
+  const d = list.json.find((x) => x.id === reqRow.id);
+  assert.equal(d.documents.length, 1); assert.equal(d.documents[0].kind, 'patente'); assert.equal(d.documents[0].data, undefined, 'pas de contenu dans la liste');
+  const url = `/api/admin/demandes/${reqRow.id}/documents/${linked.id}`;
+  const dl = await fetch(base + url, { headers: { authorization: `Bearer ${admin}` } });
+  assert.equal(dl.status, 200); assert.equal(dl.headers.get('content-type'), 'image/png');
+  assert.match(dl.headers.get('content-disposition'), /^attachment; filename="Patente-ecole-ete.png"/); assert.equal(dl.headers.get('x-content-type-options'), 'nosniff');
+  assert.ok(Buffer.from(await dl.arrayBuffer()).equals(png));
+  const v = await fetch(base + url + '?voir=1', { headers: { authorization: `Bearer ${admin}` } });
+  assert.equal(v.headers.get('content-disposition'), 'inline');
+  assert.equal((await call(null, 'GET', url)).status, 401);
+  const dir = await call(null, 'POST', '/api/login', { school: 'demo', identifier: 'direction', password: 'demo1234' });
+  if (dir.json && dir.json.token) assert.notEqual((await call(dir.json.token, 'GET', url)).status, 200, 'un compte école ne lit pas les documents');
+  assert.equal((await acall('GET', `/api/admin/demandes/${reqRow.id}/documents/999999`)).status, 404);
+  assert.ok(await db.get("SELECT 1 AS x FROM platform_audit WHERE action = 'admin.demande.document'"));
 });
 
 test('super-admin : création d’école avec département et commune, puis « Inviter la direction »', async () => {

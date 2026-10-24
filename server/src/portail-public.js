@@ -15,12 +15,14 @@ const auth = require('./auth');
 const otp = require('./otp');
 const Pt = require('./portail');
 const { HttpError } = require('./common');
+const Up = require('./televersement');
 
 const COOKIE = 'noria_public';
 const SESSION_DAYS = 30;
 const CODE_MIN = 10;
 const DEPS = Pt.DEPARTMENTS;
 const SUBS = ['annonces', 'evenements', 'laureats'];
+const DOC_KINDS = ['autorisation_menfp', 'licence', 'patente', 'autre'];
 const KIND_SUB = { annonce: 'annonces', evenement: 'evenements', laureat: 'laureats' };
 const BATCH = 50;
 const iso = (ms = 0) => new Date(Date.now() + ms).toISOString();
@@ -53,6 +55,11 @@ const X = {
     errName: 'nom de l’école (2 à 120 caractères)', errDep: 'département', errCommune: 'commune (2 à 80 caractères)', errDirector: 'nom du directeur (2 à 80 caractères)',
     errEmail: 'adresse e-mail valide', errPhone: 'téléphone valide', errStudents: 'nombre d’élèves (0 à 100 000)',
     restart: 'Recommencer',
+    docTitle: 'Document officiel de l’école', docKind: 'Type de document',
+    docKinds: { autorisation_menfp: 'Autorisation de fonctionnement du MENFP', licence: 'Licence ou agrément MENFP', patente: 'Patente (DGI)', autre: 'Autre document officiel' },
+    docFile: 'Fichier (PDF, JPG ou PNG, 5 Mo au plus)', docHelp: 'Obligatoire. Une photo nette ou un scan suffit. Le document n’est visible que par l’équipe NORIA, pour vérifier l’école ; il n’est jamais publié.',
+    errDoc: 'document officiel (PDF, JPG ou PNG)', errDocKind: 'type de document', errDocSize: 'document officiel : 5 Mo au plus', errDocType: 'document officiel : seuls les fichiers PDF, JPG et PNG sont acceptés',
+    docAgain: 'Pour votre sécurité, le fichier n’est pas conservé quand le formulaire contient une erreur : choisissez-le de nouveau.',
     accTitle: 'Mon compte NORIA', accIntro: 'Un compte gratuit, sans mot de passe, pour recevoir par e-mail les nouvelles annonces, les événements et les lauréats. Le portail reste consultable sans compte.',
     ident: 'E-mail (ou téléphone)', identHelp: 'Nous envoyons un code de connexion. Par téléphone, l’envoi par SMS n’est pas encore actif.',
     getCode: 'Recevoir un code', codeSentAcc: (m) => `Si l’adresse est valide, un code à 6 chiffres vient d’être envoyé. Il est valable ${m} minutes.`,
@@ -80,6 +87,11 @@ const X = {
     errName: 'non lekòl la (2 a 120 karaktè)', errDep: 'depatman', errCommune: 'komin (2 a 80 karaktè)', errDirector: 'non direktè a (2 a 80 karaktè)',
     errEmail: 'yon adrès imel ki bon', errPhone: 'yon telefòn ki bon', errStudents: 'kantite elèv (0 a 100 000)',
     restart: 'Rekòmanse',
+    docTitle: 'Dokiman ofisyèl lekòl la', docKind: 'Ki kalite dokiman',
+    docKinds: { autorisation_menfp: 'Otorizasyon fonksyònman MENFP', licence: 'Lisans oswa agreman MENFP', patente: 'Patant (DGI)', autre: 'Lòt dokiman ofisyèl' },
+    docFile: 'Fichye (PDF, JPG oswa PNG, 5 Mo pou pi plis)', docHelp: 'Obligatwa. Yon foto klè oswa yon eskanè ase. Se sèlman ekip NORIA a ki wè dokiman an, pou verifye lekòl la ; yo pa janm pibliye l.',
+    errDoc: 'dokiman ofisyèl (PDF, JPG oswa PNG)', errDocKind: 'kalite dokiman an', errDocSize: 'dokiman ofisyèl : 5 Mo pou pi plis', errDocType: 'dokiman ofisyèl : se sèlman fichye PDF, JPG ak PNG ki aksepte',
+    docAgain: 'Pou sekirite w, nou pa kenbe fichye a lè fòmilè a gen yon erè : chwazi l ankò.',
     accTitle: 'Kont NORIA mwen', accIntro: 'Yon kont gratis, san modpas, pou resevwa pa imel nouvo anons yo, evènman yo ak laureya yo. Ou ka toujou gade pòtay la san kont.',
     ident: 'Imel (oswa telefòn)', identHelp: 'N ap voye yon kòd koneksyon. Pa telefòn, SMS poko mache.',
     getCode: 'Resevwa yon kòd', codeSentAcc: (m) => `Si adrès la bon, nou fèk voye yon kòd 6 chif. Li bon pou ${m} minit.`,
@@ -160,7 +172,13 @@ function readRequest(b, L) {
   if (o.phone) { const p = normalizePhone(o.phone); if (!p) errs.push(x.errPhone); else o.phone = p; } else o.phone = null;
   if (o.students_approx !== '') { const n = Number(o.students_approx); if (!Number.isInteger(n) || n < 0 || n > 100000) errs.push(x.errStudents); else o.students_approx = n; } else o.students_approx = null;
   o.message = o.message || null;
-  return { o, errs };
+  // Document officiel obligatoire : type choisi dans la liste, fichier PDF/JPEG/PNG vérifié par signature, 5 Mo au plus.
+  const kind = str(b.doc_kind, 30); let doc = null;
+  if (!DOC_KINDS.includes(kind)) errs.push(x.errDocKind);
+  try { doc = { ...Up.checkFile(((b.__files || {}).document)), kind, data: b.__files.document.data }; }
+  catch (e) { errs.push(e.code === 'taille' ? x.errDocSize : e.code === 'type' ? x.errDocType : x.errDoc); }
+  o.doc_kind = kind;
+  return { o, errs, doc };
 }
 
 /* ---------- Comptes publics ---------- */
@@ -262,7 +280,18 @@ function adminRoutes({ log, createSchool }) {
       if (st && !['en_attente', 'acceptee', 'refusee'].includes(st)) throw new HttpError(400, 'statut inconnu');
       const rows = await db.all(`SELECT r.*, s.slug AS school_slug FROM school_request r LEFT JOIN school s ON s.id = r.school_id${st ? ' WHERE r.status = ?' : ''}
         ORDER BY CASE WHEN r.status = 'en_attente' THEN 0 ELSE 1 END, r.id DESC LIMIT 300`, ...(st ? [st] : []));
-      return rows.map((r) => ({ ...r, suggested_slug: slugify(r.school_name) }));
+      const docs = rows.length ? await db.all(`SELECT id, request_id, kind, filename, mime, size, created_at FROM school_request_document
+        WHERE request_id IN (${rows.map(() => '?').join(',')}) ORDER BY id`, ...rows.map((r) => r.id)) : [];
+      return rows.map((r) => ({ ...r, suggested_slug: slugify(r.school_name), documents: docs.filter((d) => d.request_id === r.id) }));
+    }, { auth: true }],
+    // Document officiel d'une demande : super-admin seulement (route /api/admin/), consultation journalisée. Servi avec le
+    // type vérifié au dépôt, nosniff et CSP « default-src 'none' » ; en pièce jointe sauf ?voir=1 (PDF ou image).
+    ['GET', /^\/api\/admin\/demandes\/(\d+)\/documents\/(\d+)$/, async (db, req, a, [id, docId]) => {
+      const d = await db.get('SELECT * FROM school_request_document WHERE id = ? AND request_id = ?', Number(docId), Number(id));
+      if (!d) throw new HttpError(404, 'introuvable');
+      const view = req.query.get('voir') === '1';
+      await log(db, a, 'admin.demande.document', Number(id), `document ${d.id} (${d.kind}, ${d.mime}, ${d.size} o)${view ? ' — consulté' : ' — téléchargé'}`, 'ok', req.ip);
+      return { __file: Buffer.from(d.data, 'base64'), type: d.mime, filename: d.filename, inline: view };
     }, { auth: true }],
     ['POST', /^\/api\/admin\/demandes\/(\d+)\/accepter$/, async (db, req, a, [id], ctx) => {
       const r = await getReq(db, id); const b = req.body || {};
@@ -324,7 +353,7 @@ function createPublicSite(db, { ctx, render, write, baseOf, esc, T }) {
   function regForm(L, v = {}, errs = []) {
     const x = X[L]; const dep = T[L].dep;
     return `<h1>${esc(x.regTitle)}</h1><p>${esc(x.regIntro)}</p>${errBox(L, errs)}
-<form class="pf card" method="post" action="${pre(L)}/inscrire-ecole" novalidate><input type="hidden" name="step" value="envoyer">
+<form class="pf card" method="post" action="${pre(L)}/inscrire-ecole" enctype="multipart/form-data" novalidate><input type="hidden" name="step" value="envoyer">
 ${field('school_name', x.schoolName, { value: v.school_name, extra: ' maxlength="120" autocomplete="organization"' })}
 <label class="fld"><span>${esc(x.department)} <span class="req" aria-hidden="true">*</span></span><select name="department" required><option value="">${esc(x.choose)}</option>${DEPS.map((d) => `<option value="${d}"${v.department === d ? ' selected' : ''}>${esc(dep[d])}</option>`).join('')}</select></label>
 ${field('commune', x.commune, { value: v.commune, extra: ' maxlength="80"' })}
@@ -332,6 +361,10 @@ ${field('director_name', x.director, { value: v.director_name, extra: ' maxlengt
 ${field('email', x.email, { type: 'email', value: v.email, extra: ' maxlength="254" autocomplete="email" inputmode="email"' })}
 ${field('phone', x.phone, { type: 'tel', value: v.phone, req: false, extra: ' maxlength="30" autocomplete="tel" inputmode="tel"' })}
 ${field('students_approx', x.students, { type: 'number', value: v.students_approx ?? '', req: false, extra: ' min="0" max="100000" inputmode="numeric"' })}
+<fieldset class="fld pf-doc"><legend>${esc(x.docTitle)} <span class="req" aria-hidden="true">*</span></legend>
+<label class="fld"><span>${esc(x.docKind)} <span class="req" aria-hidden="true">*</span></span><select name="doc_kind" required><option value="">${esc(x.choose)}</option>${DOC_KINDS.map((k) => `<option value="${k}"${v.doc_kind === k ? ' selected' : ''}>${esc(x.docKinds[k])}</option>`).join('')}</select></label>
+<label class="fld"><span>${esc(x.docFile)} <span class="req" aria-hidden="true">*</span></span><input name="document" type="file" required accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"><small class="mut">${esc(x.docHelp)}</small></label>
+${errs.length ? `<p class="small mut">${esc(x.docAgain)}</p>` : ''}</fieldset>
 <label class="fld">${esc(x.message)}<textarea name="message" rows="3" maxlength="1000">${esc(v.message || '')}</textarea></label>
 <label class="hp" aria-hidden="true">${esc(x.hp)}<input name="site_web" tabindex="-1" autocomplete="off"></label>
 <button class="btn" type="submit">${esc(x.send)}</button></form>
@@ -364,7 +397,13 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
 <p class="mut">${esc(x.privacy)}</p>`;
   }
 
-  async function readForm(req) {
+  async function readForm(req, name) {
+    const ct0 = String(req.headers['content-type'] || '');
+    // Inscription d'une école : formulaire multipart avec le document officiel (5 Mo + champs), lu en octets puis découpé.
+    if (name === '/inscrire-ecole' && /^multipart\/form-data/i.test(ct0)) {
+      const { fields, files } = Up.parseMultipart(await Up.readBody(req, Up.DOC_MAX + 64 * 1024), ct0);
+      return { ...fields, __files: files };
+    }
     let raw = '';
     for await (const chunk of req) { raw += chunk; if (raw.length > 20000) throw new HttpError(413, 'trop volumineux'); }
     const ct = String(req.headers['content-type'] || '');
@@ -407,7 +446,7 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
     if (!PATHS.test(p)) return false;
     const L = p.startsWith('/ht/') ? 'ht' : 'fr'; const name = p.replace(/^\/ht/, ''); const x = X[L];
     if (!sameOrigin(req)) throw new HttpError(403, 'origine refusée');
-    const b = await readForm(req);
+    const b = await readForm(req, name);
     const lim = limitCode();
     const base = baseOf(req);
 
@@ -425,6 +464,7 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
         const o = JSON.parse(row.payload);
         const id = await db.insert(`INSERT INTO school_request (school_name, department, commune, director_name, email, phone, students_approx, message, lang, created_at)
           VALUES (?,?,?,?,?,?,?,?,?,?)`, o.school_name, o.department, o.commune, o.director_name, o.email, o.phone, o.students_approx, o.message, o.lang, iso());
+        await db.run('UPDATE school_request_document SET request_id = ?, ticket_hash = NULL WHERE ticket_hash = ? AND request_id IS NULL', id, auth.sha256(String(b.ticket || '')));
         await db.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome, ip) VALUES (?,?,?,?,?,?)', null, 'public.demande', String(id), `${o.school_name} — ${o.department}`.slice(0, 500), 'ok', ip);
         // Notification aux super-admins actifs et accusé de réception au demandeur (échecs journalisés, jamais bloquants).
         const admins = await db.all("SELECT email FROM platform_admin WHERE state = 'actif' ORDER BY id");
@@ -438,12 +478,17 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
         page(req, res, baseHeaders, L, x.codeTitle, codeForm(L, `${pre(L)}/inscrire-ecole`, crypto.randomBytes(24).toString('base64url'), x.codeSent(str(b.email, 254), CODE_MIN)));
         return true;
       }
-      const { o, errs } = readRequest(b, L);
+      const { o, errs, doc } = readRequest(b, L);
       if (errs.length) { page(req, res, baseHeaders, L, x.regTitle, regForm(L, o, errs), 400); return true; }
       const keys = [`pub-demande-ip:${ip}`, `pub-demande:${o.email}`];
       if (await lim.blocked(keys)) { page(req, res, baseHeaders, L, x.regTitle, `<h1>${esc(x.regTitle)}</h1><div class="alert" role="alert"><p>${esc(x.tooMany)}</p></div>`, 429); return true; }
       await lim.fail(keys);
       const { ticket, code } = await newCode(db, 'demande', o.email, JSON.stringify(o));
+      // Document gardé à part (pas dans le formulaire en attente), rattaché au ticket ; les dépôts jamais vérifiés sont
+      // effacés après 24 h.
+      await db.run('DELETE FROM school_request_document WHERE request_id IS NULL AND created_at < ?', iso(-24 * 3600e3));
+      await db.run(`INSERT INTO school_request_document (ticket_hash, kind, filename, mime, size, sha256, data, created_at) VALUES (?,?,?,?,?,?,?,?)`,
+        auth.sha256(ticket), doc.kind, doc.filename, doc.mime, doc.data.length, crypto.createHash('sha256').update(doc.data).digest('hex'), doc.data.toString('base64'), iso());
       await sendMail(ctx, o.email, MAIL.codeDemande[L](code));
       page(req, res, baseHeaders, L, x.codeTitle, codeForm(L, `${pre(L)}/inscrire-ecole`, ticket, x.codeSent(o.email, CODE_MIN)));
       return true;

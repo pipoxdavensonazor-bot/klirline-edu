@@ -8,11 +8,12 @@ const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 
 const TYPES = {
+  '.mjs': 'text/javascript; charset=utf-8', '.woff2': 'font/woff2',  // bibliothèques locales (PDF.js, polices KaTeX)
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8', '.ico': 'image/x-icon',
 };
-const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
+const COMPRESS = new Set(['.html', '.js', '.mjs', '.css', '.svg', '.json', '.webmanifest']);
 // Fichiers servis à la racine (application installable) en plus de index.html et src/.
 const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest', '/favicon.ico']);
 // Icônes demandées par les navigateurs à la racine (bloc 8) : copies servies depuis src/.
