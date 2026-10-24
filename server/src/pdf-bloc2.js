@@ -29,11 +29,11 @@ function drawBadge(p, b, ox = 0, oy = 0) {
   }
   p.text(ox + 40, oy + H - 15, cut(b.school.name, 38), { size: 8.5, bold: true, gray: 1 });
   p.text(ox + 40, oy + H - 26, `Carte d'élève / Kat elèv  ${b.year}`, { size: 6.5, gray: 0.85 });
-  // Photo carrée (ou initiales).
-  const ph = 66, px = ox + 8, py = oy + 22;
-  if (!fit(p, b.photo, px, py, ph, ph)) {
-    p.rect(px, py, ph, ph, 0.88);
-    p.text(px + 20, py + 27, `${(b.first_name || '?')[0]}${(b.last_name || '?')[0]}`.toUpperCase(), { size: 16, bold: true, gray: 0.45 });
+  // Photo portrait 3:4 (ou initiales).
+  const pw = 54, ph = 72, px = ox + 10, py = oy + 19;
+  if (!fit(p, b.photo, px, py, pw, ph)) {
+    p.rect(px, py, pw, ph, 0.88);
+    p.text(px + 14, py + 30, `${(b.first_name || '?')[0]}${(b.last_name || '?')[0]}`.toUpperCase(), { size: 16, bold: true, gray: 0.45 });
   }
   const tx = ox + 82;
   p.text(tx, oy + 100, cut(String(b.last_name || '').toUpperCase(), 20), { size: 9.5, bold: true });

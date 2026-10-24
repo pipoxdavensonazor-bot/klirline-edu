@@ -20,7 +20,7 @@ const C = {
       ]],
       ['Données que nous traitons', [
         'Comptes des écoles (direction, secrétariat, enseignants, parents, élèves) : nom, rôle, école, adresse e-mail et/ou numéro de téléphone, langue préférée, mot de passe (stocké uniquement sous forme d’empreinte).',
-        'Dossier scolaire saisi par l’école : identité de l’élève (nom, prénom, code élève, date de naissance), classe et inscription, lien parent-enfant, notes, évaluations et bulletins, présences et absences, remarques de santé ou familiales si l’école les renseigne, photo pour la carte d’élève, paiements de scolarité et reçus, prêts de bibliothèque, relevés, certificats et transferts entre écoles, notifications.',
+        'Dossier scolaire saisi par l’école : identité de l’élève (nom, prénom, code élève, date de naissance), classe et inscription, lien parent-enfant, notes, évaluations et bulletins, présences et absences, remarques de santé ou familiales si l’école les renseigne, photo pour la carte d’élève (privée : jamais publiée ni accessible sans connexion, visible seulement par le personnel autorisé de l’école, l’élève et ses parents ; métadonnées et localisation retirées ; retirable à tout moment sur demande à l’école), paiements de scolarité et reçus, prêts de bibliothèque, relevés, certificats et transferts entre écoles, notifications.',
         'Déclarations annuelles des écoles au ministère, lorsque ce module est activé.',
         'Comptes grand public du portail : adresse e-mail ou numéro de téléphone, langue et abonnements choisis (annonces, événements). Demandes d’inscription d’école : nom de l’école, nom et coordonnées de la personne qui la représente.',
         'Codes de connexion : codes à usage unique envoyés par e-mail ou par Telegram ; ils ne sont gardés que sous forme d’empreinte et expirent après 10 minutes.',
@@ -100,7 +100,7 @@ const C = {
       ]],
       ['Done nou trete', [
         'Kont lekòl yo (direksyon, sekretarya, pwofesè, paran, elèv) : non, wòl, lekòl, adrès imèl ak/oswa nimewo telefòn, lang ou pito, modpas (nou kenbe sèlman yon anprent li).',
-        'Dosye lekòl la antre : idantite elèv la (non, siyati, kòd elèv, dat nesans), klas ak enskripsyon, lyen paran-pitit, nòt, evalyasyon ak bilten, prezans ak absans, nòt sou sante oswa fanmi si lekòl la mete yo, foto pou kat elèv la, peman lekòl ak resi, prè nan bibliyotèk, relve, sètifika ak transfè ant lekòl, notifikasyon.',
+        'Dosye lekòl la antre : idantite elèv la (non, siyati, kòd elèv, dat nesans), klas ak enskripsyon, lyen paran-pitit, nòt, evalyasyon ak bilten, prezans ak absans, nòt sou sante oswa fanmi si lekòl la mete yo, foto pou kat elèv la (prive : yo pa janm pibliye l ni montre l san koneksyon ; se sèlman pèsonèl lekòl la ki gen dwa, elèv la ak paran li ki ka wè l ; done lokalizasyon retire ; lekòl la ka retire l nenpòt lè sou demann), peman lekòl ak resi, prè nan bibliyotèk, relve, sètifika ak transfè ant lekòl, notifikasyon.',
         'Deklarasyon chak ane lekòl yo voye bay ministè a, lè modil sa a aktive.',
         'Kont piblik pòtay la : adrès imèl oswa nimewo telefòn, lang ak abònman ou chwazi (anons, evènman). Demann enskripsyon lekòl : non lekòl la, non ak kowòdone moun ki reprezante l.',
         'Kòd koneksyon : kòd yon sèl fwa nou voye pa imèl oswa pa Telegram ; nou kenbe sèlman yon anprent yo epi yo ekspire apre 10 minit.',

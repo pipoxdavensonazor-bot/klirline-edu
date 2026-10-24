@@ -8,9 +8,9 @@
 .b2-hit:hover,.b2-hit:focus-visible{border-color:var(--pri)}
 .b2-hit span{display:flex;flex-direction:column;min-width:0}
 .b2-hit small{color:var(--mut)}
-.b2-ph{display:inline-grid;place-items:center;flex:0 0 auto;width:96px;height:96px;border-radius:10px;object-fit:cover;background:#e8ecf3;color:#4a5468;font-weight:800}
+.b2-ph{display:inline-grid;place-items:center;flex:0 0 auto;width:96px;height:128px;border-radius:10px;object-fit:cover;background:#e8ecf3;color:#4a5468;font-weight:800}
 .b2-sm{width:40px;height:40px;border-radius:8px;font-size:13px}
-.b2-lg{width:112px;height:112px;font-size:28px}
+.b2-lg{width:112px;height:150px;font-size:28px}
 .b2-who{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
 .b2-who h3{margin:0 0 4px}
 .b2-res h4{margin:14px 0 6px;font-size:14px}
@@ -54,4 +54,6 @@
   .b2-tn{font-weight:700}
   .b2-ta{padding-top:6px!important}
 }
-@media (max-width:520px){.b2-lg{width:88px;height:88px}.b2-tab{font-size:13px}.b2-big .b2-chip{font-size:17px}}
+@media (max-width:520px){.b2-lg{width:88px;height:117px}.b2-tab{font-size:13px}.b2-big .b2-chip{font-size:17px}}
+.b2-file{position:relative;overflow:hidden;cursor:pointer}.b2-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.b2-file{display:inline-flex;align-items:center;min-height:38px;padding:8px 14px;border:1px solid #cfd6e2;border-radius:6px;background:#fff;font-weight:700}.b2-file:focus-within{outline:2px solid #0f6b5c;outline-offset:2px}

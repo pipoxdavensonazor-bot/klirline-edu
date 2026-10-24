@@ -14,7 +14,8 @@ const T={
     st:{valide:"VALIDE",expire:"EXPIRÉ",revoque:"RÉVOQUÉ",inconnu:"INCONNU",code:"Code saisi"},compare:"Comparez la photo et le nom avec la personne.",
     cls:"Classe",code:"Code élève",born:"Naissance",parents:"Parents",loans:"Prêts en cours",noLoans:"Aucun prêt en cours.",late:"en retard",due:"retour le",
     lend:"Prêter un livre",book:"Livre",lendBtn:"Prêter",lent:"Prêt enregistré.",badge:"Badge",year:"Année",expires:"Expire le",reason:"Motif",
-    photo:"Photo",photoHelp:"Recadrée en carré et compressée (40 Ko au plus) avant l'envoi.",photoSaved:"Photo enregistrée.",noPhoto:"Pas de photo",
+    photo:"Photo",photoHelp:"Recadrée en portrait 3:4 (300 × 400) et compressée (60 Ko au plus) sur cet appareil avant l'envoi ; aucune donnée de localisation n'est gardée. Photo privée : jamais publiée.",phFile:"Choisir un fichier",phCam:"Prendre une photo",phDel:"Retirer la photo",phDelQ:"Retirer la photo de cet élève ?",phDeleted:"Photo retirée.",
+    bulkT:"Photos de la classe (envoi groupé)",bulkHelp:"Nommez chaque fichier par le code élève (ex. A-001.jpg). Choisissez une classe ci-dessus pour limiter l'envoi. 40 fichiers au plus.",bulkPick:"Choisir les photos",bulkDone:(n,m)=>`${n} photo(s) enregistrée(s) sur ${m}.`,photoSaved:"Photo enregistrée.",noPhoto:"Pas de photo",
     badgesT:"Badges élèves",badgesHelp:"Un badge par élève et par année scolaire. Il expire à la fin de l'année ; la génération de l'année suivante marque les anciens expirés.",
     allCls:"Toutes les classes",gen:"Générer les badges",genDone:(c,k,e)=>`${c} badge(s) créé(s), ${k} déjà valide(s), ${e} ancien(s) expiré(s).`,
     sheet:n=>`Planche A4 (${n})`,pdf:"PDF",revoke:"Révoquer",revokeHelp:"Badge perdu ou volé : il devient RÉVOQUÉ partout.",reissue:"Rééditer un nouveau badge",confirm:"Confirmer",
@@ -33,7 +34,8 @@ const T={
     st:{valide:"VALAB",expire:"EKSPIRE",revoque:"REVOKE",inconnu:"PA KONNEN",code:"Kòd antre"},compare:"Konpare foto a ak non an ak moun nan.",
     cls:"Klas",code:"Kòd elèv",born:"Dat nesans",parents:"Paran",loans:"Prè ki an kou",noLoans:"Pa gen prè an kou.",late:"an reta",due:"pou remèt",
     lend:"Prete yon liv",book:"Liv",lendBtn:"Prete",lent:"Prè a anrejistre.",badge:"Badj",year:"Ane",expires:"Ap ekspire",reason:"Rezon",
-    photo:"Foto",photoHelp:"Nou koupe l kare epi nou konprese l (40 Ko maksimòm) anvan nou voye l.",photoSaved:"Foto a anrejistre.",noPhoto:"Pa gen foto",
+    photo:"Foto",photoHelp:"Nou koupe l an pòtrè 3:4 (300 × 400) epi nou konprese l (60 Ko maksimòm) sou aparèy la anvan nou voye l ; pa gen done lokalizasyon. Foto prive : yo pa janm pibliye l.",phFile:"Chwazi yon fichye",phCam:"Pran yon foto",phDel:"Retire foto a",phDelQ:"Retire foto elèv sa a ?",phDeleted:"Foto a retire.",
+    bulkT:"Foto klas la (voye an gwoup)",bulkHelp:"Bay chak fichye non kòd elèv la (egz. A-001.jpg). Chwazi yon klas anwo a pou limite. 40 fichye pi plis.",bulkPick:"Chwazi foto yo",bulkDone:(n,m)=>`${n} foto anrejistre sou ${m}.`,photoSaved:"Foto a anrejistre.",noPhoto:"Pa gen foto",
     badgesT:"Badj elèv",badgesHelp:"Yon badj pou chak elèv chak ane lekòl. Li ekspire nan fen ane a ; lè nou jenere ane apre a, ansyen yo vin ekspire.",
     allCls:"Tout klas yo",gen:"Jenere badj yo",genDone:(c,k,e)=>`${c} badj kreye, ${k} ki te deja valab, ${e} ansyen ki ekspire.`,
     sheet:n=>`Fèy A4 (${n})`,pdf:"PDF",revoke:"Revoke",revokeHelp:"Badj pèdi oswa vòlè : li vin REVOKE toupatou.",reissue:"Fè yon nouvo badj",confirm:"Konfime",
@@ -72,7 +74,7 @@ async function download(path){
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
 const chip=(s,lbl)=>`<span class="b2-chip b2-${esc(s)}">${esc(lbl)}</span>`;
-const avatar=(e,cls)=>e.photo?`<img class="b2-ph ${cls||""}" src="${esc(e.photo)}" alt="${esc(t("photo"))} ${esc(e.first_name)}" width="96" height="96">`:`<span class="b2-ph b2-noph ${cls||""}" aria-label="${esc(t("noPhoto"))}">${esc(((e.first_name||"?")[0]+(e.last_name||"?")[0]).toUpperCase())}</span>`;
+const avatar=(e,cls)=>e.photo?`<img class="b2-ph ${cls||""}" src="${esc(e.photo)}" alt="${esc(t("photo"))} ${esc(e.first_name)}" width="96" height="128">`:`<span class="b2-ph b2-noph ${cls||""}" aria-label="${esc(t("noPhoto"))}">${esc(((e.first_name||"?")[0]+(e.last_name||"?")[0]).toUpperCase())}</span>`;
 
 /* ---------- Recherche et scan ---------- */
 function scanView(){
@@ -133,7 +135,10 @@ function showCard(res){
     <p class="small">${esc(t("code"))} : <b>${esc(e.code)}</b><br>${esc(t("cls"))} : ${esc(e.class_name||"-")}${e.birth_date?`<br>${esc(t("born"))} : ${esc(e.birth_date)}`:""}</p>${badgeLine}</div></div>
     ${e.parents&&e.parents.length?`<h4>${esc(t("parents"))}</h4><ul class="b2-loans">${e.parents.map(p=>`<li>${esc(p.name)}${p.phone?` <small>${esc(p.phone)}</small>`:""}</li>`).join("")}</ul>`:""}
     ${loans}
-    ${staff?`<h4>${esc(t("photo"))}</h4><p class="small mut">${esc(t("photoHelp"))}</p><input type="file" id="bPhoto" accept="image/jpeg,image/png,image/webp" data-action-change="NORIA_BAD.pickPhoto" data-a0="t"><p id="bPhMsg" class="small" role="status"></p>`:""}</div>`;
+    ${staff?`<h4>${esc(t("photo"))}</h4><p class="small mut">${esc(t("photoHelp"))}</p>
+    <div class="row"><label class="btn ghost b2-file">${esc(t("phFile"))}<input type="file" id="bPhoto" accept="image/jpeg,image/png,image/webp" data-action-change="NORIA_BAD.pickPhoto" data-a0="t"></label>
+    <label class="btn ghost b2-file">${esc(t("phCam"))}<input type="file" id="bPhotoCam" accept="image/*" capture="user" data-action-change="NORIA_BAD.pickPhoto" data-a0="t"></label>
+    ${e.photo?`<button type="button" class="ghost" data-action="NORIA_BAD.removePhoto">${esc(t("phDel"))}</button>`:""}</div><p id="bPhMsg" class="small" role="status"></p>`:""}</div>`;
   if(e.loans) fillBooks();
 }
 async function fillBooks(){
@@ -215,10 +220,29 @@ function jpeg(img,{square,max,limit}){
   }
   throw new Error(t("tooBig"));
 }
+// Photo d'identité : recadrage portrait 3:4 centré, 300 × 400 au plus, JPEG ≤ 60 Ko (le canevas ne garde aucune donnée EXIF).
+function portrait(img){
+  const w0=img.naturalWidth, h0=img.naturalHeight; let sw=w0, sh=Math.round(w0*4/3); if(sh>h0){ sh=h0; sw=Math.round(h0*3/4); }
+  const sx=(w0-sw)/2, sy=Math.max(0,(h0-sh)/2);
+  for(const W of [300,240,192]){ const H=W*4/3; const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,W,H); g.drawImage(img,sx,sy,sw,sh,0,0,W,H);
+    for(const q of [0.82,0.72,0.6,0.5]){ const b64=c.toDataURL("image/jpeg",q).split(",")[1]; if(b64.length*3/4<=60*1024) return b64; } }
+  throw new Error(t("tooBig"));
+}
+async function removePhoto(){ if(!FICHE||!confirm(t("phDelQ"))) return; const r=await api(`/api/students/${FICHE.id}/photo`,{method:"DELETE"}).catch(()=>null); if(!r||r.status!==200) return toast(!r?t("net"):t("err")+((r.body&&r.body.error)||r.status)); toast(t("phDeleted")); openCard(FICHE.id); }
+async function bulkPhotos(input){
+  const files=[...(input.files||[])].slice(0,40); const out=$("bBulkOut"); if(!files.length) return; out.textContent=t("wait");
+  const photos=[]; const bad=[];
+  for(const f of files){ try{ photos.push({nom:f.name,photo:portrait(await loadImg(await readDataUrl(f)))}); }catch(e){ bad.push(f.name+" : "+e.message); } }
+  const r=photos.length?await post("/api/students/photos",{photos,class_id:($("bCls")||{}).value||undefined}):null;
+  if(photos.length&&(!r||r.status!==200)){ out.textContent=!r?t("net"):t("err")+((r.body&&r.body.error)||r.status); return; }
+  const res=(r?r.body.resultats:[]);
+  out.innerHTML=`<p><b>${esc(t("bulkDone")((r?r.body.ok:0),files.length))}</b></p><ul>${res.filter(x=>!x.ok).map(x=>`<li>${esc(x.nom)} : ${esc(x.erreur)}</li>`).join("")}${bad.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+  input.value=""; listBadges();
+}
 async function pickPhoto(input){
   const f=input.files&&input.files[0]; if(!f||!FICHE) return; const msg=$("bPhMsg");
   try{
-    const img=await loadImg(await readDataUrl(f)); const photo=jpeg(img,{square:true,max:240,limit:40*1024});
+    const img=await loadImg(await readDataUrl(f)); const photo=portrait(img);
     const r=await post(`/api/students/${FICHE.id}/photo`,{photo},"PUT"); if(!r||r.status!==200){ msg.textContent=!r?t("net"):t("err")+((r.body&&r.body.error)||r.status); return; }
     toast(t("photoSaved")); openCard(FICHE.id);
   }catch(e){ msg.textContent=e.message; }
@@ -235,6 +259,7 @@ async function badgesView(){
     <label class="fld">${esc(t("cls"))}<select id="bCls" data-action-change="NORIA_BAD.listBadges"><option value="">${esc(t("allCls"))}</option>${CLASSES.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label>
     <div class="row"><button type="button" id="bGen" data-action="NORIA_BAD.generate">${esc(t("gen"))}</button>
     <button type="button" class="ghost" data-action="NORIA_BAD.sheet" data-a0="n:10">${esc(t("sheet")(10))}</button><button type="button" class="ghost" data-action="NORIA_BAD.sheet" data-a0="n:8">${esc(t("sheet")(8))}</button></div></div>
+  <div class="card"><h3>${esc(t("bulkT"))}</h3><p class="small mut">${esc(t("bulkHelp"))}</p><label class="btn ghost b2-file">${esc(t("bulkPick"))}<input type="file" id="bBulk" multiple accept="image/jpeg,image/png,image/webp" data-action-change="NORIA_BAD.bulkPhotos" data-a0="t"></label><div id="bBulkOut" class="small" role="status"></div></div>
   <div id="bList"><p class="mut">${esc(t("wait"))}</p></div>`;
   listBadges();
 }
@@ -357,6 +382,6 @@ function render(m,el,ctx){
   EL=el; C=ctx||{}; MODE=m; closeScan();
   if(m==="scan") scanView(); else if(m==="badges") badgesView(); else relevesView();
 }
-window.NORIA_BAD=Object.freeze({render,search,openCard,manual,openScan,closeScan,scanFile,scanManual,lend,pickPhoto,listBadges,generate,sheet,badgePdf,revokeForm,revoke,
+window.NORIA_BAD=Object.freeze({render,search,openCard,manual,openScan,closeScan,scanFile,scanManual,lend,pickPhoto,removePhoto,bulkPhotos,listBadges,generate,sheet,badgePdf,revokeForm,revoke,
   markRead,saveSig,kind,ask,relPdf,approve,reasonForm,decide,withdraw,_handle:handle});
 })();

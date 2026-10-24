@@ -229,11 +229,12 @@ async function badge(){
   const r=await get("/api/badges/moi"); if(!alive()) return;
   if(!r||r.status!==200){ ROOT.innerHTML=`<div class="badbox">${esc(errOf(r))}</div>`; return; }
   const b=r.body;
+  const ph=x=>x.photo?`<img class="l3-ph" src="${esc(x.photo)}" alt="" width="120" height="160">`:`<span class="l3-ph l3-noph" aria-hidden="true">${esc(((x.first_name||"?")[0]+(x.last_name||"?")[0]).toUpperCase())}</span>`;
   // Les SVG viennent du serveur NORIA (rectangles et texte échappé uniquement).
-  ROOT.innerHTML=head(t("badgeT"),t("badgeIntro"))+`<div class="u8 grid g2">${b.badges.map(x=>`<div class="card l3-badge"><h3>${esc(x.first_name+" "+x.last_name)}</h3><p class="small mut">${esc(x.class_name||"")} · ${esc(x.year||"")}</p>
+  ROOT.innerHTML=head(t("badgeT"),t("badgeIntro"))+`<div class="u8 grid g2">${b.badges.map(x=>`<div class="card l3-badge"><div class="l3-who">${ph(x)}<div><h3>${esc(x.first_name+" "+x.last_name)}</h3><p class="small mut">${esc(x.class_name||"")} · ${esc(x.year||"")}</p></div></div>
     <div class="l3-qr">${x.qr_svg}</div><div class="l3-bar">${x.code128_svg}</div><p><b>${esc(t("code"))} :</b> ${esc(x.code)}</p><p class="small">${esc(t("valid"))} ${esc(x.expires_on)}</p>
     ${x.email?`<p class="small">${esc(t("email"))} : ${esc(x.email)}</p>`:""}<a class="btn" href="/api/badges/moi/${x.id}/pdf" download>${esc(t("pdf"))}</a></div>`).join("")}
-  ${b.sans_badge.map(x=>`<div class="card l3-badge"><h3>${esc(x.first_name+" "+x.last_name)}</h3><p class="small mut">${esc(t("noBadge"))}</p><div class="l3-bar">${x.code128_svg}</div><p><b>${esc(t("code"))} :</b> ${esc(x.code)}</p></div>`).join("")}</div>`;
+  ${b.sans_badge.map(x=>`<div class="card l3-badge"><div class="l3-who">${ph(x)}<div><h3>${esc(x.first_name+" "+x.last_name)}</h3><p class="small mut">${esc(t("noBadge"))}</p></div></div><div class="l3-bar">${x.code128_svg}</div><p><b>${esc(t("code"))} :</b> ${esc(x.code)}</p></div>`).join("")}</div>`;
 }
 
 const VIEWS={messages,reunions:meetings,candidatures,badge};

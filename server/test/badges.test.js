@@ -46,15 +46,15 @@ before(async () => {
 });
 after(async () => { server.close(); await db.cleanup(); });
 
-test('photo : direction et secrétariat seulement, carrée, 40 Ko au plus, journalisée', async () => {
+test('photo : direction et secrétariat seulement, JPEG 60 Ko au plus, journalisée', async () => {
   const st = ids.A.students[0];
   const photo = PHOTO.toString('base64');
   assert.equal((await call(await tok('A', 'prof1'), 'PUT', `/api/students/${st}/photo`, { photo })).status, 403);
   assert.equal((await call(await tok('A', 'parent1'), 'PUT', `/api/students/${st}/photo`, { photo })).status, 403);
   assert.equal((await call(await tok('A', 'biblio'), 'PUT', `/api/students/${st}/photo`, { photo })).status, 403);
-  const heavy = Buffer.concat([PHOTO, Buffer.alloc(41 * 1024, 0)]).toString('base64');
+  const heavy = Buffer.concat([PHOTO, Buffer.alloc(61 * 1024, 0)]).toString('base64');
   const r1 = await call(await tok('A', 'secretariat'), 'PUT', `/api/students/${st}/photo`, { photo: heavy });
-  assert.equal(r1.status, 400); assert.match(r1.json.error, /40 Ko/);
+  assert.equal(r1.status, 400); assert.match(r1.json.error, /60 Ko/);
   assert.equal((await call(await tok('A', 'secretariat'), 'PUT', `/api/students/${st}/photo`, { photo: 'AAAA' })).status, 400);
   const ok = await call(await tok('A', 'secretariat'), 'PUT', `/api/students/${st}/photo`, { photo });
   assert.equal(ok.status, 200, JSON.stringify(ok.json));
@@ -233,4 +233,42 @@ test('RLS (PostgreSQL) : photos et badges cloisonnés par école, clés interdit
   await assert.rejects(db.asSchool(ids.A.school, (t) => t.run('DELETE FROM badge')), /permission denied/);
   await assert.rejects(db.asSchool(ids.A.school, (t) => t.run("INSERT INTO student_photo (school_id, student_id, photo, size, updated_by) VALUES (?,?,?,?,?)",
     ids.B.school, ids.B.students[0], 'x', 1, ids.A.users.direction)), /row-level security|foreign key/);
+});
+
+test('photo portrait 3:4 : EXIF retiré, format et type vérifiés, envoi groupé par code élève, photo sur « Mon badge »', async () => {
+  const exif = fs.readFileSync(path.join(__dirname, 'fixtures', 'photo-portrait-exif.jpg'));
+  assert.ok(exif.includes(Buffer.from('CameraFictive')));
+  const st = ids.A.students[0];
+  const d = await tok('A', 'direction');
+  const r = await call(d, 'PUT', `/api/students/${st}/photo`, { photo: exif.toString('base64') });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const row = await db.get('SELECT photo FROM student_photo WHERE school_id = ? AND student_id = ?', ids.A.school, st);
+  const saved = Buffer.from(row.photo, 'base64');
+  assert.ok(!saved.includes(Buffer.from('CameraFictive')) && !saved.includes(Buffer.from('Exif')) && !saved.includes(Buffer.from('commentaire fictif')), 'métadonnées retirées');
+  assert.equal(saved[0], 0xff); assert.equal(saved[1], 0xd8);
+  // Paysage refusé ; PNG déguisé refusé (octets magiques).
+  const pay = await call(d, 'PUT', `/api/students/${st}/photo`, { photo: fs.readFileSync(path.join(__dirname, 'fixtures', 'photo-paysage.jpg')).toString('base64') });
+  assert.equal(pay.status, 400); assert.match(pay.json.error, /portrait/);
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(200)]).toString('base64');
+  assert.equal((await call(d, 'PUT', `/api/students/${st}/photo`, { photo: png })).status, 400);
+  // Envoi groupé : codes de l'école seulement ; un code d'une autre école est « inconnu ».
+  const codeA = (await db.get('SELECT code FROM student WHERE id = ?', ids.A.students[1])).code;
+  const codeB = (await db.get('SELECT code FROM student WHERE id = ?', ids.B.students[0])).code;
+  const photo = exif.toString('base64');
+  assert.equal((await call(await tok('A', 'prof1'), 'POST', '/api/students/photos', { photos: [{ nom: `${codeA}.jpg`, photo }] })).status, 403);
+  assert.equal((await call(await tok('A', 'parent1'), 'POST', '/api/students/photos', { photos: [{ nom: `${codeA}.jpg`, photo }] })).status, 403);
+  const bulk = await call(await tok('A', 'secretariat'), 'POST', '/api/students/photos', { photos: [{ nom: `${codeA}.jpg`, photo }, { nom: `${codeB}.jpg`, photo }, { nom: 'X-999.jpg', photo: 'AAAA' }] });
+  assert.equal(bulk.status, 200, JSON.stringify(bulk.json));
+  assert.equal(bulk.json.ok, codeA === codeB ? 2 : 1);
+  if (codeA !== codeB) assert.equal(bulk.json.resultats[1].ok, false);
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM student_photo WHERE school_id = ?', ids.B.school)).n, 0, 'aucune photo écrite dans l’école B');
+  assert.ok(await db.get("SELECT id FROM audit_log WHERE action = 'student.photo.bulk' AND school_id = ?", ids.A.school));
+  // « Mon badge » : lien privé vers sa propre photo.
+  const moi = await call(await tok('A', 'eleve1'), 'GET', '/api/badges/moi');
+  assert.equal(moi.status, 200);
+  const all = [...moi.json.badges, ...moi.json.sans_badge];
+  assert.ok(all.length && all.every((b) => b.photo === null || /^\/api\/students\/\d+\/photo\?v=/.test(b.photo)));
+  // Retrait journalisé.
+  assert.equal((await call(d, 'DELETE', `/api/students/${st}/photo`)).status, 200);
+  assert.ok(await db.get("SELECT id FROM audit_log WHERE action = 'student.photo.delete' AND school_id = ?", ids.A.school));
 });

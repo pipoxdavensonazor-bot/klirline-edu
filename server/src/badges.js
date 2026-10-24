@@ -11,7 +11,7 @@ const { publicUrl } = require('./scolaire');
 const emailsEleves = require('./emails-eleves');
 const CB = require('./codes-barres');
 
-const PHOTO_MAX = 40 * 1024;
+const PHOTO_MAX = 60 * 1024;
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BADGE_RE = /^B[A-Z2-9]{26}$/;
 const localDay = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.NORIA_TZ || 'America/Port-au-Prince' });
@@ -58,14 +58,44 @@ function yearEnd(y) {
 }
 
 /* ---------- photo ---------- */
+// Retire toutes les métadonnées d'un JPEG (EXIF/GPS, XMP, ICC, commentaires : segments APP1–APP15 et COM) ; garde JFIF et l'image.
+function stripJpeg(buf) {
+  if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+  const parts = [buf.subarray(0, 2)]; let i = 2;
+  while (i + 4 <= buf.length) {
+    if (buf[i] !== 0xff) return null;
+    const m = buf[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m === 0xda) { parts.push(buf.subarray(i)); return Buffer.concat(parts); } // début des données image
+    if (m === 0xd9) return null;
+    const len = buf.readUInt16BE(i + 2); if (len < 2 || i + 2 + len > buf.length) return null;
+    if (!((m >= 0xe1 && m <= 0xef) || m === 0xfe)) parts.push(buf.subarray(i, i + 2 + len));
+    i += 2 + len;
+  }
+  return null;
+}
+// Photo d'identité : JPEG uniquement (octets magiques FF D8 FF, pas le type annoncé), 60 Ko au plus, carrée ou portrait 3:4
+// (300 × 400 conseillé), métadonnées retirées avant stockage.
 function checkPhoto(b64) {
   const s = String(b64 || '').replace(/^data:image\/jpeg;base64,/, '');
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(s)) return { error: 'photo : JPEG en base64 attendu' };
-  const buf = Buffer.from(s, 'base64');
-  if (buf.length > PHOTO_MAX) return { error: `photo trop lourde (${Math.ceil(buf.length / 1024)} Ko, 40 Ko au plus)` };
+  const raw = Buffer.from(s, 'base64');
+  if (raw.length > PHOTO_MAX) return { error: `photo trop lourde (${Math.ceil(raw.length / 1024)} Ko, 60 Ko au plus)` };
+  if (raw[0] !== 0xff || raw[1] !== 0xd8 || raw[2] !== 0xff) return { error: 'photo : fichier JPEG attendu' };
+  const buf = stripJpeg(raw); if (!buf) return { error: 'photo : JPEG illisible' };
   const d = jpegSize(buf);
-  if (!d || d.width !== d.height || d.width < 96 || d.width > 600 || ![1, 3].includes(d.components)) return { error: 'photo : image JPEG carrée de 96 à 600 pixels attendue' };
+  if (!d || d.width < 96 || d.width > 600 || d.height < 96 || d.height > 800 || ![1, 3].includes(d.components)) return { error: 'photo : JPEG de 96 à 600 pixels de large (800 de haut) attendu' };
+  const r = d.height / d.width; if (r < 0.95 || r > 1.45) return { error: 'photo : format carré ou portrait 3:4 attendu' };
   return { buf, ...d };
+}
+async function savePhoto(db, u, st, ph) {
+  const at = new Date().toISOString();
+  const upd = await db.run('UPDATE student_photo SET photo = ?, size = ?, updated_by = ?, updated_at = ? WHERE school_id = ? AND student_id = ?',
+    ph.buf.toString('base64'), ph.buf.length, u.id, at, u.school_id, st.id);
+  if (!upd.changes) await db.run('INSERT INTO student_photo (school_id, student_id, photo, size, updated_by, updated_at) VALUES (?,?,?,?,?,?)',
+    u.school_id, st.id, ph.buf.toString('base64'), ph.buf.length, u.id, at);
+  await audit(db, u, 'student.photo', 'student', st.id, `${upd.changes ? 'remplacement ' : ''}${ph.width}x${ph.height} ${Math.ceil(ph.buf.length / 1024)} Ko`);
+  return at;
 }
 async function photoOf(db, schoolId, studentId) {
   const r = await db.get('SELECT photo FROM student_photo WHERE school_id = ? AND student_id = ?', schoolId, studentId);
@@ -73,6 +103,10 @@ async function photoOf(db, schoolId, studentId) {
 }
 const photoUrl = (st) => (st.has_photo ? `/api/students/${st.id}/photo?v=${encodeURIComponent(String(st.photo_at || '1'))}` : null);
 
+async function myPhoto(db, schoolId, studentId) {
+  const r = await db.get('SELECT updated_at FROM student_photo WHERE school_id = ? AND student_id = ?', schoolId, studentId);
+  return photoUrl({ id: studentId, has_photo: !!r, photo_at: r && r.updated_at });
+}
 /* ---------- données des badges ---------- */
 async function schoolForPdf(db, schoolId) {
   const s = await db.get('SELECT name, initials, logo FROM school WHERE id = ?', schoolId);
@@ -137,13 +171,27 @@ const routes = [
     const st = await db.get('SELECT id, code FROM student WHERE id = ? AND school_id = ?', int(id), u.school_id); if (!st) notFound();
     const ph = checkPhoto(req.body && req.body.photo);
     if (ph.error) throw new HttpError(400, ph.error);
-    const at = new Date().toISOString();
-    const upd = await db.run('UPDATE student_photo SET photo = ?, size = ?, updated_by = ?, updated_at = ? WHERE school_id = ? AND student_id = ?',
-      ph.buf.toString('base64'), ph.buf.length, u.id, at, u.school_id, st.id);
-    if (!upd.changes) await db.run('INSERT INTO student_photo (school_id, student_id, photo, size, updated_by, updated_at) VALUES (?,?,?,?,?,?)',
-      u.school_id, st.id, ph.buf.toString('base64'), ph.buf.length, u.id, at);
-    await audit(db, u, 'student.photo', 'student', st.id, `${ph.width}x${ph.height} ${Math.ceil(ph.buf.length / 1024)} Ko`);
+    const at = await savePhoto(db, u, st, ph);
     return { ok: true, photo: photoUrl({ id: st.id, has_photo: true, photo_at: at }), size: ph.buf.length };
+  }],
+  // Envoi groupé : fichiers nommés par code élève (ex. A-001.jpg), 40 au plus par envoi, déjà réduits par le navigateur.
+  ['POST', /^\/api\/students\/photos$/, async (db, req, u, _m, ctx) => {
+    if (!staff(u)) await refuse(ctx, u, 'student.photo.bulk', 'school', u.school_id, null);
+    const list = Array.isArray(req.body && req.body.photos) ? req.body.photos : [];
+    if (!list.length || list.length > 40) throw new HttpError(400, 'photos : 1 à 40 fichiers par envoi');
+    const cid = req.body.class_id ? int(req.body.class_id) : null;
+    const out = [];
+    for (const f of list) {
+      const nom = String((f && f.nom) || '').slice(0, 120); const code = nom.replace(/\.[A-Za-z0-9]{1,5}$/, '').trim();
+      const st = code && await db.get(`SELECT st.id, st.code FROM student st WHERE st.school_id = ? AND UPPER(st.code) = UPPER(?)${cid ? " AND EXISTS (SELECT 1 FROM enrollment e WHERE e.student_id = st.id AND e.school_id = st.school_id AND e.status = 'actif' AND e.class_id = ?)" : ''}`,
+        u.school_id, code, ...(cid ? [cid] : []));
+      if (!st) { out.push({ nom, ok: false, erreur: cid ? 'code inconnu dans cette classe' : 'code élève inconnu' }); continue; }
+      const ph = checkPhoto(f.photo);
+      if (ph.error) { out.push({ nom, code: st.code, ok: false, erreur: ph.error }); continue; }
+      await savePhoto(db, u, st, ph); out.push({ nom, code: st.code, ok: true });
+    }
+    await audit(db, u, 'student.photo.bulk', 'school', u.school_id, `${out.filter((x) => x.ok).length}/${out.length}`);
+    return { resultats: out, ok: out.filter((x) => x.ok).length };
   }],
   ['DELETE', /^\/api\/students\/(\d+)\/photo$/, async (db, req, u, [id], ctx) => {
     if (!staff(u)) await refuse(ctx, u, 'student.photo.delete', 'student', id, null);
@@ -284,12 +332,14 @@ const routes = [
       if (seen.has(b.student_id)) continue; seen.add(b.student_id);
       const url = `${base}/#verifier=${tokenFor(keys.badgeSecret, b.token_nonce)}`;
       out.push({ id: b.id, student_id: b.student_id, code: b.code, first_name: b.first_name, last_name: b.last_name, class_name: b.class_name, year: b.year,
-        expires_on: b.expires_on, status: badgeStatus(b), qr_svg: CB.qrSvg(url, { cell: 3 }), code128_svg: CB.code128Svg(b.code, { height: 50, module: 2 }),
+        photo: await myPhoto(db, u.school_id, b.student_id), expires_on: b.expires_on, status: badgeStatus(b), qr_svg: CB.qrSvg(url, { cell: 3 }), code128_svg: CB.code128Svg(b.code, { height: 50, module: 2 }),
         email: await emailsEleves.activeAddress(db, ctx, u.school_id, b.student_id) });
     }
     const sans = await db.all(`SELECT st.id, st.code, st.first_name, st.last_name FROM student st WHERE ${sc.sql} ORDER BY st.first_name`, ...sc.params);
-    return { badges: out, sans_badge: sans.filter((s) => !seen.has(s.id)).map((s) => ({ student_id: s.id, code: s.code, first_name: s.first_name, last_name: s.last_name,
-      code128_svg: CB.code128Svg(s.code, { height: 50, module: 2 }) })) };
+    const rest = [];
+    for (const s of sans.filter((x) => !seen.has(x.id))) rest.push({ student_id: s.id, code: s.code, first_name: s.first_name, last_name: s.last_name, photo: await myPhoto(db, u.school_id, s.id),
+      code128_svg: CB.code128Svg(s.code, { height: 50, module: 2 }) });
+    return { badges: out, sans_badge: rest };
   }],
   ['GET', /^\/api\/badges\/moi\/(\d+)\/pdf$/, async (db, req, u, [id], ctx) => {
     if (!P.has(u, 'eleve', 'parent')) await refuse(ctx, u, 'badge.mine.pdf', 'badge', id, 'rôle');
