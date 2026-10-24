@@ -2,6 +2,7 @@
 // Documents du bloc 2 : badge élève (carte CR80, à l'unité ou en planche A4 de 8 ou 10) et relevé de notes officiel
 // (en-tête complet de l'école, notes publiées, moyennes, barème, signature du directeur, sceau, QR de vérification).
 const { Page, buildDoc, schoolHeader, jpegSize } = require('./pdf');
+const { code128Modules } = require('./codes-barres');
 
 const MM = 72 / 25.4;
 const CR80 = [85.6 * MM, 53.98 * MM]; // 242,65 × 153,01 pt
@@ -13,6 +14,16 @@ function fit(p, buf, x, y, w, h) {
   const d = buf && jpegSize(buf); if (!d) return false;
   const k = Math.min(w / d.width, h / d.height); const iw = d.width * k, ih = d.height * k;
   p.image(x + (w - iw) / 2, y + (h - ih) / 2, iw, ih, { data: buf, ...d });
+  return true;
+}
+
+// Code 128 dessiné en rectangles noirs dans la boîte (x, y, w, h) ; module ≤ 1,5 pt, 10 modules de silence de chaque côté.
+function barcode(p, text, x, y, w, h) {
+  let mods; try { mods = code128Modules(text); } catch { return false; }
+  const total = [...mods].reduce((a, d) => a + Number(d), 0) + 20;
+  const m = Math.min(1.5, w / total); let cx = x + (w - total * m) / 2 + 10 * m, bar = true;
+  p.rect(x, y, w, h, 1);
+  for (const d of mods) { const bw = Number(d) * m; if (bar) p.rect(cx, y, bw, h, 0); cx += bw; bar = !bar; }
   return true;
 }
 
@@ -30,20 +41,21 @@ function drawBadge(p, b, ox = 0, oy = 0) {
   p.text(ox + 40, oy + H - 15, cut(b.school.name, 38), { size: 8.5, bold: true, gray: 1 });
   p.text(ox + 40, oy + H - 26, `Carte d'élève / Kat elèv  ${b.year}`, { size: 6.5, gray: 0.85 });
   // Photo portrait 3:4 (ou initiales).
-  const pw = 54, ph = 72, px = ox + 10, py = oy + 19;
+  const pw = 51, ph = 68, px = ox + 10, py = oy + 38;
   if (!fit(p, b.photo, px, py, pw, ph)) {
     p.rect(px, py, pw, ph, 0.88);
-    p.text(px + 14, py + 30, `${(b.first_name || '?')[0]}${(b.last_name || '?')[0]}`.toUpperCase(), { size: 16, bold: true, gray: 0.45 });
+    p.text(px + 13, py + 28, `${(b.first_name || '?')[0]}${(b.last_name || '?')[0]}`.toUpperCase(), { size: 16, bold: true, gray: 0.45 });
   }
-  const tx = ox + 82;
-  p.text(tx, oy + 100, cut(String(b.last_name || '').toUpperCase(), 20), { size: 9.5, bold: true });
-  p.text(tx, oy + 89, cut(b.first_name, 22), { size: 8.5 });
-  p.text(tx, oy + 74, 'Classe / Klas', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 66, cut(b.class_name || '-', 18), { size: 7.5, bold: true });
-  p.text(tx, oy + 54, 'Code élève / Kòd elèv', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 46, b.code, { size: 7.5, bold: true });
-  p.text(tx, oy + 34, 'Année / Ane', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 26, b.year, { size: 7.5, bold: true });
+  const tx = ox + 70;
+  p.text(tx, oy + 106, cut(String(b.last_name || '').toUpperCase(), 18), { size: 9.5, bold: true });
+  p.text(tx, oy + 96, cut(b.first_name, 20), { size: 8.5 });
+  p.text(tx, oy + 85, 'Classe / Klas  -  Année / Ane', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 77, cut(`${b.class_name || '-'}  ${b.year}`, 24), { size: 7.5, bold: true });
+  p.text(tx, oy + 66, 'Code élève / Kòd elèv', { size: 5.5, gray: 0.45 }); p.text(tx, oy + 58, b.code, { size: 7.5, bold: true });
   // Bloc 7 : adresse e-mail NORIA, seulement quand elle est active.
-  if (b.email) p.text(tx, oy + 18, cut(b.email, 32), { size: 5, gray: 0.3 });
-  p.qr(ox + W - 74, oy + 22, 70, b.url);
+  if (b.email) p.text(tx, oy + 46, cut(b.email, 30), { size: 5, gray: 0.3 });
+  p.qr(ox + W - 68, oy + 38, 62, b.url);
+  // Code-barres Code 128 du code élève (comme l'écran « Mon badge »), pleine largeur, zones de silence comprises.
+  barcode(p, b.code, ox + 8, oy + 18, W - 16, 17);
   p.line(ox, oy + 15, ox + W, oy + 15, 0.3, 0.8);
   p.text(ox + 8, oy + 6, `Expire le / Ekspire ${b.expires_on}  -  Scanner pour vérifier / Eskane pou verifye`, { size: 5.2, gray: 0.35 });
   if (b.status && b.status !== 'valide') {
@@ -140,4 +152,4 @@ function transcriptPdf(r) {
   return buildDoc([p], { title: `Relevé ${r.studentCode} - ${r.scopeLabel}` });
 }
 
-module.exports = { badgePdf, badgeSheetPdf, transcriptPdf, CR80 };
+module.exports = { barcode, badgePdf, badgeSheetPdf, transcriptPdf, CR80 };

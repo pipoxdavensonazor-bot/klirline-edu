@@ -30,6 +30,27 @@ const tok = async (k, who) => {
 // Texte d'un PDF (flux FlateDecode décompressés).
 const pdfText = (buf) => { const zlib = require('node:zlib'); let out = ''; const s = buf.toString('latin1'); let i = 0;
   while ((i = s.indexOf('>>\nstream\n', i)) >= 0) { const e = s.indexOf('\nendstream', i); if (e < 0) break; try { out += zlib.inflateSync(Buffer.from(s.slice(i + 10, e), 'latin1')).toString('latin1'); } catch {} i = e + 10; } return out; };
+// Code-barres du PDF : rectangles noirs de 17 pt de haut, regroupés par badge (même y), relus en largeurs de modules.
+function barcodesIn(stream) {
+  const rows = new Map();
+  for (const m of stream.matchAll(/(?:^|\s)0 g (-?[\d.]+) (-?[\d.]+) ([\d.]+) 17 re f/g)) {
+    const [x, y, w] = [Number(m[1]), Number(m[2]), Number(m[3])]; const k = y.toFixed(1);
+    if (!rows.has(k)) rows.set(k, []); rows.get(k).push([x, w]);
+  }
+  const out = [];
+  for (const bars of rows.values()) {
+    // Plusieurs badges sur une même ligne de planche : on coupe quand l'écart dépasse 20 modules.
+    bars.sort((a, b) => a[0] - b[0]); const mod = Math.min(...bars.map((b) => b[1]));
+    let cur = [];
+    for (let i = 0; i < bars.length; i++) {
+      if (cur.length && bars[i][0] - (bars[i - 1][0] + bars[i - 1][1]) > 20 * mod) { out.push(cur.join('')); cur = []; }
+      if (cur.length) cur.push(Math.round((bars[i][0] - (bars[i - 1][0] + bars[i - 1][1])) / mod));
+      cur.push(Math.round(bars[i][1] / mod));
+    }
+    out.push(cur.join(''));
+  }
+  return out;
+}
 // Jeton d'un badge : lu dans le QR ? Le PDF ne contient que des rectangles ; on reconstruit le jeton avec le secret.
 async function tokenOf(badgeId) {
   const b = await db.get('SELECT school_id, token_nonce FROM badge WHERE id = ?', badgeId);
@@ -100,12 +121,18 @@ test('badges : génération par année, contenu du PDF CR80, planche A4 de 8 ou 
   assert.match(s, /\/Subtype \/Image/); // photo (et logo s'il existe)
   const txt = pdfText(pdf.buf);
   for (const x of ['FICTIFA', 'Ana', '7e A', 'A-001', '2026-2027', 'cole fictive A']) assert.ok(txt.includes(x), x);
+  // Code-barres Code 128 du code élève, comme l'écran « Mon badge » (relu depuis le PDF).
+  const { code128Modules } = require('../src/codes-barres');
+  assert.deepEqual(barcodesIn(txt), [code128Modules('A-001')]);
   // Le QR ne contient pas de données personnelles en clair : le jeton est aléatoire et signé.
   const token = await tokenOf(b1.id);
   assert.match(token, Bd.BADGE_RE); assert.ok(!token.includes('A001'));
   // Planche : 10 par défaut, 8 possible, autre valeur refusée.
   const sh = await call(dir, 'GET', `/api/badges/planche?class_id=${ids.A.classes[0]}&par=8`);
   assert.equal(sh.status, 200); assert.match(sh.buf.toString('latin1'), /\/MediaBox \[0 0 595 842\]/);
+  { const codes = barcodesIn(pdfText(sh.buf)); assert.ok(codes.length >= 1);
+    const valid = new Set((await db.all("SELECT st.code FROM badge b JOIN student st ON st.id = b.student_id WHERE b.status = 'valide'")).map((r) => require('../src/codes-barres').code128Modules(r.code)));
+    for (const c of codes) assert.ok(valid.has(c), 'chaque badge de la planche porte le code-barres d’un élève'); }
   assert.equal((await call(dir, 'GET', `/api/badges/planche?class_id=${ids.A.classes[0]}&par=9`)).status, 400);
   assert.equal((await call(await tok('A', 'secretariat'), 'GET', `/api/badges/planche?class_id=${ids.A.classes[0]}`)).status, 200);
   assert.equal((await call(await tok('A', 'parent1'), 'GET', `/api/badges/${b1.id}/pdf`)).status, 403);
