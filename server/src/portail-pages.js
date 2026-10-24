@@ -4,7 +4,8 @@
 // système, images en vignettes chargées à la demande. Cache en mémoire (60 s, invalidé à chaque publication) + ETag + gzip.
 // Adresses : / (français) et /ht/… (kreyòl) ; /evenements, /laureats, /communaute, /annonces ; détails /evenements/<id>,
 // /communaute/<id> ; /sitemap.xml, /robots.txt ; images /p/img/<id> (vignette : <id>-v) ; clics /p/clic/<id>.
-// Aucun cookie n'est posé ni lu ; aucune donnée d'école privée : seuls les champs de publicItem() sont affichés.
+// Aucun lien vers les portails des écoles (/app) : le grand public n'y a rien à faire ; /app reste joignable en direct.
+// Aucun cookie n'est posé ni lu par ces pages en cache ; aucune donnée d'école privée : seuls les champs de publicItem() sont affichés.
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
@@ -16,8 +17,8 @@ const PV = require('./confidentialite');
 // CSP du portail : plus stricte que celle de l'application (aucune connexion sortante, aucun cadre, aucun formulaire externe).
 const PORTAL_CSP = ["default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self'", "base-uri 'none'",
   "form-action 'self'", "frame-ancestors 'none'"].join('; ');
-const PAGES = ['', 'evenements', 'laureats', 'communaute', 'annonces'];
-const PER = { evenements: 12, laureats: 30, communaute: 12 };
+const PAGES = ['', 'ecoles', 'evenements', 'laureats', 'communaute', 'annonces'];
+const PER = { evenements: 12, laureats: 30, communaute: 12, ecoles: 12 };
 const CACHE_MS = 60e3, CACHE_MAX = 300;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,11 +26,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const T = {
   fr: {
     locale: 'fr_HT', name: 'Français', site: 'NORIA', tagline: 'L’école haïtienne, ses réussites et sa communauté',
-    nav: { '': 'Accueil', evenements: 'Événements', laureats: 'Lauréats', communaute: 'Communauté', annonces: 'Annonces' },
-    login: 'Se connecter', loginTitle: 'Espace des écoles (connexion)', skip: 'Aller au contenu', langLabel: 'Langue', mainNav: 'Navigation du portail',
+    nav: { '': 'Accueil', ecoles: 'Espaces des écoles', evenements: 'Événements', laureats: 'Lauréats', communaute: 'Communauté', annonces: 'Annonces' },
+    login: 'Se connecter', signup: 'S’inscrire', account: 'Mon compte', logout: 'Se déconnecter', accNav: 'Compte', skip: 'Aller au contenu', langLabel: 'Langue', mainNav: 'Navigation du portail',
     heroTitle: 'NORIA, la gestion scolaire pensée pour Haïti',
     heroText: 'Les écoles partenaires gèrent élèves, notes, présences et échanges avec les familles, en français et en kreyòl, même avec une connexion faible. Ce portail public partage les événements nationaux, les lauréats et la vie des écoles.',
-    ctaSchools: 'Espace des écoles', ctaEvents: 'Voir les événements',
+    ctaSchools: 'Espaces des écoles', ctaEvents: 'Voir les événements',
+    ec: { all: 'Toutes', inscriptions: 'Inscriptions', evenements: 'Événements', actualites: 'Actualités', examens: 'Examens et résultats', laureats: 'Lauréats', autres: 'Autres' },
+    ecIntro: 'Toutes les annonces publiées par les écoles, rangées par catégorie. Créez un compte gratuit pour suivre vos écoles.',
+    ecEmpty: 'Aucune annonce dans cette catégorie pour le moment.', ecAll: 'Voir tout', ecSchool: 'École', ecAllSchools: 'Toutes les écoles',
+    ecApply: 'S’inscrire en ligne', ecUntil: (d) => `Inscriptions jusqu’au ${d}`, ecFollow: 'Suivre cette école', ecPublished: (d) => `Publié le ${d}`,
+    ecRegTitle: 'Vous dirigez une école ?', ecRegText: 'Publiez vos annonces, événements et résultats ici, après vérification de l’école par l’équipe NORIA.',
+    joinTitle: 'Suivez les écoles', joinText: 'Un compte gratuit, sans mot de passe, pour suivre les annonces, les événements et les actualités des écoles, par e-mail.',
     latestEvents: 'Derniers événements', allEvents: 'Tous les événements', featured: 'Lauréats à la une', allLaureates: 'Tous les lauréats',
     ads: 'Annonces', allAds: 'Toutes les annonces', partners: 'Écoles partenaires', partnersHelp: 'Écoles qui ont choisi d’apparaître sur le portail.',
     community: 'Communauté', communityHelp: 'Articles et témoignages des écoles, publiés après relecture par l’équipe NORIA.', allCommunity: 'Toute la communauté',
@@ -48,22 +55,29 @@ const T = {
     mshort: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
     notFound: 'Page introuvable', notFoundText: 'Cette page n’existe pas ou n’est plus publiée.', home: 'Retour à l’accueil',
     footer: 'NORIA est un produit de Klirline Inc. Portail consultable sans compte, sans traceur ; un cookie de session est posé seulement si vous vous connectez à « Mon compte ».',
-    footerSchools: 'Vous dirigez une école ? Inscrivez-la sur NORIA, ou connectez-vous à votre espace pour proposer un événement, un article ou un lauréat : chaque contenu est relu avant publication.', rss: 'Flux RSS des annonces',
+    footerSchools: 'Vous dirigez une école ? Inscrivez-la sur NORIA : chaque contenu publié est relu par l’équipe NORIA.', rss: 'Flux RSS des annonces',
     desc: {
       '': 'NORIA, gestion scolaire pour Haïti : événements nationaux, lauréats des examens et concours, vie des écoles partenaires, en français et en kreyòl.',
       evenements: 'Événements scolaires nationaux en Haïti : examens officiels, concours, culture, sport. Dates, lieux et descriptions.',
       laureats: 'Lauréats des examens officiels et des concours en Haïti, par année, examen et département.',
       communaute: 'Articles et témoignages des écoles partenaires de NORIA, publiés après modération.',
       annonces: 'Annonces et encarts sponsorisés du portail NORIA, clairement identifiés.',
+      ecoles: 'Espaces des écoles : inscriptions, événements, actualités, examens et lauréats publiés par les écoles haïtiennes sur NORIA.',
     },
   },
   ht: {
     locale: 'ht_HT', name: 'Kreyòl', site: 'NORIA', tagline: 'Lekòl ayisyen an, siksè li ak kominote li',
-    nav: { '': 'Akèy', evenements: 'Evènman', laureats: 'Laureya', communaute: 'Kominote', annonces: 'Anons' },
-    login: 'Konekte', loginTitle: 'Espas lekòl yo (koneksyon)', skip: 'Ale nan kontni an', langLabel: 'Lang', mainNav: 'Navigasyon pòtay la',
+    nav: { '': 'Akèy', ecoles: 'Espas lekòl yo', evenements: 'Evènman', laureats: 'Laureya', communaute: 'Kominote', annonces: 'Anons' },
+    login: 'Konekte', signup: 'Enskri', account: 'Kont mwen', logout: 'Dekonekte', accNav: 'Kont', skip: 'Ale nan kontni an', langLabel: 'Lang', mainNav: 'Navigasyon pòtay la',
     heroTitle: 'NORIA, jesyon lekòl ki fèt pou Ayiti',
     heroText: 'Lekòl patnè yo jere elèv, nòt, prezans ak echanj ak fanmi yo, an franse ak an kreyòl, menm lè koneksyon an fèb. Pòtay piblik sa a pataje evènman nasyonal yo, laureya yo ak lavi lekòl yo.',
     ctaSchools: 'Espas lekòl yo', ctaEvents: 'Gade evènman yo',
+    ec: { all: 'Tout', inscriptions: 'Enskripsyon', evenements: 'Evènman', actualites: 'Nouvèl', examens: 'Egzamen ak rezilta', laureats: 'Laureya', autres: 'Lòt' },
+    ecIntro: 'Tout anons lekòl yo pibliye, ranje pa kategori. Kreye yon kont gratis pou w swiv lekòl ou yo.',
+    ecEmpty: 'Poko gen anons nan kategori sa a.', ecAll: 'Gade tout', ecSchool: 'Lekòl', ecAllSchools: 'Tout lekòl yo',
+    ecApply: 'Enskri sou entènèt', ecUntil: (d) => `Enskripsyon jiska ${d}`, ecFollow: 'Swiv lekòl sa a', ecPublished: (d) => `Pibliye ${d}`,
+    ecRegTitle: 'Ou dirije yon lekòl ?', ecRegText: 'Pibliye anons, evènman ak rezilta ou yo isit la, apre ekip NORIA a fin verifye lekòl la.',
+    joinTitle: 'Swiv lekòl yo', joinText: 'Yon kont gratis, san modpas, pou swiv anons, evènman ak nouvèl lekòl yo, pa imel.',
     latestEvents: 'Dènye evènman yo', allEvents: 'Tout evènman yo', featured: 'Laureya ki an vedèt', allLaureates: 'Tout laureya yo',
     ads: 'Anons', allAds: 'Tout anons yo', partners: 'Lekòl patnè yo', partnersHelp: 'Lekòl ki chwazi parèt sou pòtay la.',
     community: 'Kominote', communityHelp: 'Atik ak temwayaj lekòl yo, ekip NORIA a li yo anvan yo pibliye.', allCommunity: 'Tout kominote a',
@@ -82,13 +96,14 @@ const T = {
     mshort: ['jan', 'fev', 'mas', 'avr', 'me', 'jen', 'jiy', 'out', 'sept', 'okt', 'nov', 'des'],
     notFound: 'Nou pa jwenn paj la', notFoundText: 'Paj sa a pa egziste oswa li pa pibliye ankò.', home: 'Retounen nan akèy la',
     footer: 'NORIA se yon pwodui Klirline Inc. Ou ka gade pòtay la san kont, pa gen traseur ; yon cookie sesyon parèt sèlman si ou konekte nan « Kont mwen ».',
-    footerSchools: 'Ou dirije yon lekòl ? Enskri l sou NORIA, oswa konekte nan espas ou pou pwopoze yon evènman, yon atik oswa yon laureya : ekip la li chak kontni anvan li pibliye.', rss: 'Flux RSS anons yo',
+    footerSchools: 'Ou dirije yon lekòl ? Enskri l sou NORIA : ekip NORIA a li chak kontni anvan li pibliye.', rss: 'Flux RSS anons yo',
     desc: {
       '': 'NORIA, jesyon lekòl pou Ayiti : evènman nasyonal, laureya egzamen ak konkou, lavi lekòl patnè yo, an franse ak an kreyòl.',
       evenements: 'Evènman lekòl nasyonal ann Ayiti : egzamen ofisyèl, konkou, kilti, espò. Dat, kote ak deskripsyon.',
       laureats: 'Laureya egzamen ofisyèl ak konkou ann Ayiti, pa ane, egzamen ak depatman.',
       communaute: 'Atik ak temwayaj lekòl patnè NORIA yo, pibliye apre moderasyon.',
       annonces: 'Anons ak espas sponsorize pòtay NORIA a, byen idantifye.',
+      ecoles: 'Espas lekòl yo : enskripsyon, evènman, nouvèl, egzamen ak laureya lekòl ayisyen yo pibliye sou NORIA.',
     },
   },
 };
@@ -113,7 +128,9 @@ const dateBox = (d, L) => { const [y, m, j] = d.split('-').map(Number); return `
 const qs = (o) => { const s = new URLSearchParams(Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== '' && v !== 1 || false)).toString(); return s ? `?${s}` : ''; };
 
 /* ---------- Gabarit ---------- */
-function layout({ L, page, title, desc, body, canonical, alt, base, image, type = 'website', assets, status = 200 }) {
+// signedIn : true/false sur les pages de compte (jamais en cache) ; null sur les pages en cache, où src/portail.js choisit
+// d'après le témoin noria_pub_in. Sans script : « S'inscrire » et « Se connecter » (qui mènent à « Mon compte » si connecté).
+function layout({ L, page, title, desc, body, canonical, alt, base, image, type = 'website', assets, status = 200, signedIn = null }) {
   const t = T[L];
   const full = title ? `${title} · NORIA` : `NORIA — ${t.tagline}`;
   const abs = (p) => (base ? `${base}${p}` : p);
@@ -135,13 +152,16 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
   ].join('');
   const nav = PAGES.map((p) => `<a href="${href(L, p)}"${p === page ? ' aria-current="page"' : ''}>${esc(t.nav[p])}</a>`).join('');
   const langs = ['fr', 'ht'].map((l) => `<a href="${esc(alt ? alt[l] : href(l))}" hreflang="${l}" lang="${l}"${l === L ? ' aria-current="true"' : ''} title="${esc(T[l].name)}">${l.toUpperCase()}</a>`).join('');
-  return `<!doctype html><html lang="${L}"><head>${head}</head><body>
+  const c = (p) => `${L === 'ht' ? '/ht' : ''}/${p}`;
+  const acc = `<div class="acc" role="group" aria-label="${esc(t.accNav)}"><span class="acc-out"><a class="btn btn-reg" href="${c('compte?inscription=1')}">${esc(t.signup)}</a><a class="btn btn-in" href="${c('compte')}">${esc(t.login)}</a></span>`
+    + `<span class="acc-in"><a class="btn btn-in" href="${c('compte')}"${page === 'compte' ? ' aria-current="page"' : ''}>${esc(t.account)}</a><form method="post" action="${c('compte/deconnexion')}"><button class="btn btn-reg" type="submit">${esc(t.logout)}</button></form></span></div>`;
+  return `<!doctype html><html lang="${L}"${signedIn === true ? ' class="pub-in"' : ''}><head>${head}</head><body>
 <a class="skip" href="#contenu">${esc(t.skip)}</a>
 <header class="hd"><div class="wrap hd-in"><a class="brand" href="${href(L)}"><img src="/src/noria-logo.png" alt="NORIA — ${esc(L === 'ht' ? 'Yon lekòl, yon fanmi ak yon avni' : 'Une école, une famille et un avenir')}" width="89" height="48"></a>
-<nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav><a class="btn btn-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a><a class="btn btn-in" href="/app" title="${esc(t.loginTitle)}">${esc(t.login)}</a></div>
-<nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}<a class="nav-acc" href="${href(L, 'compte')}"${page === 'compte' ? ' aria-current="page"' : ''}>${esc(PP.X[L].account)}</a></div></nav></header>
+<nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav>${acc}</div>
+<nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}</div></nav></header>
 <main id="contenu" class="wrap" tabindex="-1">${body}</main>
-<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="/app">${esc(t.ctaSchools)}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
+<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
 </body></html>`;
 }
 
@@ -192,14 +212,14 @@ async function home(pub, L) {
   const t = T[L];
   const [events, featured, ads, partners, posts] = await Promise.all([pub.latestEvents(3), pub.featured(6), pub.ads({ n: 3 }), pub.partners(), pub.community({ per: 3 })]);
   const hero = `<section class="hero"><h1>${esc(t.heroTitle)}</h1><p>${esc(t.heroText)}</p>
-<p class="cta"><a class="btn" href="/app">${esc(t.ctaSchools)}</a> <a class="btn btn-o" href="${href(L, 'evenements')}">${esc(t.ctaEvents)}</a></p></section>`;
+<p class="cta"><a class="btn" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a> <a class="btn btn-o" href="${href(L, 'evenements')}">${esc(t.ctaEvents)}</a></p></section>`;
   return {
     body: hero
       + section('s-ev', t.latestEvents, events.length ? `<div class="list">${events.map((e) => eventCard(e, L, { thumb: false })).join('')}</div>` : empty(t.noEvents), more(L, 'evenements', t.allEvents))
       + section('s-la', t.featured, featured.length ? `<ul class="grid la-g">${featured.map((p) => laureateCard(p, L, { photo: false })).join('')}</ul>` : empty(t.noLaureates), more(L, 'laureats', t.allLaureates))
       + section('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : empty(t.noAds), more(L, 'annonces', t.allAds))
       + section('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : empty(t.noCommunity), more(L, 'communaute', t.allCommunity))
-      + `<section class="sec box-reg" aria-labelledby="s-reg"><h2 id="s-reg">${esc(PP.X[L].boxTitle)}</h2><p>${esc(PP.X[L].boxText)}</p><p class="cta"><a class="btn" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> <a class="btn btn-o" href="/app">${esc(PP.X[L].loginApp)}</a></p></section>`
+      + `<section class="sec box-reg" aria-labelledby="s-join"><h2 id="s-join">${esc(t.joinTitle)}</h2><p>${esc(t.joinText)}</p><p class="cta"><a class="btn" href="${href(L, 'compte')}?inscription=1">${esc(t.signup)}</a> <a class="btn btn-o" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a></p></section>`
       + section('s-pa', t.partners, `<p class="mut">${esc(t.partnersHelp)}</p>${partners.length ? `<ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : empty(t.noPartners)}`),
   };
 }
@@ -274,6 +294,53 @@ async function ads(pub, L) {
   return { title: t.nav.annonces, body: `<h1>${esc(t.nav.annonces)}</h1>${list.length ? `<div class="grid ad-g">${list.map((a) => adCard(a, L)).join('')}</div>` : empty(t.noAds)}` };
 }
 
+// Espaces des écoles : annonces publiées par les écoles, par catégorie (Pt.FEED_CATS). Vue « toutes » : 3 par catégorie
+// + « Voir tout » ; vue filtrée : 12 par page. Filtre d'école (?ecole=<slug>) avec « Suivre cette école ».
+function ecCard(r, L) {
+  const t = T[L];
+  const kind = `<span class="cat cat-${esc(r.feed)}">${esc(t.ec[r.feed])}</span>`;
+  const sch = `<p class="kind">${esc(r.school)}</p>`;
+  if (r.feed === 'inscriptions') {
+    return `<article class="card ec">${kind}${sch}<h3>${esc(r.title)}</h3><p class="meta">${esc(t.ecUntil(fmtDate(r.closes_on, L)))}</p>${r.info ? `<p class="ex">${esc(excerpt(r.info))}</p>` : ''}
+<p><a class="btn" href="${L === 'ht' ? '/ht' : ''}/inscription/${esc(r.school_slug)}">${esc(t.ecApply)}</a></p></article>`;
+  }
+  const pub = r.published_at ? esc(t.ecPublished(fmtDate(String(r.published_at).slice(0, 10), L))) : '';
+  if (r.kind === 'laureat') {
+    return `<article class="card ec">${kind}${sch}<h3><a href="${href(L, 'laureats')}${qs({ annee: r.year })}">${esc(r.name)} — ${esc(r.exam)} ${esc(r.year)}</a></h3><p class="meta">${pub}${r.mention ? ` · ${esc(t.mention)} : ${esc(r.mention)}` : ''}</p></article>`;
+  }
+  const link = r.kind === 'evenement' ? href(L, `evenements/${r.id}`) : href(L, `communaute/${r.id}`);
+  const meta = r.kind === 'evenement' ? `${esc(when(r, L))}${r.place ? ` · ${esc(r.place)}` : ''}` : pub;
+  const ex = pick(r, 'body', L);
+  return `<article class="card ec">${kind}${sch}<h3><a href="${link}"${langOf(r, 'title', L) !== L ? ` lang="${langOf(r, 'title', L)}"` : ''}>${esc(pick(r, 'title', L))}</a></h3><p class="meta">${meta}</p>${ex ? `<p class="ex">${esc(excerpt(ex))}</p>` : ''}</article>`;
+}
+async function schools(pub, L, q) {
+  const t = T[L];
+  const cat = Pt.FEED_CATS.includes(q.get('categorie')) ? q.get('categorie') : null;
+  const list = await pub.feedSchools();
+  const sc = list.find((s) => s.slug === q.get('ecole')) || null;
+  const school = sc ? sc.slug : null;
+  const page = Math.min(50, Math.max(1, Number.parseInt(q.get('page'), 10) || 1));
+  const get = (c, o) => (c === 'inscriptions' ? pub.campaigns({ school, ...o }) : pub.schoolFeed({ cat: c, school, ...o }));
+  const chips = [['', t.ec.all], ...Pt.FEED_CATS.map((c) => [c, t.ec[c]])].map(([c, l]) => `<a class="chip" href="${href(L, 'ecoles')}${qs({ categorie: c || null, ecole: school })}"${(cat || '') === c ? ' aria-current="true"' : ''}>${esc(l)}</a>`).join('');
+  const opt = (v, l) => `<option value="${esc(v)}"${(school || '') === v ? ' selected' : ''}>${esc(l)}</option>`;
+  const form = `<form class="filters" method="get" action="${href(L, 'ecoles')}">${cat ? `<input type="hidden" name="categorie" value="${esc(cat)}">` : ''}
+<label>${esc(t.ecSchool)}<select name="ecole">${opt('', t.ecAllSchools)}${list.map((s) => opt(s.slug, s.name)).join('')}</select></label><button class="btn" type="submit">${esc(t.filter)}</button></form>`;
+  const follow = sc ? `<form class="follow" method="post" action="${L === 'ht' ? '/ht' : ''}/compte/suivre"><input type="hidden" name="ecole" value="${esc(sc.slug)}"><button class="btn btn-o" type="submit">${esc(t.ecFollow)} : ${esc(sc.name)}</button></form>` : '';
+  let inner;
+  if (cat) {
+    const r = await get(cat, { page, per: PER.ecoles });
+    inner = `${r.list.length ? `<div class="grid ec-g">${r.list.map((x) => ecCard(x, L)).join('')}</div>` : empty(t.ecEmpty)}${pager(L, 'ecoles', page, r.total, PER.ecoles, { categorie: cat, ecole: school })}`;
+  } else {
+    const all = await Promise.all(Pt.FEED_CATS.map((c) => get(c, { per: 3 })));
+    const secs = Pt.FEED_CATS.map((c, i) => (all[i].list.length ? section(`ec-${c}`, t.ec[c], `<div class="grid ec-g">${all[i].list.map((x) => ecCard(x, L)).join('')}</div>`,
+      all[i].total > 3 ? `<a class="more" href="${href(L, 'ecoles')}${qs({ categorie: c, ecole: school })}">${esc(t.ecAll)} (${all[i].total}) →</a>` : '') : '')).join('');
+    inner = secs || empty(t.ecEmpty);
+  }
+  const reg = `<aside class="sec ec-reg" aria-labelledby="ec-reg"><h2 id="ec-reg">${esc(t.ecRegTitle)}</h2><p class="mut">${esc(t.ecRegText)}</p><p><a class="btn btn-o btn-s" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></aside>`;
+  return { title: cat ? `${t.nav.ecoles} — ${t.ec[cat]}` : t.nav.ecoles,
+    body: `<h1>${esc(t.nav.ecoles)}</h1><p class="mut">${esc(t.ecIntro)}</p><nav class="chips" aria-label="${esc(t.category)}">${chips}</nav>${form}${follow}${inner}${reg}` };
+}
+
 /* ---------- Service HTTP ---------- */
 function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, root = path.join(__dirname, '..', '..') } = {}) {
   const pub = Pt.createPublic(db);
@@ -297,11 +364,12 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
     else if (page === 'communaute' && !rest) r = await community(pub, L, q);
     else if (page === 'communaute' && /^\d{1,9}$/.test(rest)) { r = await postDetail(pub, L, rest); canon = `communaute/${rest}`; }
     else if (page === 'annonces' && !rest) r = await ads(pub, L);
+    else if (page === 'ecoles' && !rest) r = await schools(pub, L, q);
     else if (page === PV.SLUG && !rest) r = { title: PV.C[L].title, desc: PV.C[L].desc, body: PV.body(L, esc) };
     if (!r) return notFoundPage(L, base);
     // Adresse canonique : sans paramètres de pagination ni filtres non reconnus ; les filtres reconnus restent.
     const keep = new URLSearchParams();
-    for (const k of ['categorie', 'passes', 'annee', 'type', 'departement', 'page']) if (q.get(k) && /^[\w-]{1,20}$/.test(q.get(k))) keep.set(k, q.get(k));
+    for (const k of ['categorie', 'passes', 'annee', 'type', 'departement', 'ecole', 'page']) if (q.get(k) && /^[\w-]{1,60}$/.test(q.get(k))) keep.set(k, q.get(k));
     const suffix = keep.toString() ? `?${keep}` : '';
     const alt = { fr: href('fr', canon) + suffix, ht: href('ht', canon) + suffix };
     return { status: 200, html: layout({ L, page, title: r.title, desc: r.desc || t.desc[page], body: r.body, canonical: alt[L], alt, base, image: r.image, type: r.type, assets: getAssets() }) };
@@ -311,10 +379,10 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
     return { status: 404, html: layout({ L, page: null, title: t.notFound, desc: t.notFoundText, body: `<h1>${esc(t.notFound)}</h1><p>${esc(t.notFoundText)}</p><p><a class="btn" href="${href(L)}">${esc(t.home)}</a></p>`, canonical: href(L), alt: null, base, assets: getAssets(), status: 404 }) };
   }
   // Bloc 8 : pages et formulaires de l'inscription des écoles et des comptes grand public (jamais en cache partagé).
-  const renderPage = ({ L, title, body, req, status }) => {
+  const renderPage = ({ L, title, body, req, status, signedIn = null }) => {
       const p = new URL(req.url, 'http://x').pathname.replace(/^\/ht/, '').replace(/^\//, '');
       const canon = p.startsWith('compte') ? 'compte' : p;
-      return layout({ L, page: canon === 'compte' ? 'compte' : null, title, desc: t0(L).desc[''], body, canonical: href(L, canon), alt: { fr: href('fr', canon), ht: href('ht', canon) }, base: baseOf(req), assets: getAssets(), status: status === 200 ? 200 : 404 });
+      return layout({ L, page: canon === 'compte' ? 'compte' : null, title, desc: t0(L).desc[''], body, canonical: href(L, canon), alt: { fr: href('fr', canon), ht: href('ht', canon) }, base: baseOf(req), assets: getAssets(), status: status === 200 ? 200 : 404, signedIn: signedIn ?? /(?:^|;\s*)noria_public=/.test(req.headers.cookie || '') });
   };
   const site = ctx ? PP.createPublicSite(db, { ctx, write: (...a) => write(...a), baseOf: (req) => baseOf(req), esc, T, render: renderPage }) : null;
   // Lot 3 : inscriptions en ligne (/inscriptions, /inscription/<école>, variantes /ht/).

@@ -18,12 +18,17 @@ const { HttpError } = require('./common');
 const Up = require('./televersement');
 
 const COOKIE = 'noria_public';
+// Témoin lisible par le script du portail (aucune valeur secrète : « 1 ») : les pages publiques mises en cache affichent
+// « Mon compte » et « Se déconnecter » sans lire la session. La session reste dans le cookie HttpOnly ci-dessus.
+const MARK = 'noria_pub_in';
 const SESSION_DAYS = 30;
 const CODE_MIN = 10;
 const DEPS = Pt.DEPARTMENTS;
-const SUBS = ['annonces', 'evenements', 'laureats'];
+const SUBS = ['annonces', 'evenements', 'actualites', 'laureats'];
 const DOC_KINDS = ['autorisation_menfp', 'licence', 'patente', 'autre'];
-const KIND_SUB = { annonce: 'annonces', evenement: 'evenements', laureat: 'laureats' };
+const KIND_SUB = { annonce: 'annonces', evenement: 'evenements', laureat: 'laureats', article: 'actualites', temoignage: 'actualites' };
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,59}$/;
+const MAX_FOLLOW = 50;
 const BATCH = 50;
 const iso = (ms = 0) => new Date(Date.now() + ms).toISOString();
 const EMAIL_RE = /^[^\s@<>"',;]{1,64}@[^\s@<>"',;]{1,190}\.[a-z]{2,24}$/i;
@@ -64,14 +69,22 @@ const X = {
     ident: 'E-mail (ou téléphone)', identHelp: 'Nous envoyons un code de connexion. Par téléphone, l’envoi par SMS n’est pas encore actif.',
     getCode: 'Recevoir un code', codeSentAcc: (m) => `Si l’adresse est valide, un code à 6 chiffres vient d’être envoyé. Il est valable ${m} minutes.`,
     smsNote: 'Envoi par SMS pas encore disponible : utilisez de préférence une adresse e-mail.',
-    signedAs: (w) => `Connecté : ${w}`, subsTitle: 'Mes abonnements', subs: { annonces: 'Nouvelles annonces', evenements: 'Nouveaux événements', laureats: 'Nouveaux lauréats' },
+    signedAs: (w) => `Connecté : ${w}`, subsTitle: 'Mes abonnements', subs: { annonces: 'Nouvelles annonces', evenements: 'Nouveaux événements', actualites: 'Actualités des écoles', laureats: 'Nouveaux lauréats' },
     depFilter: 'Seulement pour le département', allDeps: 'Tous les départements', langPref: 'Langue des e-mails', save: 'Enregistrer', saved: 'Préférences enregistrées.',
     logout: 'Se déconnecter', del: 'Supprimer mon compte', delHelp: 'Le compte, les abonnements et les sessions sont effacés immédiatement.', delConfirm: 'Je confirme la suppression',
     deleted: 'Votre compte a été supprimé.', noEmailSubs: 'Les envois se font par e-mail : ajoutez une adresse e-mail en vous connectant avec elle.',
     unsubTitle: 'Désinscription', unsubDone: 'C’est fait : vous ne recevrez plus ces e-mails.', unsubBad: 'Lien de désinscription invalide.',
     privacy: 'Données conservées : votre adresse et vos préférences, rien d’autre. Aucun traceur.',
     boxTitle: 'Vous dirigez une école ?', boxText: 'Inscrivez votre école sur NORIA : élèves, notes, présences et échanges avec les familles, en français et en kreyòl.',
-    loginApp: 'Déjà inscrite ? Espace des écoles',
+    signup: 'S’inscrire', login: 'Se connecter',
+    signupTitle: 'Créer mon compte NORIA', signupIntro: 'Gratuit et sans mot de passe : suivez les annonces, les événements et les actualités des écoles, et recevez-les par e-mail. Un code de vérification vous est envoyé.',
+    signupSubs: 'Je veux suivre', loginTitle: 'Se connecter à mon compte', loginIntro: 'Saisissez l’adresse e-mail de votre compte : nous vous envoyons un code de connexion (aucun mot de passe).',
+    noAccount: 'Pas encore de compte ?', haveAccount: 'Déjà un compte ?',
+    followTitle: 'Écoles suivies', followNone: 'Vous ne suivez aucune école pour le moment.', followFind: 'Trouver des écoles à suivre',
+    follow: 'Suivre cette école', unfollow: 'Ne plus suivre', followed: (n) => `Vous suivez désormais ${n}.`, unfollowed: (n) => `Vous ne suivez plus ${n}.`,
+    followLogin: (n) => `Connectez-vous ou créez un compte pour suivre ${n}.`, followMax: `Vous suivez déjà ${MAX_FOLLOW} écoles : retirez-en une avant d’en ajouter.`,
+    followHelp: 'Vous recevez par e-mail les nouveautés des écoles suivies (en plus de vos abonnements).',
+    feedTitle: 'Dernières nouvelles de mes écoles', feedNone: 'Rien de nouveau pour vos écoles suivies.',
   },
   ht: {
     register: 'Enskri lekòl mwen', account: 'Kont mwen',
@@ -96,14 +109,22 @@ const X = {
     ident: 'Imel (oswa telefòn)', identHelp: 'N ap voye yon kòd koneksyon. Pa telefòn, SMS poko mache.',
     getCode: 'Resevwa yon kòd', codeSentAcc: (m) => `Si adrès la bon, nou fèk voye yon kòd 6 chif. Li bon pou ${m} minit.`,
     smsNote: 'SMS poko disponib : pito sèvi ak yon adrès imel.',
-    signedAs: (w) => `Konekte : ${w}`, subsTitle: 'Abònman mwen', subs: { annonces: 'Nouvo anons', evenements: 'Nouvo evènman', laureats: 'Nouvo laureya' },
+    signedAs: (w) => `Konekte : ${w}`, subsTitle: 'Abònman mwen', subs: { annonces: 'Nouvo anons', evenements: 'Nouvo evènman', actualites: 'Nouvèl lekòl yo', laureats: 'Nouvo laureya' },
     depFilter: 'Sèlman pou depatman', allDeps: 'Tout depatman yo', langPref: 'Lang imel yo', save: 'Anrejistre', saved: 'Preferans yo anrejistre.',
     logout: 'Dekonekte', del: 'Efase kont mwen', delHelp: 'Kont lan, abònman yo ak sesyon yo efase touswit.', delConfirm: 'Mwen konfime m vle efase l',
     deleted: 'Kont ou efase.', noEmailSubs: 'Se pa imel nou voye mesaj yo : konekte ak yon adrès imel pou w resevwa yo.',
     unsubTitle: 'Dezabònman', unsubDone: 'Fini : ou p ap resevwa imel sa yo ankò.', unsubBad: 'Lyen dezabònman an pa bon.',
     privacy: 'Done nou kenbe : adrès ou ak preferans ou, anyen ankò. Pa gen traseur.',
     boxTitle: 'Ou dirije yon lekòl ?', boxText: 'Enskri lekòl ou sou NORIA : elèv, nòt, prezans ak echanj ak fanmi yo, an franse ak an kreyòl.',
-    loginApp: 'Lekòl ou deja enskri ? Espas lekòl yo',
+    signup: 'Enskri', login: 'Konekte',
+    signupTitle: 'Kreye kont NORIA mwen', signupIntro: 'Gratis e san modpas : swiv anons, evènman ak nouvèl lekòl yo, epi resevwa yo pa imel. N ap voye yon kòd verifikasyon ba ou.',
+    signupSubs: 'Mwen vle swiv', loginTitle: 'Konekte nan kont mwen', loginIntro: 'Antre adrès imel kont ou : n ap voye yon kòd koneksyon ba ou (pa gen modpas).',
+    noAccount: 'Ou poko gen kont ?', haveAccount: 'Ou gen kont deja ?',
+    followTitle: 'Lekòl m ap swiv', followNone: 'Ou poko ap swiv okenn lekòl.', followFind: 'Jwenn lekòl pou swiv',
+    follow: 'Swiv lekòl sa a', unfollow: 'Sispann swiv', followed: (n) => `Kounye a w ap swiv ${n}.`, unfollowed: (n) => `Ou pa swiv ${n} ankò.`,
+    followLogin: (n) => `Konekte oswa kreye yon kont pou w swiv ${n}.`, followMax: `Ou deja ap swiv ${MAX_FOLLOW} lekòl : retire youn anvan w ajoute.`,
+    followHelp: 'W ap resevwa pa imel nouvote lekòl w ap swiv yo (anplis abònman ou yo).',
+    feedTitle: 'Dènye nouvèl lekòl mwen yo', feedNone: 'Pa gen anyen nouvo pou lekòl w ap swiv yo.',
   },
 };
 
@@ -123,7 +144,7 @@ const MAIL = {
     fr: (v) => ({ subject: `NORIA — ${v.label} : ${v.title}`, text: `Bonjour,\n\n${v.label} sur le portail NORIA :\n\n${v.title}\n${v.extra ? `${v.extra}\n` : ''}\n${v.link}\n\n—\nVous recevez ce message car vous êtes abonné(e) sur le portail NORIA.\nSe désinscrire en un clic : ${v.unsub}\nGérer mes abonnements : ${v.account}\n` }),
     ht: (v) => ({ subject: `NORIA — ${v.label} : ${v.title}`, text: `Bonjou,\n\n${v.label} sou pòtay NORIA a :\n\n${v.title}\n${v.extra ? `${v.extra}\n` : ''}\n${v.link}\n\n—\nOu resevwa mesaj sa a paske ou abòne sou pòtay NORIA a.\nDezabòne nan yon sèl klik : ${v.unsub}\nJere abònman mwen : ${v.account}\n` }),
   },
-  labels: { fr: { annonce: 'Nouvelle annonce', evenement: 'Nouvel événement', laureat: 'Nouveau lauréat' }, ht: { annonce: 'Nouvo anons', evenement: 'Nouvo evènman', laureat: 'Nouvo laureya' } },
+  labels: { fr: { annonce: 'Nouvelle annonce', evenement: 'Nouvel événement', laureat: 'Nouveau lauréat', article: 'Nouvel article', temoignage: 'Nouveau témoignage' }, ht: { annonce: 'Nouvo anons', evenement: 'Nouvo evènman', laureat: 'Nouvo laureya', article: 'Nouvo atik', temoignage: 'Nouvo temwayaj' } },
 };
 const pickL = (l) => (l === 'ht' ? 'ht' : 'fr');
 
@@ -195,7 +216,10 @@ async function unsubscribe(db, id, scope, t) {
   if (!acc) return false;
   const a = Buffer.from(sign(acc, scope)); const b = Buffer.from(String(t || ''));
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
-  if (scope === 'tout') await db.run('UPDATE public_account SET sub_annonces = 0, sub_evenements = 0, sub_laureats = 0 WHERE id = ?', acc.id);
+  if (scope === 'tout') {
+    await db.run('UPDATE public_account SET sub_annonces = 0, sub_evenements = 0, sub_actualites = 0, sub_laureats = 0 WHERE id = ?', acc.id);
+    await db.run('DELETE FROM public_follow WHERE account_id = ?', acc.id);
+  }
   else await db.run(`UPDATE public_account SET sub_${scope} = 0 WHERE id = ?`, acc.id);
   return true;
 }
@@ -207,7 +231,7 @@ function notifyPublished(db, ctx, kind, id, base) {
   if (!KIND_SUB[kind] || !ctx || !ctx.notifier) return Promise.resolve();
   const job = async () => {
     const pub = Pt.createPublic(db);
-    let item = null; let dep = null;
+    let item = null; let dep = null; let schoolId = null;
     if (kind === 'annonce') {
       const a = await db.get('SELECT * FROM portal_ad WHERE id = ?', Number(id));
       const today = Pt.haitiDay();
@@ -217,7 +241,12 @@ function notifyPublished(db, ctx, kind, id, base) {
       const r = await pub.item([kind], id);
       if (!r) return;
       dep = r.department || null;
-      item = kind === 'laureat'
+      const own = await db.get('SELECT school_id FROM portal_item WHERE id = ?', Number(id));
+      schoolId = own && own.school_id ? Number(own.school_id) : null;
+      if (kind === 'article' || kind === 'temoignage') {
+        const ex = (t) => { const v = String(t || '').replace(/\s+/g, ' ').trim(); return v.length > 200 ? `${v.slice(0, 199)}…` : v; };
+        item = { title_fr: r.title_fr, title_ht: r.title_ht, text_fr: [r.school, ex(r.body_fr)].filter(Boolean).join(' — '), text_ht: [r.school, ex(r.body_ht)].filter(Boolean).join(' — '), path: `/communaute/${r.id}` };
+      } else item = kind === 'laureat'
         ? { title_fr: `${r.public_name || r.person_name} — ${r.exam} ${r.year}`, title_ht: `${r.public_name || r.person_name} — ${r.exam} ${r.year}`, text_fr: r.school || '', text_ht: r.school || '', path: '/laureats' }
         : { title_fr: r.title_fr, title_ht: r.title_ht, text_fr: `${r.event_date}${r.place ? ` · ${r.place}` : ''}`, text_ht: `${r.event_date}${r.place ? ` · ${r.place}` : ''}`, path: `/evenements/${r.id}` };
     }
@@ -226,7 +255,10 @@ function notifyPublished(db, ctx, kind, id, base) {
     try { await db.run('INSERT INTO public_digest (kind, ref_id, created_at) VALUES (?,?,?)', kind, Number(id), iso()); }
     catch { return; } // déjà envoyé
     const col = `sub_${KIND_SUB[kind]}`;
-    const subs = await db.all(`SELECT * FROM public_account WHERE ${col} = 1 AND email IS NOT NULL${dep ? ' AND (department IS NULL OR department = ?)' : ''} ORDER BY id`, ...(dep ? [dep] : []));
+    // Abonnés de la catégorie (filtre de département) + comptes qui suivent l'école auteure du contenu.
+    const bySub = `(${col} = 1${dep ? ' AND (department IS NULL OR department = ?)' : ''})`;
+    const byFollow = schoolId ? ' OR id IN (SELECT account_id FROM public_follow WHERE school_id = ?)' : '';
+    const subs = await db.all(`SELECT * FROM public_account WHERE email IS NOT NULL AND (${bySub}${byFollow}) ORDER BY id`, ...(dep ? [dep] : []), ...(schoolId ? [schoolId] : []));
     let ok = 0; let ko = 0;
     for (let i = 0; i < subs.length; i += BATCH) {
       if (i) await new Promise((r) => setTimeout(r, ctx.digestPauseMs ?? 1000));
@@ -234,7 +266,8 @@ function notifyPublished(db, ctx, kind, id, base) {
         const L = pickL(acc.lang);
         const title = item[`title_${L}`] || item[`title_${L === 'fr' ? 'ht' : 'fr'}`] || '';
         const prefix = L === 'ht' ? '/ht' : '';
-        const unsub = unsubLink(base, acc, KIND_SUB[kind]);
+        // Destinataire au seul titre d'une école suivie : le lien « en un clic » coupe tout (abonnements et écoles suivies).
+        const unsub = unsubLink(base, acc, Number(acc[col]) ? KIND_SUB[kind] : 'tout');
         const m = MAIL.digest[L]({ label: MAIL.labels[L][kind], title, extra: item[`text_${L}`] || item[`text_${L === 'fr' ? 'ht' : 'fr'}`] || '', link: `${base}${prefix}${item.path === '/annonces' && prefix ? '/annonces' : item.path}`, unsub, account: `${base}${prefix}/compte` });
         m.headers = { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };
         if (await sendMail(ctx, acc.email, m)) ok++; else ko++;
@@ -333,7 +366,7 @@ function parseCookies(h) {
   for (const part of String(h || '').split(';')) { const i = part.indexOf('='); if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim(); }
   return out;
 }
-const PATHS = /^\/(?:ht\/)?(?:inscrire-ecole|compte(?:\/(?:code|verifier|abonnements|supprimer|deconnexion))?|desinscription)$/;
+const PATHS = /^\/(?:ht\/)?(?:inscrire-ecole|compte(?:\/(?:code|verifier|abonnements|supprimer|deconnexion|suivre))?|desinscription)$/;
 
 function createPublicSite(db, { ctx, render, write, baseOf, esc, T }) {
   const limitCode = () => ctx.publicLimit;
@@ -343,9 +376,10 @@ function createPublicSite(db, { ctx, render, write, baseOf, esc, T }) {
   const errBox = (L, errs) => (errs && errs.length ? `<div class="alert" role="alert"><p>${esc(X[L].fix)}</p><ul>${errs.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>` : '');
   const okBox = (s) => `<div class="okbox" role="status"><p>${esc(s)}</p></div>`;
   const pre = (L) => (L === 'ht' ? '/ht' : '');
-  const page = (req, res, baseHeaders, L, title, body, status = 200, extraHeaders = {}) => {
+  // signedIn : état de l'en-tête (« Mon compte » ou « S'inscrire / Se connecter ») ; null = d'après le cookie de session.
+  const page = (req, res, baseHeaders, L, title, body, status = 200, extraHeaders = {}, signedIn = null) => {
     const p = pre(L);
-    const html = render({ L, title, body, req, status, canonicalPath: null });
+    const html = render({ L, title, body, req, status, canonicalPath: null, signedIn: signedIn ?? !!parseCookies(req.headers.cookie)[COOKIE] });
     write(req, res, baseHeaders, { status, body: html, type: 'text/html; charset=utf-8', cache: 'no-store, private', extra: { 'content-language': L, 'x-robots-tag': 'noindex', ...extraHeaders } });
     return p;
   };
@@ -368,25 +402,44 @@ ${errs.length ? `<p class="small mut">${esc(x.docAgain)}</p>` : ''}</fieldset>
 <label class="fld">${esc(x.message)}<textarea name="message" rows="3" maxlength="1000">${esc(v.message || '')}</textarea></label>
 <label class="hp" aria-hidden="true">${esc(x.hp)}<input name="site_web" tabindex="-1" autocomplete="off"></label>
 <button class="btn" type="submit">${esc(x.send)}</button></form>
-<p class="mut">${esc(X[L].privacy)} <a href="/app">${esc(x.loginApp)}</a></p>`;
+<p class="mut">${esc(X[L].privacy)}</p>`;
   }
   const codeForm = (L, action, ticket, intro, err) => `<h1>${esc(X[L].codeTitle)}</h1>${err ? `<div class="alert" role="alert"><p>${esc(err)}</p></div>` : ''}<p>${esc(intro)}</p>
 <form class="pf card" method="post" action="${action}" novalidate><input type="hidden" name="step" value="code"><input type="hidden" name="ticket" value="${esc(ticket)}">
 ${field('code', X[L].code, { extra: ' inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"' })}
 <button class="btn" type="submit">${esc(X[L].verify)}</button></form>`;
 
-  function accountLogin(L, err, info) {
-    const x = X[L];
-    return `<h1>${esc(x.accTitle)}</h1><p>${esc(x.accIntro)}</p>${err ? `<div class="alert" role="alert"><p>${esc(err)}</p></div>` : ''}${info ? okBox(info) : ''}
-<form class="pf card" method="post" action="${pre(L)}/compte/code" novalidate>
+  // Connexion ou inscription grand public (même parcours sans mot de passe : code par e-mail). mode : 'login' | 'signup'.
+  // follow : école à suivre après vérification (slug), reprise depuis « Suivre cette école ».
+  function accountLogin(L, err, info, { mode = 'login', follow = null, followName = null } = {}) {
+    const x = X[L]; const up = mode === 'signup';
+    const subsBox = up ? `<fieldset class="fld"><legend>${esc(x.signupSubs)}</legend>${SUBS.map((k) => `<label class="ck"><input type="checkbox" name="sub_${k}" value="1"${k === 'laureats' ? '' : ' checked'}> ${esc(x.subs[k])}</label>`).join('')}</fieldset>` : '';
+    const swap = up ? `<p>${esc(x.haveAccount)} <a href="${pre(L)}/compte${follow ? `?suivre=${esc(follow)}` : ''}">${esc(x.login)}</a></p>`
+      : `<p>${esc(x.noAccount)} <a href="${pre(L)}/compte?inscription=1${follow ? `&amp;suivre=${esc(follow)}` : ''}">${esc(x.signup)}</a></p>`;
+    return `<h1>${esc(up ? x.signupTitle : x.loginTitle)}</h1><p>${esc(up ? x.signupIntro : x.loginIntro)}</p>${err ? `<div class="alert" role="alert"><p>${esc(err)}</p></div>` : ''}${info ? okBox(info) : ''}
+${followName ? `<p class="okbox">${esc(x.followLogin(followName))}</p>` : ''}
+<form class="pf card" method="post" action="${pre(L)}/compte/code" novalidate><input type="hidden" name="mode" value="${up ? 'signup' : 'login'}">${follow ? `<input type="hidden" name="suivre" value="${esc(follow)}">` : ''}
 ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" inputmode="email"', help: x.identHelp })}
-<label class="hp" aria-hidden="true">${esc(x.hp)}<input name="site_web" tabindex="-1" autocomplete="off"></label>
-<button class="btn" type="submit">${esc(x.getCode)}</button></form><p class="mut">${esc(x.privacy)}</p>`;
+${subsBox}<label class="hp" aria-hidden="true">${esc(x.hp)}<input name="site_web" tabindex="-1" autocomplete="off"></label>
+<button class="btn" type="submit">${esc(up ? x.signup : x.getCode)}</button></form>${swap}<p class="mut">${esc(x.privacy)}</p>`;
   }
-  function accountPage(L, acc, info) {
+  async function follows(acc) {
+    return db.all('SELECT s.id, s.slug, s.name FROM public_follow f JOIN school s ON s.id = f.school_id WHERE f.account_id = ? AND s.status = \'active\' ORDER BY s.name', acc.id);
+  }
+  async function accountPage(L, acc, info) {
     const x = X[L]; const dep = T[L].dep;
+    const fl = await follows(acc);
+    const ids = fl.map((f) => f.id);
+    const pub = Pt.createPublic(db);
+    const [feed, camps] = await Promise.all([pub.schoolFeed({ schools: ids, per: 5 }), pub.campaigns({ schools: ids, per: 3 })]);
     const chk = (k) => `<label class="ck"><input type="checkbox" name="${k}" value="1"${Number(acc[`sub_${k}`]) ? ' checked' : ''}> ${esc(x.subs[k])}</label>`;
+    const feedHtml = [...camps.list.map((c) => `<li><b>${esc(c.school)}</b> · <a href="${pre(L)}/inscription/${esc(c.school_slug)}">${esc(c.title)}</a></li>`),
+      ...feed.list.map((r) => `<li><b>${esc(r.school)}</b> · <a href="${pre(L)}/ecoles?categorie=${r.feed}&amp;ecole=${esc(r.school_slug)}">${esc(r.kind === 'laureat' ? `${r.name} — ${r.exam} ${r.year}` : (r[`title_${L}`] || r[`title_${L === 'fr' ? 'ht' : 'fr'}`] || ''))}</a></li>`)].join('');
+    const unf = (f) => `<li class="fw"><span>${esc(f.name)}</span><form method="post" action="${pre(L)}/compte/suivre"><input type="hidden" name="ecole" value="${esc(f.slug)}"><input type="hidden" name="action" value="retirer"><button class="btn btn-o btn-s" type="submit">${esc(x.unfollow)}</button></form></li>`;
     return `<h1>${esc(x.accTitle)}</h1><p class="mut">${esc(x.signedAs(acc.email || acc.phone))}</p>${info ? okBox(info) : ''}${acc.email ? '' : `<p class="alert">${esc(x.noEmailSubs)}</p>`}
+<section class="pf card" aria-labelledby="s-fw"><h2 id="s-fw">${esc(x.followTitle)}</h2>${fl.length ? `<ul class="fws">${fl.map(unf).join('')}</ul><p class="mut small">${esc(x.followHelp)}</p>` : `<p class="mut">${esc(x.followNone)}</p>`}
+<p><a class="more" href="${pre(L)}/ecoles">${esc(x.followFind)} →</a></p></section>
+${fl.length ? `<section class="pf card" aria-labelledby="s-fd"><h2 id="s-fd">${esc(x.feedTitle)}</h2>${feedHtml ? `<ul class="feed">${feedHtml}</ul>` : `<p class="mut">${esc(x.feedNone)}</p>`}</section>` : ''}
 <form class="pf card" method="post" action="${pre(L)}/compte/abonnements"><h2>${esc(x.subsTitle)}</h2>${SUBS.map(chk).join('')}
 <label class="fld">${esc(x.depFilter)}<select name="department"><option value="">${esc(x.allDeps)}</option>${DEPS.map((d) => `<option value="${d}"${acc.department === d ? ' selected' : ''}>${esc(dep[d])}</option>`).join('')}</select></label>
 <label class="fld">${esc(x.langPref)}<select name="lang"><option value="fr"${acc.lang === 'fr' ? ' selected' : ''}>Français</option><option value="ht"${acc.lang === 'ht' ? ' selected' : ''}>Kreyòl</option></select></label>
@@ -396,6 +449,15 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
 <label class="ck"><input type="checkbox" name="confirm" value="1" required> ${esc(x.delConfirm)}</label><button class="btn btn-d" type="submit">${esc(x.del)}</button></form>
 <p class="mut">${esc(x.privacy)}</p>`;
   }
+  const schoolBySlug = (slug) => (SLUG_RE.test(String(slug || '')) ? db.get("SELECT id, slug, name FROM school WHERE slug = ? AND status = 'active'", String(slug)) : Promise.resolve(null));
+  async function addFollow(acc, school) {
+    if (await db.get('SELECT 1 AS x FROM public_follow WHERE account_id = ? AND school_id = ?', acc.id, school.id)) return true;
+    const n = Number((await db.get('SELECT COUNT(*) AS n FROM public_follow WHERE account_id = ?', acc.id)).n);
+    if (n >= MAX_FOLLOW) return false;
+    await db.run('INSERT INTO public_follow (account_id, school_id, created_at) VALUES (?,?,?)', acc.id, school.id, iso());
+    return true;
+  }
+  const markAttrs = () => `SameSite=Lax; Path=/${ctx.secureCookie ? '; Secure' : ''}`;
 
   async function readForm(req, name) {
     const ct0 = String(req.headers['content-type'] || '');
@@ -427,9 +489,18 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
     const L = p.startsWith('/ht/') ? 'ht' : 'fr'; const name = p.replace(/^\/ht/, '');
     if (name === '/inscrire-ecole') { page(req, res, baseHeaders, L, X[L].regTitle, regForm(L)); return true; }
     if (name === '/compte') {
-      const acc = await loadAccount(db, parseCookies(req.headers.cookie)[COOKIE]);
-      const info = url.searchParams.get('ok') === '1' ? X[L].saved : (url.searchParams.get('supprime') === '1' ? X[L].deleted : null);
-      page(req, res, baseHeaders, L, X[L].account, acc ? accountPage(L, acc, info) : accountLogin(L, null, info));
+      const ck = parseCookies(req.headers.cookie);
+      const acc = await loadAccount(db, ck[COOKIE]);
+      const q = url.searchParams; const x = X[L];
+      const fs = q.get('suivi') ? await schoolBySlug(q.get('suivi')) : null;
+      const fr = q.get('retire') ? await schoolBySlug(q.get('retire')) : null;
+      const info = q.get('ok') === '1' ? x.saved : (q.get('supprime') === '1' ? x.deleted : (fs ? x.followed(fs.name) : (fr ? x.unfollowed(fr.name) : (q.get('max') === '1' ? x.followMax : null))));
+      // Témoin périmé (session expirée ou effacée) : retiré pour que l'en-tête affiche de nouveau « Se connecter ».
+      const extra = !acc && ck[MARK] ? { 'set-cookie': `${MARK}=; ${markAttrs()}; Max-Age=0` } : {};
+      if (acc) { page(req, res, baseHeaders, L, x.account, await accountPage(L, acc, info), 200, {}, true); return true; }
+      const want = q.get('suivre') ? await schoolBySlug(q.get('suivre')) : null;
+      const mode = q.get('inscription') === '1' ? 'signup' : 'login';
+      page(req, res, baseHeaders, L, mode === 'signup' ? x.signupTitle : x.loginTitle, accountLogin(L, null, info, { mode, follow: want && want.slug, followName: want && want.name }), 200, extra, false);
       return true;
     }
     if (name === '/desinscription') {
@@ -498,11 +569,15 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
       if (b.site_web) { page(req, res, baseHeaders, L, x.codeTitle, codeForm(L, `${pre(L)}/compte/verifier`, crypto.randomBytes(24).toString('base64url'), x.codeSentAcc(CODE_MIN))); return true; }
       const raw = str(b.identifier, 254);
       const ident = raw.includes('@') ? (EMAIL_RE.test(raw.toLowerCase()) ? raw.toLowerCase() : null) : normalizePhone(raw);
-      if (!ident) { page(req, res, baseHeaders, L, x.account, accountLogin(L, raw.includes('@') ? x.errEmail : x.errPhone), 400); return true; }
+      const mode = b.mode === 'signup' ? 'signup' : 'login';
+      const follow = SLUG_RE.test(String(b.suivre || '')) ? String(b.suivre) : null;
+      const opts = { mode, follow };
+      if (!ident) { page(req, res, baseHeaders, L, x.account, accountLogin(L, raw.includes('@') ? x.errEmail : x.errPhone, null, opts), 400); return true; }
       const keys = [`pub-code-ip:${ip}`, `pub-code:${ident}`];
-      if (await lim.blocked(keys)) { page(req, res, baseHeaders, L, x.account, accountLogin(L, x.tooMany), 429); return true; }
+      if (await lim.blocked(keys)) { page(req, res, baseHeaders, L, x.account, accountLogin(L, x.tooMany, null, opts), 429); return true; }
       await lim.fail(keys);
-      const { ticket, code } = await newCode(db, 'compte', ident, JSON.stringify({ lang: L }));
+      const subs = mode === 'signup' ? SUBS.filter((k) => b[`sub_${k}`] === '1' || b[`sub_${k}`] === 'on') : null;
+      const { ticket, code } = await newCode(db, 'compte', ident, JSON.stringify({ lang: L, subs, follow }));
       const sms = !ident.includes('@');
       await sendMail(ctx, ident, MAIL.codeCompte[L](code), { channel: sms ? 'sms' : 'email' });
       page(req, res, baseHeaders, L, x.codeTitle, codeForm(L, `${pre(L)}/compte/verifier`, ticket, `${x.codeSentAcc(CODE_MIN)}${sms ? ` ${x.smsNote}` : ''}`));
@@ -515,15 +590,35 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
       if (!row) { await lim.fail(keys); page(req, res, baseHeaders, L, x.codeTitle, codeForm(L, `${pre(L)}/compte/verifier`, b.ticket, '', x.badCode) + `<p><a href="${pre(L)}/compte">${esc(x.restart)}</a></p>`, 400); return true; }
       const col = row.identifier.includes('@') ? 'email' : 'phone';
       let acc = await db.get(`SELECT * FROM public_account WHERE ${col} = ?`, row.identifier);
+      let o = {}; try { o = JSON.parse(row.payload || '{}') || {}; } catch { o = {}; }
       if (!acc) {
-        const id = await db.insert(`INSERT INTO public_account (${col}, lang, link_key, created_at) VALUES (?,?,?,?)`, row.identifier, L, crypto.randomBytes(24).toString('base64url'), iso());
+        // Inscription : abonnements choisis sur le formulaire (liste blanche SUBS) ; connexion simple : aucun abonnement.
+        const sub = (k) => (Array.isArray(o.subs) && o.subs.includes(k) ? 1 : 0);
+        const id = await db.insert(`INSERT INTO public_account (${col}, lang, link_key, sub_annonces, sub_evenements, sub_actualites, sub_laureats, created_at) VALUES (?,?,?,?,?,?,?,?)`,
+          row.identifier, L, crypto.randomBytes(24).toString('base64url'), sub('annonces'), sub('evenements'), sub('actualites'), sub('laureats'), iso());
         acc = { id };
       }
+      const fol = o.follow ? await schoolBySlug(o.follow) : null;
+      const followedOk = fol ? await addFollow(acc, fol) : false;
       await db.run('UPDATE public_account SET last_login_at = ? WHERE id = ?', iso(), acc.id);
       await db.run('DELETE FROM public_session WHERE expires_at < ?', iso());
       const token = crypto.randomBytes(32).toString('base64url');
       await db.run('INSERT INTO public_session (token_hash, account_id, expires_at, created_at) VALUES (?,?,?,?)', auth.sha256(token), acc.id, iso(SESSION_DAYS * 86400e3), iso());
-      redirect(res, baseHeaders, `${pre(L)}/compte`, [`${COOKIE}=${token}; ${cookieAttrs()}; Max-Age=${SESSION_DAYS * 86400}`]);
+      // Un compte public n'ouvre jamais un portail d'école : retour sur « Mon compte », toujours.
+      redirect(res, baseHeaders, `${pre(L)}/compte${fol ? (followedOk ? `?suivi=${fol.slug}` : '?max=1') : ''}`, [`${COOKIE}=${token}; ${cookieAttrs()}; Max-Age=${SESSION_DAYS * 86400}`, `${MARK}=1; ${markAttrs()}; Max-Age=${SESSION_DAYS * 86400}`]);
+      return true;
+    }
+    if (name === '/compte/suivre') {
+      const school = await schoolBySlug(b.ecole);
+      const acc0 = await loadAccount(db, parseCookies(req.headers.cookie)[COOKIE]);
+      if (!school) { redirect(res, baseHeaders, `${pre(L)}/ecoles`); return true; }
+      if (!acc0) { redirect(res, baseHeaders, `${pre(L)}/compte?suivre=${school.slug}`); return true; }
+      if (b.action === 'retirer') {
+        await db.run('DELETE FROM public_follow WHERE account_id = ? AND school_id = ?', acc0.id, school.id);
+        redirect(res, baseHeaders, `${pre(L)}/compte?retire=${school.slug}`); return true;
+      }
+      const ok = await addFollow(acc0, school);
+      redirect(res, baseHeaders, `${pre(L)}/compte?${ok ? `suivi=${school.slug}` : 'max=1'}`);
       return true;
     }
     // Actions d'un compte connecté (cookie SameSite=Lax : jamais envoyé par un formulaire d'un autre site).
@@ -533,21 +628,21 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
     if (name === '/compte/abonnements') {
       const on = (k) => (b[k] === '1' || b[k] === 'on' || b[k] === true ? 1 : 0);
       const dep = DEPS.includes(b.department) ? b.department : null;
-      await db.run('UPDATE public_account SET sub_annonces = ?, sub_evenements = ?, sub_laureats = ?, department = ?, lang = ? WHERE id = ?',
-        on('annonces'), on('evenements'), on('laureats'), dep, b.lang === 'ht' ? 'ht' : (b.lang === 'fr' ? 'fr' : acc.lang), acc.id);
+      await db.run('UPDATE public_account SET sub_annonces = ?, sub_evenements = ?, sub_actualites = ?, sub_laureats = ?, department = ?, lang = ? WHERE id = ?',
+        on('annonces'), on('evenements'), on('actualites'), on('laureats'), dep, b.lang === 'ht' ? 'ht' : (b.lang === 'fr' ? 'fr' : acc.lang), acc.id);
       redirect(res, baseHeaders, `${pre(L)}/compte?ok=1`);
       return true;
     }
     if (name === '/compte/deconnexion') {
       await db.run('DELETE FROM public_session WHERE token_hash = ?', auth.sha256(token));
-      redirect(res, baseHeaders, `${pre(L)}/compte`, [`${COOKIE}=; ${cookieAttrs()}; Max-Age=0`]);
+      redirect(res, baseHeaders, pre(L) || '/', [`${COOKIE}=; ${cookieAttrs()}; Max-Age=0`, `${MARK}=; ${markAttrs()}; Max-Age=0`]);
       return true;
     }
     if (name === '/compte/supprimer') {
       if (!(b.confirm === '1' || b.confirm === 'on')) { redirect(res, baseHeaders, `${pre(L)}/compte`); return true; }
       await db.run('DELETE FROM public_session WHERE account_id = ?', acc.id);
       await db.run('DELETE FROM public_account WHERE id = ?', acc.id);
-      redirect(res, baseHeaders, `${pre(L)}/compte?supprime=1`, [`${COOKIE}=; ${cookieAttrs()}; Max-Age=0`]);
+      redirect(res, baseHeaders, `${pre(L)}/compte?supprime=1`, [`${COOKIE}=; ${cookieAttrs()}; Max-Age=0`, `${MARK}=; ${markAttrs()}; Max-Age=0`]);
       return true;
     }
     return false;
@@ -569,4 +664,4 @@ ${field('identifier', x.ident, { extra: ' maxlength="254" autocomplete="email" i
   return { get, post, rss, handlesPost: (p) => PATHS.test(p) };
 }
 
-module.exports = { createPublicSite, adminRoutes, notifyPublished, inviteDirection, unsubscribe, unsubLink, slugify, X, COOKIE, PATHS };
+module.exports = { MARK, SUBS, createPublicSite, adminRoutes, notifyPublished, inviteDirection, unsubscribe, unsubLink, slugify, X, COOKIE, PATHS };

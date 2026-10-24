@@ -28,7 +28,7 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   // Bloc 7 : adresses e-mail des élèves (réglages par école, destinations vérifiées, adresses, journal).
   'school_email_settings', 'student_email_dest', 'student_email', 'student_email_event',
   // Bloc 8 : demandes d'inscription des écoles, comptes grand public et leurs abonnements, journal des envois groupés.
-  'school_request', 'public_account', 'public_digest',
+  'school_request', 'public_account', 'public_digest', 'public_follow',
   // Bloc 9 : liaisons Telegram (conversation du bot reliée à un compte ; jetons de lien expirés en 15 min).
   'telegram_link',
   // Lot école : document officiel des demandes ; lot 2 : responsables des élèves ; lot 6 : salles de cours.
@@ -56,7 +56,7 @@ const EXCLUDED = {
 };
 
 // Tables sans colonne id : ordre de sortie stable par clé primaire.
-const ORDER = { school_thread_read: 'thread_id, user_id', parent_meeting_attendance: 'meeting_id, user_id', user_role: 'user_id, role', sync_op: 'school_id, op_id', student_code: 'school_id, code', student_photo: 'school_id, student_id',
+const ORDER = { public_follow: 'account_id, school_id', school_thread_read: 'thread_id, user_id', parent_meeting_attendance: 'meeting_id, user_id', user_role: 'user_id, role', sync_op: 'school_id, op_id', student_code: 'school_id, code', student_photo: 'school_id, student_id',
   school_key: 'school_id', security_notice: 'rule', portal_ad_click: 'ad_id, day', school_email_settings: 'school_id' };
 const WITH_ID = new Set(TABLES.filter((t) => !ORDER[t]));
 const orderOf = (t) => (WITH_ID.has(t) ? 'id' : ORDER[t]);

@@ -7,3 +7,8 @@
   var installed = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
   if ((h && h.length > 1 && h !== "#contenu") || (installed && location.pathname === "/")) location.replace("/app" + h);
 })();
+/* En-tête : « Mon compte » et « Se déconnecter » si un compte grand public est connecté (témoin noria_pub_in, sans
+   valeur secrète ; la session elle-même reste dans un cookie HttpOnly). Jamais de lien vers les portails des écoles. */
+(function () {
+  if (/(?:^|;\s*)noria_pub_in=1(?:;|$)/.test(document.cookie)) document.documentElement.classList.add("pub-in");
+})();

@@ -105,7 +105,6 @@ main{padding-bottom:32px;outline:0}
 .brand img{display:block;height:40px;width:auto;background:#fff;border-radius:8px;padding:2px 6px}
 .hd-in{flex-wrap:wrap;padding-top:6px;padding-bottom:6px}
 .btn-reg{background:var(--gold);padding:8px 12px;min-height:40px;font-size:.88rem}
-.nav-acc{margin-left:auto}
 .box-reg{background:var(--acc2);border:1px solid #c9dbf0;border-radius:var(--r);padding:16px}
 .box-reg h2{margin-top:0}
 .pf{display:grid;gap:12px;margin:14px 0;max-width:560px}
@@ -128,3 +127,30 @@ main{padding-bottom:32px;outline:0}
 .pv h2{margin-bottom:6px}
 .pv-li{padding-left:1.1em;text-indent:-.8em}
 .pv-li::before{content:"• "}
+/* Grand public : compte (S'inscrire / Se connecter ou Mon compte / Se déconnecter), Espaces des écoles */
+.acc,.acc-out,.acc-in{display:flex;gap:6px;align-items:center}
+.acc form{margin:0}
+.acc-in{display:none}
+.pub-in .acc-in{display:flex}
+.pub-in .acc-out{display:none}
+.btn-s{padding:6px 12px;min-height:36px;font-size:.88rem}
+.ec-g{display:grid;gap:12px}
+.ec{display:flex;flex-direction:column;gap:4px}
+.ec h3{margin:2px 0;font-size:1.02rem}
+.ec .kind{margin:0;font-weight:700;font-size:.85rem}
+.ec .btn{margin-top:4px}
+.cat-inscriptions{background:#e7f6ec;color:#14532d}
+.cat-actualites{background:#eef2ff;color:#3730a3}
+.cat-laureats{background:#fff7e0;color:#7a5200}
+.cat-evenements{background:#e8f1fb;color:#1d4f86}
+.cat-autres{background:#f1f1f1;color:#444}
+.follow{margin:0 0 12px}
+.ec-reg{border-top:1px dashed var(--line);margin-top:28px;padding-top:12px;font-size:.92rem}
+.ec-reg h2{font-size:1rem;margin:0 0 4px}
+.ft-reg{font-weight:600}
+.fws,.feed{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.fw{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.fw form{margin:0}
+@media (min-width:640px){.ec-g{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:960px){.ec-g{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:480px){.acc,.acc-out,.acc-in{gap:4px}.hd .acc .btn{padding:6px 8px;min-height:36px;font-size:.76rem}}

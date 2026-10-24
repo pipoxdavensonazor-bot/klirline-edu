@@ -84,7 +84,7 @@ test('pages publiques sans connexion : HTML, CSP stricte, aucun cookie, cache, S
     assert.match(r.text, /<meta name="description" content="[^"]{20,}">/);
     assert.match(r.text, /<meta property="og:title"/); assert.match(r.text, /<meta property="og:image" content="http/);
     assert.match(r.text, /<link rel="canonical" href="http[^"]+">/);
-    assert.match(r.text, /hreflang="ht"/); assert.match(r.text, /href="\/app"/, 'lien « Se connecter » vers l’espace des écoles');
+    assert.match(r.text, /hreflang="ht"/); assert.doesNotMatch(r.text, /href="\/app/, `${p} : aucun lien vers les portails des écoles`); assert.match(r.text, /href="(?:\/ht)?\/compte"/, 'Se connecter mène au compte grand public');
     assert.doesNotMatch(r.text, /<script>|<script [^>]*>[^<]|\son\w+=|style="/, `${p} : ni script ni style en ligne`);
   }
   assert.match((await page('/')).text, />Se connecter</); assert.match((await page('/ht')).text, />Konekte</);

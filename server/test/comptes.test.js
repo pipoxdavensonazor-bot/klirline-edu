@@ -145,7 +145,7 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   const portal = await raw('/', { 'accept-encoding': 'gzip' });
   assert.equal(portal.status, 200); assert.equal(portal.headers['content-encoding'], 'gzip');
   const ph = zlib.gunzipSync(portal.body).toString();
-  assert.match(ph, /<html lang="fr">/); assert.match(ph, /href="\/app"/); assert.doesNotMatch(ph, /noria-server|manifest\.webmanifest/);
+  assert.match(ph, /<html lang="fr">/); assert.doesNotMatch(ph, /href="\/app/, "aucun lien du portail public vers les portails des écoles"); assert.doesNotMatch(ph, /noria-server|manifest\.webmanifest/);
   assert.match(portal.headers['content-security-policy'], /default-src 'none'/);
   assert.equal(portal.headers['set-cookie'], undefined);
   assert.equal((await raw('/', { 'if-none-match': portal.headers.etag })).status, 304);

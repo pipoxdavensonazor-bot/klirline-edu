@@ -210,7 +210,7 @@ const initials = (name) => String(name || '').normalize('NFC').split(/\s+/).filt
 
 // Champs publics d'un contenu (liste blanche) : jamais d'identifiant d'utilisateur, de consentement détaillé ni de motif.
 function publicItem(r) {
-  const base = { id: Number(r.id), kind: r.kind, school: r.school_display || null, published_at: r.published_at || null };
+  const base = { id: Number(r.id), kind: r.kind, school: r.school_display || null, school_slug: r.school_slug || null, published_at: r.published_at || null };
   if (r.kind === 'laureat') {
     const ok = consented(r);
     return { ...base, name: ok ? r.person_name : initials(r.person_name), masked: !ok, image: ok && r.image_id ? Number(r.image_id) : null,
@@ -225,8 +225,25 @@ function publicItem(r) {
 /* ---------- Lecture publique ---------- */
 const VISIBLE = "i.status = 'publie' AND (i.school_id IS NULL OR s.status = 'active')";
 const FROM = `FROM portal_item i LEFT JOIN school s ON s.id = i.school_id`;
-const COLS = `i.*, s.name AS school_display, CASE WHEN s.portal_partner = 1 THEN s.portal_logo_id END AS school_logo`;
+const COLS = `i.*, s.name AS school_display, s.slug AS school_slug, CASE WHEN s.portal_partner = 1 THEN s.portal_logo_id END AS school_logo`;
 const ACTIVE_AD = 'a.active = 1 AND a.starts_on <= ? AND a.ends_on >= ?';
+
+// Catégories publiques des « Espaces des écoles », dérivées des types existants (aucune nouvelle donnée à saisir).
+const FEED_CATS = ['inscriptions', 'evenements', 'actualites', 'examens', 'laureats', 'autres'];
+const FEED_SQL = {
+  evenements: "(i.kind = 'evenement' AND i.category IN ('culture','sport','science'))",
+  actualites: "i.kind IN ('article','temoignage')",
+  examens: "(i.kind = 'evenement' AND i.category IN ('examens','concours'))",
+  laureats: "i.kind = 'laureat'",
+  autres: "(i.kind = 'evenement' AND (i.category = 'autre' OR i.category IS NULL))",
+};
+function feedCat(r) {
+  if (r.kind === 'laureat') return 'laureats';
+  if (r.kind === 'article' || r.kind === 'temoignage') return 'actualites';
+  if (['examens', 'concours'].includes(r.category)) return 'examens';
+  if (['culture', 'sport', 'science'].includes(r.category)) return 'evenements';
+  return 'autres';
+}
 
 function createPublic(db) {
   const count = async (sql, ...p) => Number((await db.get(`SELECT COUNT(*) AS n ${sql}`, ...p)).n);
@@ -266,6 +283,32 @@ function createPublic(db) {
       const where = `${FROM} WHERE ${VISIBLE} AND i.kind IN ('article','temoignage')`;
       const rows = await db.all(`SELECT ${COLS} ${where} ORDER BY i.featured DESC, i.published_at DESC, i.id DESC LIMIT ? OFFSET ?`, per, (page - 1) * per);
       return { list: rows.map(publicItem), total: await count(where) };
+    },
+    // Espaces des écoles : contenus publiés PAR LES ÉCOLES (jamais ceux de NORIA), rangés par catégorie publique.
+    // cat : null (toutes) ou une clé de FEED_CATS hors « inscriptions » (campagnes, voir campaigns()).
+    async schoolFeed({ cat = null, school = null, schools = null, page = 1, per = 12 } = {}) {
+      const c = [`${VISIBLE}`, 'i.school_id IS NOT NULL']; const p = [];
+      if (cat) c.push(FEED_SQL[cat]); else c.push(`(${Object.values(FEED_SQL).join(' OR ')})`);
+      if (school) { c.push('s.slug = ?'); p.push(school); }
+      if (schools) { if (!schools.length) return { list: [], total: 0 }; c.push(`i.school_id IN (${schools.map(() => '?').join(',')})`); p.push(...schools.map(Number)); }
+      const where = `${FROM} WHERE ${c.join(' AND ')}`;
+      const rows = await db.all(`SELECT ${COLS} ${where} ORDER BY COALESCE(i.published_at, i.updated_at) DESC, i.id DESC LIMIT ? OFFSET ?`, ...p, per, (page - 1) * per);
+      return { list: rows.map((r) => ({ ...publicItem(r), feed: feedCat(r) })), total: await count(where, ...p) };
+    },
+    // Campagnes d'inscription ouvertes aujourd'hui (Lot 3), école active seulement.
+    async campaigns({ school = null, schools = null, page = 1, per = 12 } = {}) {
+      const today = haitiDay(); const p = [today, today]; let extra = '';
+      if (school) { extra += ' AND s.slug = ?'; p.push(school); }
+      if (schools) { if (!schools.length) return { list: [], total: 0 }; extra += ` AND s.id IN (${schools.map(() => '?').join(',')})`; p.push(...schools.map(Number)); }
+      const where = `FROM enrolment_campaign c JOIN school s ON s.id = c.school_id WHERE s.status = 'active' AND c.status = 'ouverte' AND c.opens_on <= ? AND c.closes_on >= ?${extra}`;
+      const rows = await db.all(`SELECT c.id, c.title, c.info, c.opens_on, c.closes_on, s.name AS school, s.slug AS school_slug ${where} ORDER BY c.closes_on, s.name LIMIT ? OFFSET ?`, ...p, per, (page - 1) * per);
+      return { list: rows.map((r) => ({ id: Number(r.id), feed: 'inscriptions', title: r.title, info: r.info || '', opens_on: r.opens_on, closes_on: r.closes_on, school: r.school, school_slug: r.school_slug })), total: await count(where, ...p) };
+    },
+    // Écoles qui ont au moins un contenu public ou une campagne ouverte (filtre et « suivre »).
+    async feedSchools() {
+      const today = haitiDay();
+      return db.all(`SELECT s.id, s.slug, s.name FROM school s WHERE s.status = 'active' AND (EXISTS (SELECT 1 FROM portal_item i WHERE i.school_id = s.id AND i.status = 'publie')
+        OR EXISTS (SELECT 1 FROM enrolment_campaign c WHERE c.school_id = s.id AND c.status = 'ouverte' AND c.opens_on <= ? AND c.closes_on >= ?)) ORDER BY s.name LIMIT 500`, today, today);
     },
     async ads({ n = 3, sponsored = null } = {}) {
       const today = haitiDay();
@@ -403,7 +446,7 @@ function adminRoutes({ log }) {
   const shape = (r) => ({ ...r, minor: !!Number(r.minor), consent_school: !!Number(r.consent_school), consent_parent: !!Number(r.consent_parent), featured: !!Number(r.featured),
     public_name: r.kind === 'laureat' ? (consented(r) ? r.person_name : initials(r.person_name)) : undefined });
   // Bloc 8 : e-mail groupé aux abonnés du portail à la publication (une fois par contenu, en tâche de fond).
-  const notify = (db, req, ctx, kind, id) => { if (ctx && ['evenement', 'laureat', 'annonce'].includes(kind)) require('./portail-public').notifyPublished(db, ctx, kind, id, require('./app').linkBase(req, ctx) || 'https://noriaedu.com'); };
+  const notify = (db, req, ctx, kind, id) => { if (ctx && ['evenement', 'laureat', 'annonce', 'article', 'temoignage'].includes(kind)) require('./portail-public').notifyPublished(db, ctx, kind, id, require('./app').linkBase(req, ctx) || 'https://noriaedu.com'); };
   const move = async (db, req, a, id, to, from, why, action, ctx) => {
     const r = await getItem(db, id);
     const now = iso();
@@ -528,5 +571,5 @@ function adminRoutes({ log }) {
   ];
 }
 
-module.exports = { schoolRoutes, adminRoutes, createPublic, click, clean, checkImage, jpegClean, webpClean, readItem, publicItem, consented, initials, httpsUrl, haitiDay,
+module.exports = { FEED_CATS, feedCat, schoolRoutes, adminRoutes, createPublic, click, clean, checkImage, jpegClean, webpClean, readItem, publicItem, consented, initials, httpsUrl, haitiDay,
   bump, currentVersion, saveImage, KINDS, CATEGORIES, DEPARTMENTS, IMG_MAX, THUMB_MAX, PROPOSALS_PER_HOUR };
