@@ -46,7 +46,7 @@ async function openCampaignBySlug(db, slug) {
 /* ---------- Textes FR / Kreyòl ---------- */
 const X = {
   fr: { list: 'Inscriptions ouvertes', listIntro: 'Écoles qui reçoivent des demandes d’inscription en ligne. La demande ne vaut pas admission : l’école vous contactera.',
-    none: 'Aucune campagne d’inscription ouverte en ce moment.', until: (d) => `jusqu’au ${d}`, apply: 'Déposer une demande', levels: 'Niveaux',
+    none: 'Aucune campagne d’inscription ouverte en ce moment.', until: (d) => `jusqu’au ${d}`, open: 'Inscriptions ouvertes', apply: 'Déposer une demande', levels: 'Niveaux',
     form: (s) => `Demande d’inscription — ${s}`, closed: 'Les inscriptions en ligne de cette école sont fermées.', student: 'Élève', first: 'Prénom', last: 'Nom',
     birth: 'Date de naissance', sex: 'Sexe', F: 'Fille', M: 'Garçon', level: 'Niveau souhaité', prev: 'École précédente', guardian: 'Responsable', gname: 'Nom du responsable',
     rel: 'Lien', rels: { mere: 'Mère', pere: 'Père', tuteur: 'Tuteur', grand_parent: 'Grand-parent', frere_soeur: 'Frère / sœur', autre: 'Autre' }, phone: 'Téléphone', email: 'E-mail',
@@ -57,7 +57,7 @@ const X = {
     errFast: 'Envoi refusé : rechargez la page et réessayez.', tooMany: 'Trop de demandes depuis cette connexion. Réessayez plus tard.',
     done: 'Demande envoyée', doneText: (r) => `Votre demande est enregistrée. Référence : ${r}. Gardez-la : l’école vous contactera.`, privacy: 'Vos données ne sont visibles que par l’école choisie.' },
   ht: { list: 'Enskripsyon ouvè', listIntro: 'Lekòl ki resevwa demann enskripsyon sou entènèt. Demann nan pa vle di admisyon : lekòl la ap kontakte w.',
-    none: 'Pa gen kanpay enskripsyon ouvè kounye a.', until: (d) => `jiska ${d}`, apply: 'Fè yon demann', levels: 'Nivo',
+    none: 'Pa gen kanpay enskripsyon ouvè kounye a.', until: (d) => `jiska ${d}`, open: 'Enskripsyon ouvè', apply: 'Fè yon demann', levels: 'Nivo',
     form: (s) => `Demann enskripsyon — ${s}`, closed: 'Enskripsyon sou entènèt lekòl sa a fèmen.', student: 'Elèv', first: 'Prenon', last: 'Non',
     birth: 'Dat nesans', sex: 'Sèks', F: 'Fi', M: 'Gason', level: 'Nivo ou vle', prev: 'Lekòl anvan', guardian: 'Responsab', gname: 'Non responsab la',
     rel: 'Relasyon', rels: { mere: 'Manman', pere: 'Papa', tuteur: 'Titè', grand_parent: 'Granparan', frere_soeur: 'Frè / sè', autre: 'Lòt' }, phone: 'Telefòn', email: 'Imèl',
@@ -92,6 +92,19 @@ function readApplication(b, L) {
   return { o, errs, docs };
 }
 
+// Titre de campagne : l'ancien formulaire préremplissait « Inscriptions ouvertes » ; une saisie ajoutée au texte
+// préexistant donnait « Inscriptions 2027-2028Inscriptions ouvertes ». On retire ce libellé collé (sans espace).
+const DEFAULT_TITLES = ['Inscriptions ouvertes', 'Enskripsyon ouvè'];
+function campaignTitle(raw) {
+  let t = str(raw, 140) || '';
+  for (const d of DEFAULT_TITLES) {
+    if (t === d) break;
+    if (t.endsWith(d) && !/\s$/.test(t.slice(0, -d.length))) t = t.slice(0, -d.length).trim();
+    else if (t.startsWith(d) && !/^\s/.test(t.slice(d.length))) t = t.slice(d.length).trim();
+  }
+  return t || DEFAULT_TITLES[0];
+}
+
 /* ---------- Site public ---------- */
 const PATHS = /^\/(?:ht\/)?(?:inscriptions|inscription\/([a-z0-9-]{2,60}))$/;
 function createSite(db, { ctx, render, write, esc }) {
@@ -102,7 +115,7 @@ function createSite(db, { ctx, render, write, esc }) {
     `<label class="fld"><span>${esc(label)}${req ? ' <span class="req" aria-hidden="true">*</span>' : ''}</span><input name="${name}" type="${type}" value="${esc(value || '')}"${req ? ' required' : ''}${extra}></label>`;
   function form(L, c, v = {}, errs = []) {
     const x = X[L];
-    return `<h1>${esc(x.form(c.school_name))}</h1><p><strong>${esc(c.title)}</strong> — ${esc(x.until(c.closes_on))}</p>${c.info ? `<p>${esc(c.info)}</p>` : ''}
+    return `<h1>${esc(x.form(c.school_name))}</h1><p class="camp"><strong class="camp-t">${esc(c.title)}</strong> <span class="badge camp-st">${esc(x.open)}</span> <span class="mut">${esc(x.until(c.closes_on))}</span></p>${c.info ? `<p>${esc(c.info)}</p>` : ''}
 ${errs.length ? `<div class="alert" role="alert"><p>${esc(x.fix)}</p><ul>${[...new Set(errs)].map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}
 <form class="pf card" method="post" action="${pre(L)}/inscription/${esc(c.slug)}" enctype="multipart/form-data" novalidate><input type="hidden" name="t" value="${formToken()}">
 <fieldset class="fld"><legend>${esc(x.student)}</legend>
@@ -194,7 +207,7 @@ const routes = [
   ['POST', /^\/api\/candidatures\/campagnes$/, async (db, req, u, _m, ctx) => {
     if (!P.has(u, 'direction')) await refuse(ctx, u, 'candidature.campaign', 'enrolment_campaign', null, 'rôle');
     const b = req.body || {};
-    const title = str(b.titre, 140) || 'Inscriptions ouvertes';
+    const title = campaignTitle(b.titre);
     const from = str(b.debut, 10) || today(), to = str(b.fin, 10);
     if (!DAY.test(from) || !DAY.test(to) || to < from) throw new HttpError(400, 'dates invalides (début ≤ fin, AAAA-MM-JJ)');
     if (await db.get("SELECT id FROM enrolment_campaign WHERE school_id = ? AND status = 'ouverte'", u.school_id)) throw new HttpError(409, 'une campagne est déjà ouverte : fermez-la d’abord');
@@ -260,4 +273,4 @@ const routes = [
   }],
 ];
 
-module.exports = { routes, createSite, PATHS, formToken, X };
+module.exports = { campaignTitle, routes, createSite, PATHS, formToken, X };

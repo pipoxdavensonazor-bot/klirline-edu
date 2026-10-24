@@ -154,3 +154,6 @@ main{padding-bottom:32px;outline:0}
 @media (min-width:640px){.ec-g{grid-template-columns:repeat(2,1fr)}}
 @media (min-width:960px){.ec-g{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:480px){.acc,.acc-out,.acc-in{gap:4px}.hd .acc .btn{padding:6px 8px;min-height:36px;font-size:.76rem}}
+/* Campagne d'inscription : titre et statut séparés (pastille), jamais collés. */
+.camp { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .6rem; }
+.camp-st { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 600; background: #e3f4ec; color: #145c3b; }
