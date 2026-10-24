@@ -497,6 +497,10 @@ function setSessionCookie(req, ctx, token) {
 }
 const eco = ecoles.createRoutes({ normalizePhone, outbox, linkBase, reqLang, newToken, INVITE_HOURS, setSessionCookie });
 routes.push(...eco.routes, ...eco.publicRoutes);
+// Lot 2 : création manuelle d'un élève, changement de classe, responsables (tuteurs).
+routes.push(...require('./eleves-gestion')(normalizePhone).routes);
+// Lot 6 : salles de cours (séances, ressources, mains levées, sondages).
+routes.push(...require('./salles').routes);
 // Bloc 2 : photo, badges, recherche et scan ; relevés de notes officiels signés.
 routes.push(...require('./badges').routes);
 const rel = require('./releves').createRoutes({ outbox, reqLang });
