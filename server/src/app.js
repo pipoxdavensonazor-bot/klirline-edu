@@ -709,7 +709,7 @@ function createServer(db, options = {}) {
   // Bloc 8 : formulaires publics (demande d'inscription, code des comptes grand public) : 8 envois par heure et par clé.
   ctx.publicLimit = options.publicLimit || createLimiter({ db, max: 8, windowMs: 3600e3 });
   // Assistant sécurité : observe les connexions, refus et erreurs ; n'agit jamais seul (voir src/securite.js).
-  ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl }));
+  ctx.sec = options.security === false ? null : (options.security || createSecurity({ db, env: options.env || process.env, notifier: ctx.notifier, secureCookie: ctx.secureCookie, publicUrl: ctx.publicUrl, channelFetch: ctx.channelFetch }));
   const serveStatic = options.staticRoot === false ? null : createStatic(options.staticRoot || path.join(__dirname, '..', '..'));
   // Portail public (pages HTML rendues par le serveur, sans connexion) sur / et /ht/… ; l'application est sur /app.
   const portal = options.portal === false ? null : createPortal(db, { ctx, publicUrl: ctx.publicUrl, secureCookie: ctx.secureCookie, root: options.staticRoot || path.join(__dirname, '..', '..') });

@@ -14,7 +14,10 @@ const T={
     rule:"L'assistant ne fait rien seul : chaque action demande votre confirmation, les actions critiques un nouveau code, et tout est journalisé.",
     confirmTitle:"Confirmer l'action",critical:"Action critique : saisissez le code à 6 chiffres qui vient d'être envoyé",reason:"Motif",reasonReq:"Motif (obligatoire)",code:"Code à 6 chiffres",
     confirm:"Je confirme",cancel:"Annuler",done:"Action effectuée : ",err:"Refusé : ",net:"Serveur injoignable.",undo:"Annuler l'action",undone:"annulée",otp:"code",irr:"irréversible",
-    when:"Date",what:"Action",target:"Cible",by:"Par",critTag:"critique",llmOff:"Réponses issues du guide intégré (aucun service externe)."},
+    when:"Date",what:"Action",target:"Cible",by:"Par",critTag:"critique",llmOff:"Réponses issues du guide intégré (aucun service externe).",
+    ch:"Alertes Telegram et e-mail",chIntro:"Les alertes critiques et les alertes immédiates (connexion super-admin depuis une nouvelle IP ou un nouvel appareil, export en masse, nouveau compte privilégié) partent tout de suite ; les alertes « attention » sont regroupées dans un récapitulatif toutes les 30 minutes. Plafond :",perH:"messages par heure",
+    mail:"E-mail des alertes",noMail:"non configuré (NORIA_ALERTES_EMAIL)",tg:"Telegram",tgOff:"bot Telegram non configuré sur le serveur",tgOn:"relié depuis le",tgNo:"pas encore relié",
+    tgLink:"Relier mon Telegram pour les alertes",tgExist:"Utiliser ma conversation Telegram déjà reliée",tgUnlink:"Retirer Telegram",tgOpen:"Ouvrez ce lien dans Telegram et appuyez sur « Démarrer » (valable",min:"min",refresh:"J’ai appuyé sur Démarrer",test:"Envoyer un message de test",testOk:"Test envoyé : ",testNone:"Aucun canal configuré."},
   ht:{title:"Asistan sekirite",score:"Nòt sante",lastRun:"Dènye analiz",never:"poko lanse",run:"Analize kounye a",running:"Analiz ap fèt…",
     crit:"kritik",warn:"atansyon",info:"enfo",sev:{critique:"Kritik",attention:"Atansyon",info:"Enfo"},st:{ouverte:"Ouvè",traitee:"Trete",faux_positif:"Fo alèt"},
     allSev:"Tout gravite",sevLabel:"Gravite",tz:"lè Ayiti",alerts:"Alèt yo",history:"Istorik aksyon yo",none:"Pa gen alèt pou filt sa a.",noHist:"Poko gen aksyon.",
@@ -23,9 +26,13 @@ const T={
     rule:"Asistan an pa fè anyen pou kont li : chak aksyon mande konfimasyon w, aksyon kritik yo mande yon nouvo kòd, epi tout bagay anrejistre nan jounal la.",
     confirmTitle:"Konfime aksyon an",critical:"Aksyon kritik : tape kòd 6 chif ki fèk voye a",reason:"Rezon",reasonReq:"Rezon (obligatwa)",code:"Kòd 6 chif",
     confirm:"Mwen konfime",cancel:"Anile",done:"Aksyon an fèt : ",err:"Refize : ",net:"Sèvè a pa reponn.",undo:"Anile aksyon an",undone:"anile",otp:"kòd",irr:"pa ka anile",
-    when:"Dat",what:"Aksyon",target:"Sib",by:"Pa",critTag:"kritik",llmOff:"Repons yo soti nan gid entegre a (okenn sèvis deyò)."},
+    when:"Dat",what:"Aksyon",target:"Sib",by:"Pa",critTag:"kritik",llmOff:"Repons yo soti nan gid entegre a (okenn sèvis deyò).",
+    ch:"Alèt Telegram ak imèl",chIntro:"Alèt kritik yo ak alèt imedya yo (koneksyon super-admin ak yon nouvo IP oswa aparèy, ekspòtasyon anpil done, nouvo kont privilejye) pati touswit ; alèt « atansyon » yo rasanble nan yon rezime chak 30 minit. Limit :",perH:"mesaj pa èdtan",
+    mail:"Imèl alèt yo",noMail:"pa konfigire (NORIA_ALERTES_EMAIL)",tg:"Telegram",tgOff:"bot Telegram pa konfigire sou sèvè a",tgOn:"konekte depi",tgNo:"poko konekte",
+    tgLink:"Konekte Telegram mwen pou alèt yo",tgExist:"Sèvi ak konvèsasyon Telegram mwen deja konekte a",tgUnlink:"Retire Telegram",tgOpen:"Louvri lyen sa a nan Telegram epi peze « Start » (li bon pou",min:"min",refresh:"Mwen peze Start",test:"Voye yon mesaj tès",testOk:"Tès la pati : ",testNone:"Pa gen okenn kanal konfigire."},
 };
 const t=k=>T[lang()][k];
+let TGURL=null;
 let EL=null, VIEW="list", SEV="", ST="ouverte", CUR=null, PENDING=null, ANSWER=null, DATA=null;
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opts,headers:{"content-type":"application/json","x-noria":"1",...(opts.headers||{})}});
@@ -44,6 +51,7 @@ async function render(el){ EL=el||EL; if(!EL) return; await draw(); }
 async function draw(){
   if(!EL) return;
   if(VIEW==="history") return drawHistory();
+  if(VIEW==="canaux") return drawChannels();
   if(VIEW==="detail"&&CUR) return drawDetail();
   const q=new URLSearchParams({statut:ST}); if(SEV) q.set("gravite",SEV);
   const r=await api("/api/admin/securite?"+q).catch(()=>null);
@@ -66,7 +74,8 @@ function head(d,cls){
     <div class="card sec-counts"><span class="sec-sev sec-critique">${d?Number(d.critique):0} ${esc(t("crit"))}</span><span class="sec-sev sec-attention">${d?Number(d.attention):0} ${esc(t("warn"))}</span><span class="sec-sev sec-info">${d?Number(d.info):0} ${esc(t("info"))}</span>
       <p class="small mut">${esc(t("lastRun"))} : ${lr?dt(lr.at)+" ("+esc(t("tz"))+")":esc(t("never"))}</p></div>
     <div class="sec-tools"><button type="button" id="secRun" data-action="NORIA_SEC.run">${esc(t("run"))}</button>
-      <button type="button" class="ghost${VIEW==="history"?" on":""}" data-action="NORIA_SEC.view" data-a0="s:${VIEW==="history"?"list":"history"}">${esc(VIEW==="history"?t("alerts"):t("history"))}</button></div></div>
+      <button type="button" class="ghost${VIEW==="history"?" on":""}" data-action="NORIA_SEC.view" data-a0="s:${VIEW==="history"?"list":"history"}">${esc(VIEW==="history"?t("alerts"):t("history"))}</button>
+      <button type="button" id="secCh" class="ghost${VIEW==="canaux"?" on":""}" data-action="NORIA_SEC.view" data-a0="s:${VIEW==="canaux"?"list":"canaux"}">${esc(VIEW==="canaux"?t("alerts"):t("ch"))}</button></div></div>
     <p class="small sec-rule">${esc(t("rule"))}</p>`;
 }
 async function drawDetail(){
@@ -101,6 +110,27 @@ async function drawHistory(){
       <td>${x.annulable?`<button type="button" class="ghost" data-action="NORIA_SEC.prepare" data-a0="j:${esc(JSON.stringify({type:"annuler",params:{action_id:x.id}}))}">${esc(t("undo"))}</button>`:(x.type==="annuler"||x.annulee?"":`<small class="mut">${esc(t("irr"))}</small>`)}</td></tr>`).join("")}</table>`:`<p class="mut">${esc(t("noHist"))}</p>`}
     <div id="secConfirm">${confirmBox()}</div></div></div>`;
 }
+// Canaux des alertes (pt67) : e-mail (configuré sur le serveur) et Telegram (relié ici par le super-admin).
+async function drawChannels(){
+  const r=await api("/api/admin/alertes").catch(()=>null);
+  if(!r||r.status!==200){ EL.innerHTML=`<div class="badbox">${esc(t("net"))}</div>`; return; }
+  const c=r.body;
+  const tg=!c.telegram_actif?`<span class="mut">${esc(t("tgOff"))}</span>`:c.relie?`<span class="sec-sev sec-info">${esc(t("tgOn"))} ${dt(c.linked_at)}</span> <button type="button" class="ghost" data-action="NORIA_SEC.chan" data-a0="s:delier">${esc(t("tgUnlink"))}</button>`
+    :`<span class="mut">${esc(t("tgNo"))}</span><div class="row"><button type="button" id="secTgLink" data-action="NORIA_SEC.chan" data-a0="s:lien">${esc(t("tgLink"))}</button>${c.existant?`<button type="button" class="ghost" data-action="NORIA_SEC.chan" data-a0="s:existant">${esc(t("tgExist"))}</button>`:""}</div>
+      ${TGURL?`<p class="okbox small" id="secTgUrl">${esc(t("tgOpen"))} ${Number(TGURL.minutes)} ${esc(t("min"))}) : <a href="${esc(TGURL.url)}" target="_blank" rel="noopener noreferrer">${esc(TGURL.url.replace(/\?start=.*/,"?start=…"))}</a></p><button type="button" class="ghost" data-action="NORIA_SEC.view" data-a0="s:canaux">${esc(t("refresh"))}</button>`:""}`;
+  EL.innerHTML=`<div id="secApp" class="sec-app">${head(DATA,DATA?(DATA.score>=80?"sec-good":DATA.score>=50?"sec-mid":"sec-bad"):"")}<div class="card" id="secChannels"><h3>${esc(t("ch"))}</h3>
+    <p class="small">${esc(t("chIntro"))} ${Number(c.max_heure)} ${esc(t("perH"))}.</p>
+    <table class="adm-tab"><tr><th>${esc(t("mail"))}</th><td>${c.email?`<code>${esc(c.email)}</code>`:`<span class="mut">${esc(t("noMail"))}</span>`}</td></tr>
+      <tr><th>${esc(t("tg"))}${c.bot?` <small class="mut">@${esc(c.bot)}</small>`:""}</th><td id="secTg">${tg}</td></tr></table>
+    <div class="row"><button type="button" id="secTest" data-action="NORIA_SEC.chan" data-a0="s:test">${esc(t("test"))}</button></div></div></div>`;
+}
+async function chan(k){
+  const r=await post(`/api/admin/alertes/${k==="test"?"test":"telegram/"+k}`,{}).catch(()=>null);
+  if(!r||r.status!==200){ toast(t("err")+((r&&r.body&&r.body.error)||t("net"))); return; }
+  if(k==="lien") TGURL=r.body; else TGURL=null;
+  if(k==="test") toast(r.body.ok?t("testOk")+r.body.canaux.join(", "):t("testNone"));
+  await draw();
+}
 async function run(){
   const b=document.getElementById("secRun"); if(b){ b.disabled=true; b.textContent=t("running"); }
   const r=await post("/api/admin/securite/analyser",{}).catch(()=>null);
@@ -128,7 +158,7 @@ async function ask(q){
   const el=document.getElementById("secAnswer"); if(el) el.textContent=ANSWER;
 }
 (function css(){ if(document.getElementById("secCss")) return; const l=document.createElement("link"); l.id="secCss"; l.rel="stylesheet"; l.href=NORIA_U.v("src/admin-securite.css"); document.head.appendChild(l); })();
-window.NORIA_SEC=Object.freeze({render,run,prepare,confirm,ask,
+window.NORIA_SEC=Object.freeze({render,run,prepare,confirm,ask,chan,
   open:id=>{CUR=id;VIEW="detail";PENDING=null;ANSWER=null;draw();},
   view:v=>{VIEW=v;PENDING=null;ANSWER=null;draw();},
   filter:(k,v)=>{ if(k==="sev") SEV=v; else ST=v; draw(); },

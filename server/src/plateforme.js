@@ -38,14 +38,33 @@ async function dbSize(db) {
     return pc * ps;
   } catch { return null; }
 }
+// Sauvegardes : etat.json (écrit par deploy/sauvegarde/noria-sauvegarde.sh, 0644, sans secret) fait foi ; sinon on
+// parcourt le dossier et ses sous-dossiers quotidien/hebdomadaire/mensuel (ceux-ci sont souvent en 0700 root : illisibles).
+const BK_FILE = /\.(age|enc|gz|dump|json\.gz)$/;
 function backups() {
   const dir = process.env.BACKUP_DIR || process.env.NORIA_BACKUP_DIR;
   if (!dir) return { configure: false };
   try {
-    const files = fs.readdirSync(dir).filter((f) => /\.(age|gz|dump|json\.gz)$/.test(f))
-      .map((f) => { const st = fs.statSync(path.join(dir, f)); return { name: f, size: st.size, at: st.mtime.toISOString() }; })
-      .sort((a, b) => (a.at < b.at ? 1 : -1));
-    return { configure: true, count: files.length, last: files[0] || null, total: files.reduce((a, f) => a + f.size, 0) };
+    const e = JSON.parse(fs.readFileSync(path.join(dir, 'etat.json'), 'utf8'));
+    const d = e && e.derniere;
+    if (d && typeof d.name === 'string' && !Number.isNaN(Date.parse(d.at))) {
+      return { configure: true, source: 'etat.json', count: Number(e.quotidiennes) || 1, last: { name: d.name.slice(0, 120), size: Number(d.size) || 0, at: new Date(d.at).toISOString() },
+        total: null, chiffrement: ['age', 'enc'].includes(e.chiffrement) ? e.chiffrement : null, hors_site: e.hors_site === true };
+    }
+  } catch { /* pas d'état : parcours du dossier */ }
+  try {
+    const files = []; let unreadable = 0;
+    const scan = (d, depth) => {
+      for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, ent.name);
+        if (ent.isDirectory() && depth === 0 && /^(quotidien|hebdomadaire|mensuel)$/.test(ent.name)) { try { scan(p, 1); } catch { unreadable++; } }
+        else if (ent.isFile() && BK_FILE.test(ent.name) && !ent.name.startsWith('.')) { const st = fs.statSync(p); files.push({ name: ent.name, size: st.size, at: st.mtime.toISOString() }); }
+      }
+    };
+    scan(dir, 0);
+    files.sort((a, b) => (a.at < b.at ? 1 : -1));
+    if (!files.length && unreadable) return { configure: true, error: 'sous-dossiers de sauvegarde illisibles et etat.json absent' };
+    return { configure: true, source: 'dossier', count: files.length, last: files[0] || null, total: files.reduce((a, f) => a + f.size, 0) };
   } catch (e) { return { configure: true, error: 'dossier de sauvegarde illisible' }; }
 }
 

@@ -13,6 +13,7 @@ const otp = require('./otp');
 const { HttpError } = require('./common');
 const { G, QUOI, RISQUE, GENERAL, fill } = require('./securite-guide');
 const { createLlm } = require('./assistant-llm');
+const { createAlertes } = require('./alertes');
 
 const MIN = 60e3, H = 3600e3;
 const DEFAULTS = {
@@ -20,7 +21,7 @@ const DEFAULTS = {
   nouvelAppareilJours: 30,
   interEcolesRefus: 10, interEcolesAutres: 3, interFenetreMin: 15,
   pic4xx: 100, pic4xxFacteur: 3, pic5xxAttention: 5, pic5xxCritique: 20, picFenetreMin: 10,
-  exportsHeure: 20, pdfHeure: 100, fichesHeure: 200,
+  exportsHeure: 20, pdfHeure: 100, fichesHeure: 200, exportMasseHeure: 50, alertesFenetreMin: 30,
   recherchesEcoleHeure: 30, recherchesEchecsHeure: 10,
   propositionsHeure: 10, propositionsJour: 30,
   emailsCreationsHeure: 300, emailsDestinationsHeure: 10, emailsDestinationAdresseJour: 3, emailsEchecsHeure: 15,
@@ -28,7 +29,7 @@ const DEFAULTS = {
   sensiblesJour: 10, horsHeuresAttention: 3, heureMatin: 6, heureSoir: 20,
   latenceAttentionMs: 500, latenceCritiqueMs: 2000, disqueAttentionPct: 15, disqueCritiquePct: 5, memoireAttentionPct: 10, memoireCritiquePct: 3,
   baseMaxMo: 2048, sauvegardeMaxHeures: 26, certAttentionJours: 21, certCritiqueJours: 7, rapportAuditMaxJours: 7,
-  notificationMin: 30, retentionJours: 35, reouvertureTraiteeMin: 60, fauxPositifJours: 7,
+  notificationMin: 30, recapMin: 30, retentionJours: 35, reouvertureTraiteeMin: 60, fauxPositifJours: 7,
 };
 const SEV = { info: 1, attention: 2, critique: 3 };
 const SENSIBLES = /^(evaluation\.rouvrir|payment\.cancel|user\.roles|grade\.correct)$/;
@@ -87,7 +88,8 @@ const ACTIONS = {
 };
 const act = (type, params) => ({ type, params, critical: ACTIONS[type].critical, label: ACTIONS[type].label });
 
-function createSecurity({ db, env = process.env, notifier = null, secureCookie = false, publicUrl = null, now = () => Date.now(), log = console.error } = {}) {
+function createSecurity({ db, env = process.env, notifier = null, secureCookie = false, publicUrl = null, now = () => Date.now(), log = console.error, alertes = null, channelFetch = null } = {}) {
+  const out_ = alertes || createAlertes({ db, env, notifier, fetch: channelFetch, now, log });
   const S = readSeuils(env);
   const TZ = env.NORIA_TZ || 'America/Port-au-Prince';
   const prod = env.NODE_ENV === 'production';
@@ -140,6 +142,17 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     }
     const account = who.account || (who.user.person_id ? `p:${who.user.person_id}` : `u:${who.user.id}`);
     await record({ kind: 'login.ok', ip: req.ip, ua: req.headers['user-agent'] || '', account, role, user_id: who.user ? who.user.id : null, school_id: who.user ? who.user.school_id : null });
+    // Super-admin : vérification immédiate « nouvelle IP / nouvel appareil » (sans attendre l'analyse des 5 min), hors requête.
+    if (role === 'superadmin') { const p = exclusive(() => quick([ruleNewDevice])).catch((e) => log(`[assistant] vérification rapide en échec : ${e.message}`)); quickInflight.add(p); p.finally(() => quickInflight.delete(p)); }
+  }
+  const quickInflight = new Set();
+  const settle = async () => { await flush(); await Promise.all([...quickInflight]); };
+  let lock = Promise.resolve();
+  function exclusive(fn) { const p = lock.then(fn, fn); lock = p.catch(() => {}); return p; }
+  async function quick(rules) {
+    await flush();
+    const cands = []; for (const f of rules) cands.push(...await f());
+    return handle(cands.filter((c) => c.immediate));
   }
 
   /* ---------- Blocage d'IP ---------- */
@@ -199,7 +212,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       const role = r.role === 'superadmin' ? 'super-admin' : r.role === 'ministere' ? 'ministère' : 'direction';
       const cible = r.account.startsWith('admin:') ? r.account : maskAccount(r.account);
       const minId = /^min:\d+$/.test(r.account) ? Number(r.account.slice(4)) : null;
-      out.push({ rule: 'nouvel_appareil', key: `${r.account}|${r.ip}|${r.ua_hash}`, severity: r.role === 'superadmin' ? 'attention' : 'info', vars: { cible, role, quoi: quoi.fr }, varsHt: { cible, role, quoi: quoi.ht },
+      out.push({ rule: 'nouvel_appareil', key: `${r.account}|${r.ip}|${r.ua_hash}`, severity: r.role === 'superadmin' ? 'attention' : 'info', immediate: r.role === 'superadmin', vars: { cible, role, quoi: quoi.fr }, varsHt: { cible, role, quoi: quoi.ht },
         evidence: [`${haitiTime(t, TZ)} · connexion réussie · IP ${maskIp(r.ip)} · appareil ${r.ua_hash || '?'}${newIp ? ' · IP nouvelle' : ''}${newUa ? ' · appareil nouveau' : ''}`, `${Number(prev.n)} connexion(s) connue(s) sur ${S.nouvelAppareilJours} jours`],
         actions: minId ? ministryActions(minId) : r.user_id ? accountActions({ user_id: r.user_id }) : [act('ip.bloquer', { ip: r.ip, minutes: 60 })] });
     }
@@ -343,6 +356,54 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     }
     return out;
   }
+  // Exports en masse (pt67) : plus de {seuil} exports ou PDF en 1 h par un compte, ou export d'une école entière.
+  const sqlSince = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
+  async function ruleExportMasse() {
+    const out = [];
+    const rows = await db.all("SELECT user_id, school_id, COUNT(*) AS n FROM security_event WHERE kind IN ('export','pdf') AND at_ms > ? AND user_id IS NOT NULL GROUP BY user_id, school_id", now() - H);
+    for (const r of rows) {
+      const n = Number(r.n); if (n <= S.exportMasseHeure) continue;
+      const cible = `compte n° ${r.user_id} (école ${r.school_id})`;
+      out.push({ rule: 'export_masse', key: `u:${r.user_id}|heure`, severity: 'critique', immediate: true, vars: { quoi: `${n} exports ou PDF en 1 h`, cible, seuil: S.exportMasseHeure }, varsHt: { quoi: `${n} ekspòtasyon oswa PDF nan 1 è`, cible, seuil: S.exportMasseHeure },
+        evidence: [`${n} exports/PDF en 1 h (seuil ${S.exportMasseHeure})`, ...(await lastEvents("kind IN ('export','pdf') AND user_id = ? AND at_ms > ?", r.user_id, now() - H)).map(evLine)], actions: accountActions({ user_id: Number(r.user_id) }) });
+    }
+    const since = now() - S.alertesFenetreMin * MIN;
+    const whole = await db.all(`SELECT a.id, a.school_id, a.actor_user_id, a.action, a.created_at, s.slug FROM audit_log a JOIN school s ON s.id = a.school_id
+      WHERE a.outcome = 'ok' AND a.created_at > ? AND ((a.action = 'export.students' AND a.record_type = 'school') OR a.action = 'export.finance') ORDER BY a.id DESC LIMIT 200`, sqlSince(since - 60e3));
+    for (const r of whole) {
+      const t = parseDbTime(r.created_at); if (!(t > since)) continue;
+      const quoi = r.action === 'export.finance' ? { fr: 'export des finances de toute l’école', ht: 'ekspòtasyon finans tout lekòl la' } : { fr: 'export de tous les élèves de l’école', ht: 'ekspòtasyon tout elèv lekòl la' };
+      const cible = `compte n° ${r.actor_user_id} (${r.slug})`;
+      out.push({ rule: 'export_masse', key: `audit:${r.id}`, severity: 'attention', immediate: true, vars: { quoi: quoi.fr, cible, seuil: S.exportMasseHeure }, varsHt: { quoi: quoi.ht, cible, seuil: S.exportMasseHeure },
+        evidence: [`${haitiTime(t, TZ)} (Haïti) · ${r.action} · ${r.slug} · compte n° ${r.actor_user_id}`], actions: r.actor_user_id ? accountActions({ user_id: Number(r.actor_user_id) }).slice(0, 2) : [] });
+    }
+    return out;
+  }
+  // Comptes privilégiés (pt67) : nouveau super-admin, direction invitée ou acceptée, changement de rôles.
+  async function rulePrivileged() {
+    const out = []; const since = now() - S.alertesFenetreMin * MIN; const s0 = sqlSince(since - 60e3);
+    const plat = await db.all(`SELECT id, admin_id, action, target, created_at FROM platform_audit WHERE outcome = 'ok' AND created_at > ? AND action IN ('admin.create','admin.direction.inviter') ORDER BY id DESC LIMIT 100`, s0);
+    for (const r of plat) {
+      const t = parseDbTime(r.created_at); if (!(t > since)) continue;
+      const q = r.action === 'admin.create' ? { fr: 'nouveau compte super-admin', ht: 'nouvo kont super-admin' } : { fr: 'invitation d’un compte direction (super-admin)', ht: 'envitasyon yon kont direksyon (super-admin)' };
+      const cible = r.action === 'admin.create' ? `admin n° ${r.target}` : `école n° ${r.target}`;
+      out.push({ rule: 'comptes_privilegies', key: `pa:${r.id}`, severity: r.action === 'admin.create' ? 'critique' : 'attention', immediate: true, vars: { quoi: q.fr, cible }, varsHt: { quoi: q.ht, cible },
+        evidence: [`${haitiTime(t, TZ)} (Haïti) · ${r.action} · ${cible}${r.admin_id ? ` · par admin n° ${r.admin_id}` : ''}`], actions: [] });
+    }
+    const sch = await db.all(`SELECT a.id, a.school_id, a.actor_user_id, a.action, a.record_id, a.reason, a.created_at, s.slug FROM audit_log a JOIN school s ON s.id = a.school_id
+      WHERE a.outcome = 'ok' AND a.created_at > ? AND a.action IN ('user.roles','invitation.accept') ORDER BY a.id DESC LIMIT 200`, s0);
+    for (const r of sch) {
+      const t = parseDbTime(r.created_at); if (!(t > since)) continue;
+      if (r.action === 'invitation.accept' && !/^direction\b/.test(String(r.reason || ''))) continue;
+      const roles = (String(r.reason || '').match(/\[rôles: ([^\]]*)\]/) || [])[1] || '';
+      const q = r.action === 'user.roles' ? { fr: `changement de rôles (${roles || '—'})`, ht: `chanjman wòl (${roles || '—'})` } : { fr: 'nouveau compte direction (invitation acceptée)', ht: 'nouvo kont direksyon (envitasyon aksepte)' };
+      const cible = `compte n° ${r.record_id} (${r.slug})`;
+      out.push({ rule: 'comptes_privilegies', key: `al:${r.id}`, severity: 'attention', immediate: true, vars: { quoi: q.fr, cible }, varsHt: { quoi: q.ht, cible },
+        evidence: [`${haitiTime(t, TZ)} (Haïti) · ${r.action} · ${r.slug} · compte n° ${r.record_id}${r.actor_user_id && r.action === 'user.roles' ? ` · par compte n° ${r.actor_user_id}` : ''}`],
+        actions: r.record_id ? accountActions({ user_id: Number(r.record_id) }).slice(0, 2) : [] });
+    }
+    return out;
+  }
   async function ruleSensitive() {
     const out = [];
     const since = new Date(now() - 24 * H).toISOString().replace('T', ' ').slice(0, 19);
@@ -396,6 +457,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     else if (b.error || !b.last) out.push(etat('sante', 'sauvegarde', 'critique', 'Aucune sauvegarde trouvée dans le dossier de sauvegarde.', 'Pa gen okenn sovgad nan dosye a.', 'Lancez deploy/sauvegarde/noria-sauvegarde.sh et vérifiez le minuteur systemd.', 'Lanse deploy/sauvegarde/noria-sauvegarde.sh epi verifye minitè systemd la.'));
     else {
       const age = (now() - Date.parse(b.last.at)) / H; m.sauvegarde_age_h = Math.round(age * 10) / 10;
+      if (b.hors_site === false) out.push(etat('sante', 'sauvegarde_hors_site', 'attention', 'La dernière sauvegarde n’a pas été copiée hors du serveur (S3/R2).', 'Dènye sovgad la pa t kopye andeyò sèvè a (S3/R2).', 'Vérifiez S3_BUCKET et les clés dans /etc/noria/sauvegarde.env.', 'Verifye S3_BUCKET ak kle yo nan /etc/noria/sauvegarde.env.', [`dernière : ${b.last.name}`]));
       if (age > S.sauvegardeMaxHeures) out.push(etat('sante', 'sauvegarde', 'critique', `La dernière sauvegarde date de ${Math.round(age)} h (plus de ${S.sauvegardeMaxHeures} h).`, `Dènye sovgad la gen ${Math.round(age)} è (plis pase ${S.sauvegardeMaxHeures} è).`, 'Vérifiez le minuteur noria-sauvegarde.timer (journalctl -u noria-sauvegarde) et lancez une sauvegarde à la main.', 'Verifye minitè noria-sauvegarde.timer epi lanse yon sovgad alamen.', [`dernière : ${b.last.name} · ${haitiTime(Date.parse(b.last.at), TZ)} (Haïti)`]));
     }
     const cert = await certExpiry(); if (cert) m.certificat = cert;
@@ -414,12 +476,14 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       s.on('error', () => resolve(null)); s.on('timeout', () => { s.destroy(); resolve(null); });
     });
   }
-  function ruleConfig() {
+  function ruleConfig(opts = {}) {
     const out = []; if (!prod && env.NORIA_ASSISTANT_CONFIG_TOUJOURS !== '1') return out;
     const miss = (k, sev, fr, ht) => out.push(etat('configuration', k, sev, fr, ht, 'Ajoutez la variable dans .env puis redémarrez.', 'Ajoute varyab la nan .env epi redemare.', [`${k} : absente`]));
     if (!env.NORIA_CLE_MAITRE) miss('NORIA_CLE_MAITRE', 'critique', 'NORIA_CLE_MAITRE est absente : les clés de signature des écoles (badges, relevés) ne sont pas protégées.', 'NORIA_CLE_MAITRE pa la : kle siyati lekòl yo pa pwoteje.');
     if (!env.NORIA_OTP_SECRET) miss('NORIA_OTP_SECRET', 'critique', 'NORIA_OTP_SECRET est absente : les codes de connexion à 6 chiffres sont moins protégés.', 'NORIA_OTP_SECRET pa la : kòd koneksyon 6 chif yo mwens pwoteje.');
-    if (!env.NORIA_BACKUP_AGE_RECIPIENT) miss('NORIA_BACKUP_AGE_RECIPIENT', 'attention', 'Clé de chiffrement des sauvegardes absente (NORIA_BACKUP_AGE_RECIPIENT) : les sauvegardes ne seraient pas chiffrées.', 'Kle chifreman sovgad yo pa la : sovgad yo pa t ap chifre.');
+    let bk = null; try { bk = opts.backups ? opts.backups() : null; } catch { bk = null; }
+    // La clé peut vivre dans /etc/noria/sauvegarde.env (script root) : etat.json confirme alors le chiffrement.
+    if (!env.NORIA_BACKUP_AGE_RECIPIENT && !(bk && bk.chiffrement)) miss('NORIA_BACKUP_AGE_RECIPIENT', 'attention', 'Clé de chiffrement des sauvegardes absente (NORIA_BACKUP_AGE_RECIPIENT) : les sauvegardes ne seraient pas chiffrées.', 'Kle chifreman sovgad yo pa la : sovgad yo pa t ap chifre.');
     if ((env.NORIA_SMS_PROVIDER || 'console') === 'console') miss('NORIA_SMS_PROVIDER', 'attention', 'Les SMS sont en mode console (simulés) : aucun code ni alerte ne part réellement par SMS.', 'SMS yo an mòd konsòl (simile) : okenn kòd pa pati vre.');
     if ((env.NORIA_EMAIL_PROVIDER || 'console') === 'console') miss('NORIA_EMAIL_PROVIDER', 'attention', 'Les e-mails sont en mode console (simulés).', 'Imèl yo an mòd konsòl (simile).');
     if (!secureCookie) miss('NORIA_SECURE_COOKIE', 'critique', 'Les cookies de session ne sont pas marqués Secure : ils peuvent circuler sans HTTPS.', 'Cookie sesyon yo pa make Secure : yo ka pase san HTTPS.');
@@ -465,8 +529,10 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     return { id, created: true, escalated: false, severity: c.severity };
   }
 
-  /* ---------- Notifications (regroupées : 1 message par règle toutes les 30 min) ---------- */
-  async function notify(rule, alert) {
+  /* ---------- Notifications (regroupées : 1 message par règle toutes les 30 min) ----------
+     Critique ou règle « immédiate » : message tout de suite (super-admin + e-mail/Telegram des alertes).
+     Attention : récapitulatif au plus toutes les {recapMin} min. Une alerte n'est signalée qu'une fois (notified_at). */
+  async function notify(rule, alert, { critique = true } = {}) {
     const row = await db.get('SELECT last_ms, suppressed FROM security_notice WHERE rule = ?', rule);
     if (row && now() - Number(row.last_ms) < S.notificationMin * MIN) {
       await db.run('UPDATE security_notice SET suppressed = suppressed + 1 WHERE rule = ?', rule);
@@ -476,43 +542,72 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     if (row) await db.run('UPDATE security_notice SET last_ms = ?, suppressed = 0 WHERE rule = ?', now(), rule);
     else await db.run('INSERT INTO security_notice (rule, last_ms, suppressed) VALUES (?,?,0)', rule, now());
     // Aucune donnée personnelle : titre de la règle, gravité, numéro d'alerte.
-    const text = `NORIA sécurité — CRITIQUE : ${alert.title_fr} (alerte n° ${alert.id})${extra}. Ouvrez /#admin → Assistant sécurité. Aucune action n’a été faite automatiquement.`;
-    const sent = [];
-    if (notifier) {
+    const g = critique ? 'CRITIQUE' : 'ATTENTION';
+    const text = `NORIA sécurité — ${g} : ${alert.title_fr} (alerte n° ${alert.id})${extra}. Ouvrez /#admin → Assistant sécurité. Aucune action n’a été faite automatiquement.`;
+    const sent = []; const admMails = [];
+    if (notifier && critique) {
       for (const a of await db.all("SELECT id, email, phone FROM platform_admin WHERE state = 'actif'")) {
         const ch = a.phone ? 'sms' : 'email';
-        try { await notifier.adapter(ch).send({ to: a.phone || a.email, subject: 'NORIA : alerte de sécurité critique', text }); sent.push(ch); }
+        try { await notifier.adapter(ch).send({ to: a.phone || a.email, subject: 'NORIA : alerte de sécurité critique', text }); sent.push(ch); if (ch === 'email') admMails.push(a.email); }
         catch (e) { log(`[assistant] notification ${ch} en échec : ${e.message}`); }
       }
     }
+    const ext = await out_.deliver(`NORIA : alerte de sécurité ${critique ? 'critique' : '« attention »'}`, text, { skipEmail: admMails.find((m) => out_.email() && m.toLowerCase() === out_.email().toLowerCase()) || null });
+    for (const c of ext.channels) sent.push(`alertes-${c}`);
     const hook = env.NORIA_ASSISTANT_WEBHOOK_URL;
     if (hook && /^https:\/\//.test(hook)) {
       try { await fetch(hook, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }), signal: AbortSignal.timeout(8000) }); sent.push('webhook'); }
       catch (e) { log(`[assistant] webhook en échec : ${e.message}`); }
     }
-    await db.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome, ip) VALUES (?,?,?,?,?,?)', null, 'assistant.notification', String(alert.id), `${rule} → ${sent.join(', ') || 'aucun canal'}${extra}`, 'ok', null);
+    if (sent.length) await db.run('UPDATE security_alert SET notified_at = ? WHERE id = ?', iso(now()), alert.id);
+    await db.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome, ip) VALUES (?,?,?,?,?,?)', null, 'assistant.notification', String(alert.id), `${rule} → ${sent.join(', ') || 'aucun canal'}${extra}${ext.capped ? ' (plafond horaire atteint)' : ''}`, 'ok', null);
     return { sent: true, channels: sent };
+  }
+  // Récapitulatif des alertes « attention » (et critiques regroupées) pas encore signalées, au plus toutes les {recapMin} min.
+  async function digest() {
+    if (!(await out_.configured())) return null;
+    const row = await db.get("SELECT last_ms FROM security_notice WHERE rule = '_recap'");
+    if (row && now() - Number(row.last_ms) < S.recapMin * MIN) return null;
+    const list = await db.all(`SELECT id, severity, title_fr, hits FROM security_alert WHERE status = 'ouverte' AND notified_at IS NULL AND severity IN ('attention','critique') AND last_at > ?
+      ORDER BY CASE severity WHEN 'critique' THEN 0 ELSE 1 END, last_at DESC LIMIT 200`, iso(now() - 24 * H));
+    if (!list.length) return null;
+    const lines = list.slice(0, 10).map((a) => `• ${a.severity === 'critique' ? 'CRITIQUE' : 'attention'} — ${a.title_fr} (n° ${a.id}${Number(a.hits) > 1 ? `, ${a.hits} fois` : ''})`);
+    const text = `NORIA sécurité — récapitulatif : ${list.length} alerte(s) ouverte(s) non encore signalée(s).\n${lines.join('\n')}${list.length > 10 ? `\n… et ${list.length - 10} autre(s).` : ''}\nOuvrez /#admin → Assistant sécurité.`;
+    const r = await out_.deliver('NORIA : récapitulatif sécurité', text);
+    if (!r.sent) return { sent: false, capped: r.capped };
+    if (row) await db.run("UPDATE security_notice SET last_ms = ?, suppressed = 0 WHERE rule = '_recap'", now());
+    else await db.run("INSERT INTO security_notice (rule, last_ms, suppressed) VALUES ('_recap',?,0)", now());
+    for (const a of list) await db.run('UPDATE security_alert SET notified_at = ? WHERE id = ?', iso(now()), a.id);
+    await db.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome, ip) VALUES (?,?,?,?,?,?)', null, 'assistant.notification', 'recap', `récapitulatif ${list.length} alerte(s) → ${r.channels.join(', ')}`, 'ok', null);
+    return { sent: true, n: list.length, channels: r.channels };
+  }
+  async function handle(cands) {
+    const res = [], notes = [];
+    for (const c of cands) {
+      const r = await upsert(c); if (!r) continue; res.push(r);
+      const crit = r.severity === 'critique';
+      if ((r.created && (crit || c.immediate)) || r.escalated) {
+        if (r.escalated) await db.run('UPDATE security_alert SET notified_at = NULL WHERE id = ?', r.id);
+        const a = await db.get('SELECT id, title_fr FROM security_alert WHERE id = ?', r.id);
+        notes.push(await notify(c.rule, a, { critique: crit }));
+      }
+    }
+    return { res, notes };
   }
 
   /* ---------- Analyse ---------- */
   async function analyse(opts) {
     if (running) return running;
-    running = (async () => {
+    running = exclusive(async () => {
       await flush();
       const cands = [];
       const health = await ruleHealth(opts);
-      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleSearches, rulePropositions, ruleMinistere, ruleEmails, ruleSensitive]) {
+      for (const f of [ruleBrute, ruleNewDevice, ruleCrossSchool, ruleSpikes, ruleVolume, ruleExportMasse, rulePrivileged, ruleSearches, rulePropositions, ruleMinistere, ruleEmails, ruleSensitive]) {
         try { cands.push(...await f()); } catch (e) { log(`[assistant] règle ${f.name} en échec : ${e.message}`); }
       }
-      cands.push(...health.alerts, ...ruleConfig(), ...ruleDeps());
-      const res = [], notes = [];
-      for (const c of cands) {
-        const r = await upsert(c); if (!r) continue; res.push(r);
-        if ((r.created || r.escalated) && r.severity === 'critique') {
-          const a = await db.get('SELECT id, title_fr FROM security_alert WHERE id = ?', r.id);
-          notes.push(await notify(c.rule, a));
-        }
-      }
+      cands.push(...health.alerts, ...ruleConfig(opts), ...ruleDeps());
+      const { res, notes } = await handle(cands);
+      try { const d = await digest(); if (d) notes.push({ recap: true, ...d }); } catch (e) { log(`[assistant] récapitulatif en échec : ${e.message}`); }
       await db.run('DELETE FROM security_event WHERE at_ms < ?', now() - S.retentionJours * 24 * H);
       await db.run('DELETE FROM security_pending WHERE expires_at < ?', iso(now() - H));
       const hc = env.NORIA_ASSISTANT_HEALTHCHECKS_URL;
@@ -522,7 +617,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
       }
       lastRun = { at: iso(now()), candidats: cands.length, nouvelles: res.filter((r) => r.created).length, mesures: health.mesures, notifications: notes };
       return lastRun;
-    })();
+    });
     try { return await running; } finally { running = null; }
   }
   function start(opts, minutes = Number(env.NORIA_ASSISTANT_INTERVALLE_MIN || 5)) {
@@ -563,7 +658,7 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     return { source: 'guide', reponse: `${alert[`explain_${L}`]} ${fill(g.pourquoi[L], vars)}${ev.length ? ` ${L === 'ht' ? 'Prèv' : 'Preuves'} : ${ev.slice(0, 3).join(' ; ')}.` : ''}` };
   }
 
-  return { record, flush, observe, loginOk, isBlocked, refreshBlocks, analyse, start, stop, score, guide, lastRun: () => lastRun, seuils: S, llmEnabled: !!llm, ACTIONS };
+  return { record, flush, settle, alertes: out_, observe, loginOk, isBlocked, refreshBlocks, analyse, start, stop, score, guide, lastRun: () => lastRun, seuils: S, llmEnabled: !!llm, ACTIONS };
 }
 
 module.exports = { createSecurity, maskIp, maskAccount, DEFAULTS, ACTIONS, readSeuils };

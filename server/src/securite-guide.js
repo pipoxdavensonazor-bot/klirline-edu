@@ -66,6 +66,21 @@ const G = {
     pourquoi: { fr: 'Le seuil est de {seuil} erreurs 5xx en 10 minutes.', ht: 'Limit lan se {seuil} erè 5xx nan 10 minit.' },
     faux: { fr: 'Rare : une coupure brève de la base pendant une sauvegarde ou un redémarrage.', ht: 'Ra : yon ti koupi baz done a pandan yon sovgad oswa yon redemaraj.' },
   },
+  export_masse: {
+    titre: { fr: 'Export en masse de données', ht: 'Ekspòtasyon anpil done' },
+    expl: { fr: '{quoi} par le {cible}. Un export complet sort des données personnelles de NORIA.', ht: '{quoi} pa {cible}. Yon ekspòtasyon konplè fè done pèsonèl soti nan NORIA.' },
+    reco: { fr: 'Vérifiez auprès de l’école que cet export était prévu. Sinon, déconnectez le compte et changez son mot de passe.',
+      ht: 'Verifye ak lekòl la si ekspòtasyon sa a te prevwa. Si non, dekonekte kont lan epi chanje modpas li.' },
+    pourquoi: { fr: 'Alerte immédiate : export d’une école entière, ou plus de {seuil} exports ou PDF en 1 h par un même compte.', ht: 'Alèt imedya : ekspòtasyon tout yon lekòl, oswa plis pase {seuil} ekspòtasyon oswa PDF nan 1 è pa yon menm kont.' },
+    faux: { fr: 'Fréquent en début d’année ou avant une réunion : la direction exporte la liste des élèves.', ht: 'Sa rive souvan nan kòmansman ane a : direksyon an ekspòte lis elèv yo.' },
+  },
+  comptes_privilegies: {
+    titre: { fr: 'Compte privilégié créé ou rôles modifiés', ht: 'Kont privilejye kreye oswa wòl chanje' },
+    expl: { fr: '{quoi} : {cible}. Ces comptes donnent un accès étendu aux données.', ht: '{quoi} : {cible}. Kont sa yo bay aksè laj sou done yo.' },
+    reco: { fr: 'Confirmez que ce changement est voulu. Sinon, déconnectez le compte et retirez le rôle.', ht: 'Konfime chanjman sa a te vle. Si non, dekonekte kont lan epi retire wòl la.' },
+    pourquoi: { fr: 'Alerte immédiate à chaque nouveau super-admin, nouvelle direction ou changement de rôles.', ht: 'Alèt imedya pou chak nouvo super-admin, nouvo direksyon oswa chanjman wòl.' },
+    faux: { fr: 'Normal quand vous ou une direction ajoutez quelqu’un : marquez l’alerte comme traitée.', ht: 'Nòmal lè ou menm oswa yon direksyon ajoute yon moun : make alèt la trete.' },
+  },
   volume_anormal: {
     titre: { fr: 'Volume anormal de consultations ou d’exports', ht: 'Twòp konsiltasyon oswa ekspòtasyon' },
     expl: { fr: 'Le compte {cible} a fait {n} {quoi} en une heure (seuil {seuil}). Cela peut être une copie massive de données.',

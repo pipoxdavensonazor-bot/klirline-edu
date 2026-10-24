@@ -72,6 +72,12 @@ async function handleUpdate(db, ctx, update) {
   const lang = /^ht\b/i.test(String((msg.from && msg.from.language_code) || '')) ? 'ht' : 'fr';
   const text = msg.text.trim();
   const start = text.match(/^\/start(?:@\w+)?(?:\s+([\w-]{1,64}))?$/);
+  if (start && start[1] && start[1].startsWith('adm-')) {
+    // Alertes de sécurité du super-admin (src/alertes.js) : conversation reliée à platform_admin, pas à une école.
+    const ok = await require('./alertes').linkAdminChat(db, start[1], chatId);
+    await sendMessage(ctx, chatId, ok ? 'NORIA : alertes de sécurité reliées. Vous recevrez ici les alertes du super-admin. Pour arrêter : /stop' : tx(lang).badLink).catch(() => {});
+    return ok ? 'alertes_relie' : 'lien_invalide';
+  }
   if (start && start[1]) {
     const row = await db.get('SELECT * FROM telegram_link WHERE token_hash = ?', sha256(start[1]));
     if (!row || row.chat_id || row.revoked_at || !row.token_expires_at || row.token_expires_at <= iso()) { await sendMessage(ctx, chatId, tx(lang).badLink).catch(() => {}); return 'lien_invalide'; }
@@ -94,6 +100,8 @@ async function handleUpdate(db, ctx, update) {
       await db.run('UPDATE telegram_link SET revoked_at = ? WHERE id = ?', iso(), r.id);
       await audit(db, { id: r.user_id, school_id: r.school_id }, 'telegram.unlink', 'user', r.user_id, 'depuis Telegram');
     }
+    const adm = await db.run('UPDATE admin_telegram SET revoked_at = ? WHERE chat_id = ? AND revoked_at IS NULL', iso(), chatId);
+    if (adm.changes) await db.run('INSERT INTO platform_audit (admin_id, action, target, detail, outcome, ip) VALUES (?,?,?,?,?,?)', null, 'admin.alertes.telegram.delier', null, 'depuis Telegram (/stop)', 'ok', null);
     await sendMessage(ctx, chatId, tx(lang).stopped).catch(() => {});
     return 'arrete';
   }
@@ -136,4 +144,4 @@ function createRoutes() {
   return { routes, publicRoutes };
 }
 
-module.exports = { enabled, GATED, createRoutes, chatFor, sendCode, handleUpdate, botName, LINK_MIN };
+module.exports = { enabled, GATED, createRoutes, chatFor, sendCode, sendMessage, handleUpdate, botName, LINK_MIN };

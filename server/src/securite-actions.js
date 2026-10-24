@@ -163,6 +163,31 @@ function routes({ log, dbSize, backups }) {
       const rows = await db.all(`SELECT * FROM security_alert ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY CASE severity WHEN 'critique' THEN 0 WHEN 'attention' THEN 1 ELSE 2 END, last_at DESC LIMIT 200`, ...p);
       return { ...(await sec(ctx).score()), derniere_analyse: sec(ctx).lastRun(), llm: sec(ctx).llmEnabled, alertes: rows.map(alertOut) };
     }, { auth: true }],
+    // Alertes hors de l'application (pt67) : état des canaux, liaison Telegram du super-admin, message de test.
+    ['GET', /^\/api\/admin\/alertes$/, async (_db, _req, a, _m, ctx) => sec(ctx).alertes.status(a.id), { auth: true }],
+    ['POST', /^\/api\/admin\/alertes\/telegram\/lien$/, async (db, req, a, _m, ctx) => {
+      const st = await sec(ctx).alertes.status(a.id); if (!st.telegram_actif) throw new HttpError(404, 'Telegram non configuré');
+      const r = await sec(ctx).alertes.link(a.id); if (r.error) throw new HttpError(429, 'trop de liens demandés, réessayez dans une heure');
+      await log(db, a, 'admin.alertes.telegram.lien', String(a.id), 'lien Telegram demandé (15 min)', 'ok', req.ip);
+      return r;
+    }, { auth: true, write: true }],
+    ['POST', /^\/api\/admin\/alertes\/telegram\/existant$/, async (db, req, a, _m, ctx) => {
+      if (!(await sec(ctx).alertes.useExisting(a.id))) throw new HttpError(404, 'aucune conversation Telegram déjà reliée à votre adresse');
+      await log(db, a, 'admin.alertes.telegram.relier', String(a.id), 'conversation existante réutilisée', 'ok', req.ip);
+      return { ok: true };
+    }, { auth: true, write: true }],
+    ['POST', /^\/api\/admin\/alertes\/telegram\/delier$/, async (db, req, a, _m, ctx) => {
+      const n = await sec(ctx).alertes.unlink(a.id);
+      await log(db, a, 'admin.alertes.telegram.delier', String(a.id), `${n} liaison(s) retirée(s)`, 'ok', req.ip);
+      return { ok: true, retires: n };
+    }, { auth: true, write: true }],
+    ['POST', /^\/api\/admin\/alertes\/test$/, async (db, req, a, _m, ctx) => {
+      const n = await db.get("SELECT COUNT(*) AS n FROM platform_audit WHERE action = 'admin.alertes.test' AND admin_id = ? AND created_at > ?", a.id, new Date(Date.now() - 3600e3).toISOString().replace('T', ' ').slice(0, 19));
+      if (Number(n.n) >= 5) throw new HttpError(429, 'au plus 5 messages de test par heure');
+      const r = await sec(ctx).alertes.deliver('NORIA : message de test des alertes', 'NORIA sécurité — test : ce canal recevra les alertes critiques tout de suite et un récapitulatif des alertes « attention ». Aucune action à faire.', { force: true });
+      await log(db, a, 'admin.alertes.test', String(a.id), `test → ${r.channels.join(', ') || 'aucun canal'}`, r.sent ? 'ok' : 'echec', req.ip);
+      return { ok: r.sent, canaux: r.channels };
+    }, { auth: true, write: true }],
     ['GET', /^\/api\/admin\/securite\/alertes\/(\d+)$/, async (db, _req, _a, [id]) => {
       const a = await db.get('SELECT * FROM security_alert WHERE id = ?', Number(id)); if (!a) throw new HttpError(404, 'introuvable');
       return alertOut(a);

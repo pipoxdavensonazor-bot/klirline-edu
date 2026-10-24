@@ -294,7 +294,8 @@ test('adaptateur NORIA_ASSISTANT_LLM : désactivé par défaut, jamais de donné
 test('regroupement des notifications : au plus 1 message par règle toutes les 30 minutes', async () => {
   const d2 = await openTestDb(); await seed(d2);
   await createAdmin(d2, { email: 'admin2@noria.exemple.invalid', name: 'Admin', phone: '+50900000998', password: ADMIN_PW });
-  const box = []; let clock = Date.now(); let hooks = 0;
+  // Horloge avancée de 2 h : la création du compte (alerte « comptes privilégiés », testée dans alertes.test.js) sort de la fenêtre.
+  const box = []; let clock = Date.now() + 2 * 3600e3; let hooks = 0;
   const nf = { adapter: () => ({ async send(m) { box.push(m); return {}; } }) };
   const realFetch = global.fetch;
   global.fetch = async (u) => { if (String(u).startsWith('https://hooks.exemple.invalid')) { hooks++; return { ok: true }; } return realFetch(u); };

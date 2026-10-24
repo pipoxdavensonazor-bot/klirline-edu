@@ -21,6 +21,17 @@ chiffrer() {
 }
 extension() { if [ -n "${NORIA_BACKUP_AGE_RECIPIENT:-}" ]; then echo age; else echo enc; fi; }
 
+# État lisible par l'application (Santé du serveur) : les sous-dossiers restent en 0700 root ; seul ce petit fichier,
+# sans aucun secret (nom, date, taille, empreinte, chiffrement, copie hors site), est en 0644. Écriture atomique.
+ecrire_etat() {
+  local name="$1" hors_site="$2" f="$BACKUP_DIR/quotidien/$1"
+  local taille sha n; taille=$(stat -c %s "$f"); sha=$(cut -d' ' -f1 < "$f.sha256")
+  n=$(find "$BACKUP_DIR/quotidien" -maxdepth 1 -type f -name 'noria-*' ! -name '*.sha256' | wc -l)
+  printf '{"version":1,"derniere":{"name":"%s","at":"%s","size":%s,"sha256":"%s"},"chiffrement":"%s","hors_site":%s,"quotidiennes":%s}\n' \
+    "$name" "$(date -u +%FT%TZ)" "$taille" "$sha" "$(extension)" "$hors_site" "$n" > "$BACKUP_DIR/.etat.json.tmp"
+  chmod 0644 "$BACKUP_DIR/.etat.json.tmp"; mv -f "$BACKUP_DIR/.etat.json.tmp" "$BACKUP_DIR/etat.json"
+}
+
 sauvegarder() {
   [ -n "${NORIA_BACKUP_AGE_RECIPIENT:-}" ] && ! command -v age >/dev/null && die "age introuvable (sudo apt install age)"
   s3_actif && s3_verifier
@@ -44,15 +55,18 @@ sauvegarder() {
     ln -f "$BACKUP_DIR/quotidien/$name" "$BACKUP_DIR/$c/$name"; ln -f "$BACKUP_DIR/quotidien/$name.sha256" "$BACKUP_DIR/$c/$name.sha256"
   done
   log "local : ${copies[*]} ($(du -h "$BACKUP_DIR/quotidien/$name" | cut -f1))"
+  local hors_site=false
   if s3_actif; then
     for c in "${copies[@]}"; do
       s3_envoyer "$BACKUP_DIR/quotidien/$name" "$S3_PREFIX/$c/$name"
       s3_envoyer "$BACKUP_DIR/quotidien/$name.sha256" "$S3_PREFIX/$c/$name.sha256"
       log "S3 : envoyé $S3_PREFIX/$c/$name"
     done
+    hors_site=true
   else log "S3_BUCKET non défini : AUCUNE copie hors site (à corriger en production)"; fi
   elaguer_local
   if s3_actif; then elaguer_s3; fi
+  ecrire_etat "$name" "$hors_site"
   # Signal de vie facultatif (Healthchecks.io, Uptime Kuma…) : alerte si la sauvegarde ne passe plus.
   if [ -n "${NORIA_BACKUP_PING_URL:-}" ]; then curl -fsS -m 10 --retry 3 "$NORIA_BACKUP_PING_URL" -o /dev/null || true; fi
   log "terminé : $name"
