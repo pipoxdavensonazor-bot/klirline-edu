@@ -311,14 +311,14 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
     return { status: 404, html: layout({ L, page: null, title: t.notFound, desc: t.notFoundText, body: `<h1>${esc(t.notFound)}</h1><p>${esc(t.notFoundText)}</p><p><a class="btn" href="${href(L)}">${esc(t.home)}</a></p>`, canonical: href(L), alt: null, base, assets: getAssets(), status: 404 }) };
   }
   // Bloc 8 : pages et formulaires de l'inscription des écoles et des comptes grand public (jamais en cache partagé).
-  const site = ctx ? PP.createPublicSite(db, {
-    ctx, write: (...a) => write(...a), baseOf: (req) => baseOf(req), esc, T,
-    render: ({ L, title, body, req, status }) => {
+  const renderPage = ({ L, title, body, req, status }) => {
       const p = new URL(req.url, 'http://x').pathname.replace(/^\/ht/, '').replace(/^\//, '');
       const canon = p.startsWith('compte') ? 'compte' : p;
       return layout({ L, page: canon === 'compte' ? 'compte' : null, title, desc: t0(L).desc[''], body, canonical: href(L, canon), alt: { fr: href('fr', canon), ht: href('ht', canon) }, base: baseOf(req), assets: getAssets(), status: status === 200 ? 200 : 404 });
-    },
-  }) : null;
+  };
+  const site = ctx ? PP.createPublicSite(db, { ctx, write: (...a) => write(...a), baseOf: (req) => baseOf(req), esc, T, render: renderPage }) : null;
+  // Lot 3 : inscriptions en ligne (/inscriptions, /inscription/<école>, variantes /ht/).
+  const cand = ctx ? require('./candidatures').createSite(db, { ctx, write: (...a) => write(...a), esc, render: renderPage }) : null;
   const t0 = (L) => T[L];
   async function sitemap(base) {
     const rows = await pub.sitemap();
@@ -352,6 +352,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
       res.writeHead(301, { ...baseHeaders, location: to + url.search, 'cache-control': 'public, max-age=86400' }); res.end(); return true;
     }
     if (site && (await site.rss(req, res, url, baseHeaders) || await site.get(req, res, url, baseHeaders))) return true;
+    if (cand && await cand.get(req, res, url, baseHeaders)) return true;
     if (p === '/robots.txt') { write(req, res, baseHeaders, { status: 200, body: robots(baseOf(req)), type: 'text/plain; charset=utf-8', cache: 'public, max-age=3600' }); return true; }
     if (p === '/sitemap.xml') { write(req, res, baseHeaders, { status: 200, body: await sitemap(baseOf(req)), type: 'application/xml; charset=utf-8', cache: 'public, max-age=3600' }); return true; }
     let m = p.match(/^\/p\/img\/(\d{1,9})(-v)?$/);
@@ -390,8 +391,11 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
     const r = notFoundPage(L, baseOf(req));
     write(req, res, baseHeaders, { status: 404, body: r.html, type: 'text/html; charset=utf-8', cache: 'no-cache', extra: { 'content-language': L } });
   }
-  const post = async (req, res, url, baseHeaders, ip) => (site ? site.post(req, res, url, baseHeaders, ip) : false);
-  return { serve, notFound, pub, T, post, handlesPost: (p) => !!site && site.handlesPost(p) };
+  const post = async (req, res, url, baseHeaders, ip) => {
+    if (cand && cand.handlesPost(url.pathname)) return cand.post(req, res, url, baseHeaders, ip);
+    return site ? site.post(req, res, url, baseHeaders, ip) : false;
+  };
+  return { serve, notFound, pub, T, post, handlesPost: (p) => (!!site && site.handlesPost(p)) || (!!cand && cand.handlesPost(p)) };
 }
 
 module.exports = { createPortal, PORTAL_CSP, T, esc };

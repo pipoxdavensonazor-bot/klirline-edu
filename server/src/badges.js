@@ -9,6 +9,7 @@ const { badgePdf, badgeSheetPdf } = require('./pdf-bloc2');
 const { schoolKeys } = require('./cles');
 const { publicUrl } = require('./scolaire');
 const emailsEleves = require('./emails-eleves');
+const CB = require('./codes-barres');
 
 const PHOTO_MAX = 40 * 1024;
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -269,6 +270,35 @@ const routes = [
     const docs = await badgeDocs(db, ctx, req, u.school_id, rows);
     await audit(db, u, 'badge.sheet', 'class', cls.id, `${docs.length} badge(s), planche de ${per}`);
     return { __pdf: badgeSheetPdf(docs, per, `Badges ${cls.name}`), filename: `badges-${cls.name.replace(/[^A-Za-z0-9]+/g, '-')}.pdf` };
+  }],
+  // Lot 3 : l'élève (et son parent) voit son propre badge valide dans son portail, avec QR de vérification et
+  // code-barres Code 128 du code élève, générés localement (aucun service externe).
+  ['GET', /^\/api\/badges\/moi$/, async (db, req, u, _m, ctx) => {
+    if (!P.has(u, 'eleve', 'parent')) await refuse(ctx, u, 'badge.mine', 'school', u.school_id, 'rôle');
+    const sc = P.studentScope(u, 'st');
+    const rows = await db.all(`${BADGE_SELECT} WHERE b.school_id = ? AND b.status = 'valide' AND b.expires_on >= ? AND ${sc.sql} ORDER BY st.first_name, b.id DESC`, u.school_id, localDay(), ...sc.params);
+    const keys = await schoolKeys(ctx.db, u.school_id);
+    const base = publicUrl(req, ctx);
+    const seen = new Set(), out = [];
+    for (const b of rows) {
+      if (seen.has(b.student_id)) continue; seen.add(b.student_id);
+      const url = `${base}/#verifier=${tokenFor(keys.badgeSecret, b.token_nonce)}`;
+      out.push({ id: b.id, student_id: b.student_id, code: b.code, first_name: b.first_name, last_name: b.last_name, class_name: b.class_name, year: b.year,
+        expires_on: b.expires_on, status: badgeStatus(b), qr_svg: CB.qrSvg(url, { cell: 3 }), code128_svg: CB.code128Svg(b.code, { height: 50, module: 2 }),
+        email: await emailsEleves.activeAddress(db, ctx, u.school_id, b.student_id) });
+    }
+    const sans = await db.all(`SELECT st.id, st.code, st.first_name, st.last_name FROM student st WHERE ${sc.sql} ORDER BY st.first_name`, ...sc.params);
+    return { badges: out, sans_badge: sans.filter((s) => !seen.has(s.id)).map((s) => ({ student_id: s.id, code: s.code, first_name: s.first_name, last_name: s.last_name,
+      code128_svg: CB.code128Svg(s.code, { height: 50, module: 2 }) })) };
+  }],
+  ['GET', /^\/api\/badges\/moi\/(\d+)\/pdf$/, async (db, req, u, [id], ctx) => {
+    if (!P.has(u, 'eleve', 'parent')) await refuse(ctx, u, 'badge.mine.pdf', 'badge', id, 'rôle');
+    const sc = P.studentScope(u, 'st');
+    const b = await db.get(`${BADGE_SELECT} WHERE b.id = ? AND b.school_id = ? AND ${sc.sql}`, int(id), u.school_id, ...sc.params); if (!b) notFound();
+    if (badgeStatus(b) !== 'valide') throw new HttpError(410, 'badge expiré ou révoqué');
+    const [doc] = await badgeDocs(db, ctx, req, u.school_id, [b]);
+    await audit(db, u, 'badge.mine.pdf', 'badge', b.id, null);
+    return { __pdf: badgePdf(doc), filename: `badge-${b.code}-${b.year}.pdf` };
   }],
   ['POST', /^\/api\/badges\/(\d+)\/revoquer$/, async (db, req, u, [id], ctx) => {
     if (!staff(u)) await refuse(ctx, u, 'badge.revoke', 'badge', id, null);

@@ -93,7 +93,8 @@ module.exports = (normalizePhone) => ({ routes: [
       return sid;
     });
     const st = await db.get('SELECT id, code, first_name, last_name, birth_date, sex FROM student WHERE id = ?', sid);
-    return { ...st, class_id: cls.id, guardians: await listGuardians(db, u, sid) };
+    const email = await require('./emails-eleves').autoCreate(db, ctx, u, sid);
+    return { ...st, class_id: cls.id, guardians: await listGuardians(db, u, sid), ...(email ? { email } : {}) };
   }],
   // Changement de classe motivé : l'inscription active est déplacée ; l'ancienne classe est gardée dans le journal.
   ['PUT', /^\/api\/students\/(\d+)\/classe$/, async (db, req, u, [sid], ctx) => {

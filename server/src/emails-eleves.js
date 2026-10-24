@@ -49,8 +49,17 @@ function domainFor(ctx, settings) {
   if (!base) return null;
   return settings && settings.subdomain ? `${settings.subdomain}.${base}` : base;
 }
-function localFor(code, settings) {
-  const l = slug(code) || 'eleve';
+// Format de la partie locale (réglage de l'école) : code élève (défaut, stable et unique), prenom.nom, p.nom,
+// prenom.nom.annee (année d'inscription). Les homonymes reçoivent -2, -3… lors de la vérification d'unicité.
+const FORMATS = ['code', 'prenom.nom', 'p.nom', 'prenom.nom.annee'];
+function localFor(code, settings, s) {
+  const f = (settings && settings.local_format) || 'code';
+  const fn = s ? slug(s.first_name, 20) : '', ln = s ? slug(s.last_name, 24) : '';
+  let l;
+  if (f === 'code' || !fn || !ln) l = slug(code) || 'eleve';
+  else if (f === 'prenom.nom') l = `${fn}.${ln}`;
+  else if (f === 'p.nom') l = `${fn[0]}.${ln}`;
+  else l = `${fn}.${ln}.${new Date().getFullYear() % 100}`;
   return settings && settings.prefix ? `${settings.prefix}.${l}` : l;
 }
 // Masque une adresse de destination : « a***s@gmail.com ».
@@ -216,7 +225,7 @@ async function propose(t, ctx, u, body) {
   const out = [];
   for (const s of rows) {
     if (seen.has(s.id)) continue; seen.add(s.id);
-    const base = localFor(s.code, settings);
+    const base = localFor(s.code, settings, s);
     let local = base, n = 1, collision = false;
     // Unicité : vérifiée dans toute la plateforme (connexion système ; le cloisonnement cache les autres écoles).
     for (;;) {
@@ -232,6 +241,33 @@ async function propose(t, ctx, u, body) {
   }
   const empreinte = sha256(JSON.stringify([domain, out.map((p) => [p.student_id, p.adresse])])).slice(0, 24);
   return { domaine: domain, scoped: !!(settings && (settings.subdomain || settings.prefix)), propositions: out, empreinte };
+}
+
+// Création automatique à l'inscription d'un élève (si NORIA_EMAIL_ELEVES=1, domaine configuré et réglage « auto »
+// activé). Adresse en attente : elle ne transfère rien tant qu'une destination n'est pas vérifiée (et, pour un
+// mineur, tant que le consentement parental n'est pas donné). Ne lève jamais : l'inscription prime.
+async function autoCreate(t, ctx, u, studentId) {
+  try {
+    if (!enabled(ctx)) return null;
+    const settings = await settingsOf(t, u.school_id);
+    if (!settings || !Number(settings.auto_on_enrol)) return null;
+    const domain = domainFor(ctx, settings);
+    if (!domain) return null;
+    const s = await t.get('SELECT id, code, first_name, last_name, birth_date FROM student WHERE school_id = ? AND id = ?', u.school_id, studentId);
+    if (!s || await t.get(`SELECT 1 AS x FROM student_email WHERE school_id = ? AND student_id = ? AND status IN ('en_attente','active','suspendue')`, u.school_id, s.id)) return null;
+    const base = localFor(s.code, settings, s);
+    let local = base;
+    for (let n = 2; n < 500; n++) {
+      const bare = local.split('.').pop();
+      if (!RESERVED.has(bare) && !RESERVED.has(local) && !(await ctx.db.get('SELECT 1 AS x FROM student_email WHERE address = ?', `${local}@${domain}`))) break;
+      local = `${base}-${n}`;
+    }
+    const address = `${local}@${domain}`, at = iso(), minor = minorOf(s.birth_date, ctx) ? 1 : 0;
+    const id = await t.insert(`INSERT INTO student_email (school_id, student_id, student_code, address, local_part, scoped, status, minor, created_by, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`, u.school_id, s.id, s.code, address, local, settings.subdomain || settings.prefix ? 1 : 0, 'en_attente', minor, u.id, at, at);
+    await event(t, { id, school_id: u.school_id, student_id: s.id }, 'creation_auto', 'systeme', u.id, minor ? 'inscription — mineur : consentement parental requis' : 'inscription');
+    return address;
+  } catch (e) { if (ctx && ctx.log) ctx.log('email auto', e.message); return null; }
 }
 
 /* ---------- Présentation ---------- */
@@ -352,7 +388,7 @@ function schoolRoutes() {
         WHERE c.school_id = ? GROUP BY c.id, c.name ORDER BY c.name`, u.school_id);
       const stats = {};
       for (const a of adresses) stats[a.statut] = (stats[a.statut] || 0) + 1;
-      return { domaine: domainFor(ctx, settings), domaine_base: baseDomain(ctx), reglages: { sous_domaine: settings ? settings.subdomain : null, prefixe: settings ? settings.prefix : null },
+      return { domaine: domainFor(ctx, settings), domaine_base: baseDomain(ctx), reglages: { sous_domaine: settings ? settings.subdomain : null, prefixe: settings ? settings.prefix : null, format: (settings && settings.local_format) || 'code', auto: !!(settings && Number(settings.auto_on_enrol)) }, formats: FORMATS,
         fournisseur: providerInfo(ctx), simule: providerInfo(ctx).routage === 'simule', delai_jours: delayDays(ctx), redirection_jours: redirectDays(ctx),
         ecriture: P.has(u, 'direction'), classes: classes.map((c) => ({ id: c.id, nom: c.name, eleves: Number(c.n) })), adresses, stats };
     }],
@@ -363,10 +399,13 @@ function schoolRoutes() {
       const sub = b.sous_domaine ? slug(b.sous_domaine, 30) : null, pre = b.prefixe ? slug(b.prefixe, 20) : null;
       if ((sub && (!LABEL.test(sub) || sub.length < 2)) || (pre && (!LABEL.test(pre) || pre.length < 2))) throw new HttpError(400, 'sous-domaine ou préfixe invalide (2 à 30 lettres, chiffres, tirets)');
       const had = await settingsOf(t, u.school_id);
-      if (had) await t.run('UPDATE school_email_settings SET subdomain = ?, prefix = ?, updated_by = ?, updated_at = ? WHERE school_id = ?', sub, pre, u.id, iso(), u.school_id);
-      else await t.run('INSERT INTO school_email_settings (school_id, subdomain, prefix, updated_by, updated_at) VALUES (?,?,?,?,?)', u.school_id, sub, pre, u.id, iso());
-      await audit(t, u, 'emails.reglages', 'school_email_settings', u.school_id, `sous-domaine ${sub || '—'}, préfixe ${pre || '—'} (adresses existantes inchangées)`);
-      return { sous_domaine: sub, prefixe: pre, domaine: domainFor(ctx, { subdomain: sub }) };
+      const fmt = b.format == null ? ((had && had.local_format) || 'code') : String(b.format);
+      if (!FORMATS.includes(fmt)) throw new HttpError(400, `format : ${FORMATS.join(', ')}`);
+      const auto = b.auto == null ? (had ? Number(had.auto_on_enrol) || 0 : 0) : (b.auto === true || b.auto === 1 || b.auto === '1' ? 1 : 0);
+      if (had) await t.run('UPDATE school_email_settings SET subdomain = ?, prefix = ?, local_format = ?, auto_on_enrol = ?, updated_by = ?, updated_at = ? WHERE school_id = ?', sub, pre, fmt, auto, u.id, iso(), u.school_id);
+      else await t.run('INSERT INTO school_email_settings (school_id, subdomain, prefix, local_format, auto_on_enrol, updated_by, updated_at) VALUES (?,?,?,?,?,?,?)', u.school_id, sub, pre, fmt, auto, u.id, iso());
+      await audit(t, u, 'emails.reglages', 'school_email_settings', u.school_id, `sous-domaine ${sub || '—'}, préfixe ${pre || '—'}, format ${fmt}, auto ${auto ? 'oui' : 'non'} (adresses existantes inchangées)`);
+      return { sous_domaine: sub, prefixe: pre, format: fmt, auto: !!auto, domaine: domainFor(ctx, { subdomain: sub }) };
     }],
     ['POST', /^\/api\/emails\/apercu$/, async (t, req, u, _m, ctx) => {
       gate(ctx);
@@ -556,4 +595,4 @@ function inboundRoutes() {
   ];
 }
 
-module.exports = { enabled, GATED, schoolRoutes, inboundRoutes, serveVerify, sweep, onTransfer, activeAddress, slug, mask, localFor, domainFor, baseDomain, minorOf, RESERVED, codeHash, DEST_MAX_ATTEMPTS };
+module.exports = { autoCreate, FORMATS, enabled, GATED, schoolRoutes, inboundRoutes, serveVerify, sweep, onTransfer, activeAddress, slug, mask, localFor, domainFor, baseDomain, minorOf, RESERVED, codeHash, DEST_MAX_ATTEMPTS };
