@@ -518,6 +518,8 @@ routes.push(...ministere.schoolRoutes());
 routes.push(...emailsEleves.schoolRoutes(), ...emailsEleves.inboundRoutes());
 // Lot 3 : messagerie familles ↔ école, réunions de parents à grande audience, inscriptions en ligne.
 routes.push(...require('./messagerie').routes, ...require('./reunions-parents').routes, ...require('./candidatures').routes);
+// Diffusion audio des réunions de parents (WHIP → MediaMTX → HLS → R2) : 409/404 tant que NORIA_DIRECT_* manquent.
+routes.push(...require('./diffusion').routes, ...require('./diffusion').publicRoutes);
 // Bloc 9 : codes de connexion gratuits. WhatsApp et Telegram : routes 404 tant qu'ils ne sont pas configurés.
 const dev = appareils.createRoutes({ startSession });
 const tg = telegram.createRoutes();
@@ -694,6 +696,7 @@ function createServer(db, options = {}) {
     env: options.env || process.env,
     emailFetch: options.emailFetch || null, // bloc 7 : faux fetch des tests (aucun appel réseau)
     channelFetch: options.channelFetch || null, // bloc 9 : faux fetch des tests (API WhatsApp et Telegram)
+    relay: options.relay || null, // relais de diffusion HLS → R2 (src/diffusion-relais.js), absent = diffusion désactivée
   };
   // Bloc 9 : codes d'activation saisis, par école (en plus de la limite par IP) : 50 échecs par 15 min.
   ctx.activationLimit = options.activationLimit || createLimiter({ db, max: 50, windowMs: 15 * 60 * 1000 });

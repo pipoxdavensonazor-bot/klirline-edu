@@ -23,9 +23,13 @@ const VERSIONNES = /^\/src\/.+\.(?:js|css)$/;
 
 // CSP de la page : aucun script ni style en ligne (gestionnaires par délégation data-action, styles en classes).
 // Le test test/csp.test.js échoue si un attribut on* ou style="" réapparaît dans le HTML ou les gabarits JS.
+// Diffusion des réunions (NORIA_DIRECT_URL) : le lecteur hls.js lit les segments sur le domaine R2 (connect-src) et
+// les joue par Media Source Extensions (media-src blob:) ; Safari et Chrome récents lisent la liste HLS nativement et
+// chargent les segments en media-src. Seule cette origine est ajoutée.
+const directOrigin = (() => { try { const u = new URL(process.env.NORIA_DIRECT_URL || ''); return u.protocol === 'https:' || (u.protocol === 'http:' && u.hostname === '127.0.0.1') ? u.origin : ''; } catch { return ''; } })();
 const HTML_CSP = [
   "default-src 'self'", "script-src 'self'", "style-src 'self'",
-  "img-src 'self' data:", "connect-src 'self'", "media-src 'self' https:", "frame-src https://meet.systemli.org", "object-src 'none'",
+  "img-src 'self' data:", `connect-src 'self'${directOrigin ? ' ' + directOrigin : ''}`, `media-src 'self' https: blob:${directOrigin ? ' ' + directOrigin : ''}`, "frame-src https://meet.systemli.org", "object-src 'none'",
   "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');
 

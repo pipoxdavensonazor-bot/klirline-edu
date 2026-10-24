@@ -149,6 +149,10 @@ async function meeting(id){
   ${MEET.intervenant?`<div class="u8 card"><h3>${esc(t("moderation"))}</h3><div id="l3Mod"><p class="mut">…</p></div></div>`
    :`<div class="u8 card"><h3>${esc(t("ask"))}</h3><form id="l3Q" data-action-submit="NORIA_L3.ask" data-a0="n:${m.id}" novalidate><textarea name="texte" rows="2" maxlength="500"></textarea><div class="toolbar"><button type="submit">${esc(t("askBtn"))}</button><button type="button" class="soft" id="l3Hand" data-action="NORIA_L3.hand" data-a0="n:${m.id}">${esc(t("hand"))}</button></div></form></div>`}
   <div class="u8 card"><h3>${esc(t("answers"))}</h3><div id="l3Ans"><p class="mut">${esc(t("none"))}</p></div></div>`;
+  // Diffusion audio intégrée (src/direct.js) : direction = micro + vu-mètre + auditeurs ; parents = lecteur HLS.
+  const role=MEET.organisateur?"org":MEET.intervenant?null:"parent";
+  if(role&&m.statut!=="terminee"){ const box=document.createElement("div"); box.className="u8 card"; box.id="l3Direct"; const first=ROOT.querySelectorAll(".u8.card")[0]; first.after(box);
+    window.NORIA_ECO.load("src/direct.js").then(()=>{ if(box.isConnected) window.NORIA_DIRECT.mount(box,m.id,role); }).catch(()=>box.remove()); }
   tick();
 }
 // Sondage espacé : l'intervalle vient du serveur ; onglet caché → pause ; erreurs → recul ×2 jusqu'à 5 min.

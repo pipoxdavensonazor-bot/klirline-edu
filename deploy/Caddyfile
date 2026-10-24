@@ -37,6 +37,18 @@
 	@sante path /healthz
 	respond @sante 404
 
+	# Autorisation interne de MediaMTX (réseau Docker seulement) : jamais publique.
+	@interne path /api/interne/*
+	respond @interne 404
+
+	# Diffusion des réunions : signalisation WHIP (quelques Ko) vers MediaMTX ; le son lui-même passe en WebRTC sur
+	# UDP/TCP 8189, directement. Les parents n'écoutent jamais par le serveur : segments sur le domaine R2.
+	handle_path /direct/whip/* {
+		reverse_proxy {$NORIA_DIFFUSION_AMONT:diffusion:8889} {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
 	reverse_proxy {$NORIA_AMONT:app:3100} {
 		# NORIA_AMONT : pour les tests seulement (CI, vérification locale) ; en production, toujours app:3100.
 		# Adresse réelle du client (mode 1 : CF-Connecting-IP venant de Cloudflare ; sinon l'adresse de connexion).

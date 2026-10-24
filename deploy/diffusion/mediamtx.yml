@@ -1,0 +1,61 @@
+# MediaMTX pour la diffusion audio des réunions de parents (service « diffusion », profil compose « diffusion »).
+#   Entrée unique : WHIP (WebRTC) sur :8889, derrière Caddy (/direct/whip/*). Média WebRTC : UDP 8189 (TCP 8189 en secours)
+#   directement sur l'IP du serveur (NORIA_DIRECT_IP → MTX_WEBRTCADDITIONALHOSTS).
+#   Autorisation : chaque action est demandée à NORIA (authMethod http) — publication avec le jeton signé de la direction,
+#   lecture RTSP par le seul ffmpeg local. Aucun autre protocole n'est ouvert (RTMP, SRT, HLS, API, métriques : désactivés).
+#   Sortie : ffmpeg (runOnAvailable) transcode l'Opus en AAC 32 kbit/s mono et écrit une liste HLS (segments de 6 s) dans
+#   /diffusion/<chemin>/ (volume en mémoire partagé avec l'application, qui envoie les segments vers R2).
+logLevel: warn
+logDestinations: [stdout]
+readTimeout: 10s
+writeTimeout: 10s
+writeQueueSize: 512
+
+authMethod: http
+authHTTPAddress: http://app:3100/api/interne/diffusion/auth
+authHTTPExclude: []
+
+api: false
+metrics: false
+pprof: false
+playback: false
+rtmp: false
+srt: false
+hls: false
+moq: false
+
+# RTSP limité à la boucle locale : seul ffmpeg (runOnAvailable, même conteneur) lit le flux.
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: 127.0.0.1:8554
+rtspEncryption: "no"
+
+webrtc: true
+webrtcAddress: :8889
+webrtcEncryption: false
+webrtcAllowOrigins: ["*"]
+webrtcTrustedProxies: []
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8189
+webrtcIPsFromInterfaces: true
+webrtcAdditionalHosts: []
+webrtcICEServers2: []
+webrtcHandshakeTimeout: 10s
+webrtcTrackGatherTimeout: 2s
+
+pathDefaults:
+  maxReaders: 2
+  overridePublisher: true
+
+paths:
+  "~^reunion-[0-9]{1,9}$":
+    # MediaMTX remplace lui-même $MTX_PATH (et vide toute autre variable $X) : pas de variable de shell ici.
+    # Le chemin est validé par le motif ci-dessus (reunion-<chiffres>), donc sûr sans guillemets.
+    runOnAvailable: >-
+      sh -c 'rm -rf /diffusion/$MTX_PATH; mkdir -p /diffusion/$MTX_PATH;
+      exec ffmpeg -nostdin -hide_banner -loglevel error -rtsp_transport tcp -i "rtsp://127.0.0.1:8554/$MTX_PATH"
+      -vn -ac 1 -ar 44100 -c:a aac -b:a 32k
+      -f hls -hls_time 6 -hls_list_size 6 -hls_start_number_source epoch
+      -hls_flags delete_segments+independent_segments+omit_endlist+temp_file
+      -hls_segment_filename /diffusion/$MTX_PATH/s%d.ts /diffusion/$MTX_PATH/index.m3u8'
+    runOnAvailableRestart: true

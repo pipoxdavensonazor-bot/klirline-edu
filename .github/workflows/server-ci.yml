@@ -117,6 +117,14 @@ jobs:
           ! docker run --rm -e NORIA_DOMAIN=noriaedu.com -e NORIA_DERRIERE_CLOUDFLARE=oui \
               -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/deploy/cloudflare:/etc/caddy/cloudflare:ro" \
               caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Service de diffusion (profil compose « diffusion ») valide
+        run: |
+          printf 'NORIA_DOMAIN=localhost\nPOSTGRES_PASSWORD=x\nNORIA_DIRECT_IP=203.0.113.10\n' > .env
+          docker compose --profile diffusion config -q
+          docker compose --profile diffusion config --services | grep -qx diffusion
+          docker run --rm -v "$PWD/deploy/diffusion/mediamtx.yml:/mediamtx.yml:ro" -e MTX_WEBRTCADDITIONALHOSTS=203.0.113.10 \
+            --entrypoint sh bluenviron/mediamtx:1.21.2-ffmpeg -c '/mediamtx /mediamtx.yml & p=$!; sleep 3; kill -0 $p'
+          rm -f .env
       - name: Construction et démarrage
         run: |
           printf 'NORIA_DOMAIN=localhost\nPOSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env
@@ -142,6 +150,10 @@ jobs:
           curl -skI https://localhost/favicon.ico | grep -qi 'content-type: image/x-icon'
           curl -sk -o /dev/null -w '%{http_code}' https://localhost/inscrire-ecole | grep -q 200
           curl -sk https://localhost/annonces.rss | grep -q '<rss version="2.0">'
+          # Diffusion des réunions : l'autorisation interne de MediaMTX n'est jamais joignable de l'extérieur ;
+          # sans NORIA_DIRECT_URL, la liste HLS répond 404 (fonction désactivée).
+          curl -sk -o /dev/null -w '%{http_code}' -X POST https://localhost/api/interne/diffusion/auth | grep -q 404
+          curl -sk -o /dev/null -w '%{http_code}' 'https://localhost/api/direct/1/index.m3u8?t=x' | grep -q 404
           docker compose exec -T app node -e "fetch('http://127.0.0.1:3100/healthz').then(r=>r.json()).then(j=>{if(!j.ok||j.db!=='pg')process.exit(1)})"
       - name: Sauvegarde et restauration par le conteneur db
         run: |

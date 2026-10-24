@@ -34,14 +34,17 @@ async function main() {
   const port = Number(process.env.PORT || 3100);
   const host = process.env.HOST || '127.0.0.1';
   // En production : cookies Secure et confiance au mandataire HTTPS (Caddy), sauf NORIA_TRUST_PROXY=0.
+  // Diffusion des réunions de parents : relais HLS → R2 si NORIA_DIRECT_URL et les accès R2 sont définis.
+  const relay = require('./diffusion-relais').fromEnv(process.env);
   const server = createServer(db, {
-    notifier, demo,
+    notifier, demo, relay,
     secureCookie: prod || process.env.NORIA_SECURE_COOKIE === '1',
     trustProxy: process.env.NORIA_TRUST_PROXY ? process.env.NORIA_TRUST_PROXY === '1' : prod,
   });
   // Assistant sécurité : analyse périodique interne (NORIA_ASSISTANT_INTERVALLE_MIN, 5 min par défaut ; 0 = manuelle seulement).
   const { backups, dbSize } = require('./plateforme');
   if (server.sec) server.sec.start({ backups, dbSize: () => dbSize(db) });
+  if (relay) require('./diffusion').resume(db, relay).then((n) => { if (n) console.log(`Diffusion : ${n} réunion(s) reprise(s).`); }).catch((e) => console.error(e));
   server.keepAliveTimeout = 65_000; // plus long que celui du mandataire, pour éviter des 502 sporadiques
   server.listen(port, host, () => console.log(`NORIA (${db.kind}${demo ? ', démo' : ''}) : http://${host}:${port}`));
 

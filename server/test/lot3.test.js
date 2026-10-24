@@ -51,7 +51,10 @@ test('visiteurs : une session grand public n’ouvre aucune donnée d’école (
 test('visiteurs : liste blanche des routes /api sans session (aucune ne rend de données d’école)', async () => {
   const pub = app.routes.filter((r) => r[3] && r[3].public).map((r) => `${r[0]} ${r[1].source}`);
   const allowed = /login|code|invitation|recuperation|recovery|activation|appareil|device|verifier|verif|telegram|whatsapp|webhook|entrant|ecoles|inscription-ecole|config|sante|health|version|logout|deconnexion|reinitialis|mot-de-passe|password/i;
-  const unknown = pub.filter((s) => !allowed.test(s));
+  // Diffusion des réunions : la liste HLS exige un jeton d'écoute signé (HMAC, 3 h, une réunion, un parent) ; l'appel
+  // d'autorisation de MediaMTX exige un jeton de publication ou 127.0.0.1, et Caddy le bloque (404) depuis l'extérieur.
+  const justifiees = new Set(['GET ^\\/api\\/direct\\/(\\d+)\\/index\\.m3u8$', 'POST ^\\/api\\/interne\\/diffusion\\/auth$']);
+  const unknown = pub.filter((s) => !allowed.test(s) && !justifiees.has(s));
   assert.deepEqual(unknown, [], `routes publiques à justifier : ${unknown.join(', ')}`);
   for (const s of pub) assert.doesNotMatch(s, /messagerie|reunions|candidatures|badges\/moi|students|grades|notes/, s);
 });

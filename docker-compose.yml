@@ -43,6 +43,8 @@ services:
     volumes:
       - ${NORIA_BACKUP_DIR_HOTE:-/var/backups/noria}:/sauvegardes:ro
       - ./deploy/rapports:/rapports:ro
+      # Diffusion des réunions (profil « diffusion ») : listes HLS écrites par MediaMTX/ffmpeg, lues par le relais R2.
+      - diffusion_hls:/diffusion:ro
     depends_on:
       db:
         condition: service_healthy
@@ -82,6 +84,33 @@ services:
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE]
 
+  # Diffusion audio des réunions de parents (désactivée par défaut) : docker compose --profile diffusion up -d
+  # Prérequis (.env) : NORIA_DIRECT_URL, NORIA_DIRECT_SECRET, NORIA_R2_*, NORIA_DIRECT_IP ; pare-feu UDP/TCP 8189 ouvert.
+  # Voir docs/reunion-diffusion-r2.md. ~30-60 Mo de mémoire, un ffmpeg (AAC 32 kbit/s) par réunion en direct.
+  diffusion:
+    image: bluenviron/mediamtx:1.21.2-ffmpeg
+    profiles: [diffusion]
+    restart: unless-stopped
+    environment:
+      MTX_WEBRTCADDITIONALHOSTS: ${NORIA_DIRECT_IP:-}
+    ports:
+      - "8189:8189/udp"   # média WebRTC (ICE) du téléphone de la direction
+      - "8189:8189/tcp"   # secours si l'UDP est bloqué
+    volumes:
+      - ./deploy/diffusion/mediamtx.yml:/mediamtx.yml:ro
+      - diffusion_hls:/diffusion
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [interne]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 256m
+    cpus: 0.75
+    stop_grace_period: 5s
+
 networks:
   interne:
 
@@ -89,3 +118,5 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  diffusion_hls:   # en mémoire (tmpfs) : quelques segments de 6 s par réunion, effacés au fil de l'eau
+    driver_opts: { type: tmpfs, device: tmpfs, o: "size=64m,mode=1777" }
