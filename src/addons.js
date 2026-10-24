@@ -40,6 +40,7 @@ const XR = [
   {r:"ext-classe", fr:"Classe virtuelle", ht:"Klas vityèl", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
   {r:"ext-reunion", fr:"Centre de réunion", ht:"Sant reyinyon", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
   {r:"ext-visuel", fr:"Classe visuelle", ht:"Klas vityèl", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
+  {r:"ext-salles", fr:"Salles de cours", ht:"Sal klas", ic:"", roles:["direction","secretariat","enseignant","parent","eleve"]},
   {r:"ext-discussion", fr:"Discussion", ht:"Diskisyon", ic:"", roles:["direction","enseignant","parent","eleve"]},
   {r:"ext-portails", fr:"Portails", ht:"Pòtay", ic:"", roles:["direction"]},
   {r:"ext-structure", fr:"Structure établissement", ht:"Estrikti lekòl", ic:"", roles:["direction","secretariat"]},
@@ -107,6 +108,8 @@ function spacesOf(rn){
 }
 const canX = r=>{
   if(r==="ext-portails") return role()==="direction";
+  // Salles de cours : enregistrées sur le serveur (lot 6) ; mêmes droits que la classe visuelle.
+  if(r==="ext-salles") return document.documentElement.dataset.backend==="server"&&canX("ext-visuel");
   if(Object.prototype.hasOwnProperty.call(SPACE_LBL,r)) return spacesOf(role()).includes(r);
   const m=XR.find(x=>x.r===r); return m&&m.roles.includes(role());
 };
@@ -130,7 +133,7 @@ function vHub(){
   <div class="small mut">${lang()==="ht"?"Fè apèl • dosye pitit • pibliye anons. Etap pa etap, pou tès pilòt.":"Faire l'appel • dossier d'un enfant • publier une annonce. Étape par étape, pour les tests pilotes."}</div>
   <div class="toolbar" id="xTours">${(window.KLX&&window.KLX.toursList?window.KLX.toursList():[]).map(t=>`<button class="soft" data-action="KLX.tour" data-a0="s:${esc(t.id)}">${esc(t.title)}${t.done?" ✓":""}</button>`).join("")}</div></div>
   <div class="u8 grid g3">${XR.filter(m=>m.r!=="ext-hub"&&canX(m.r)).map(m=>{
-    const desc={ "ext-devoirs":"Devoirs, leçons, fichiers légers — faible connexion","ext-classe":"Planifier le cours, puis l'ouvrir dans la salle","ext-reunion":"Séances de classe : ordre du jour, présence, salle","ext-visuel":"Cours en direct, tableau, présence, discussion et devoirs","ext-discussion":"Fil de la classe entre enseignant et élèves","ext-portails":"La direction ouvre ou ferme l'accès de chaque rôle","ext-structure":"Campus, sections, matières/coefs, périodes, barème","ext-inscriptions":"Transferts, promotions, retraits, urgences, fratries","ext-presences":"Motifs de correction, avis parents, consentements","ext-comms":"Annonces programmées, RSVP réunions, canaux/coûts","ext-finances":"Échéanciers datés, bourses, remboursements, compta","ext-biblio":"Ressources candidates : à vérifier, licence, listes, paquets","ext-rapports":"Filtres + presets MENFP configurables","ext-audit":"Traçabilité, exports, portabilité","ext-setup":"Parcours progressif : école → classe pilote","ext-comptes":"Rôles, codes d'activation à usage unique","ext-impressions":"Rapports par module : aperçu + permissions","ext-pret":"Carte de prêt, limite d'école, QR identifiant","ext-cal":"Publication, partage ciblé, historique","ext-pilote":"Checklist terrain : cibles à mesurer, pas des promesses","ext-continuite":"Perturbation → reprise : événement, plans par classe, suivi" }[m.r]||"";
+    const desc={ "ext-devoirs":"Devoirs, leçons, fichiers légers — faible connexion","ext-classe":"Planifier le cours, puis l'ouvrir dans la salle","ext-reunion":"Séances de classe : ordre du jour, présence, salle","ext-visuel":"Cours en direct, tableau, présence, discussion et devoirs","ext-salles":"Séances enregistrées : horaire, enseignant, ressources PDF et formules, main levée, sondages, minuteur, faible connexion","ext-discussion":"Fil de la classe entre enseignant et élèves","ext-portails":"La direction ouvre ou ferme l'accès de chaque rôle","ext-structure":"Campus, sections, matières/coefs, périodes, barème","ext-inscriptions":"Transferts, promotions, retraits, urgences, fratries","ext-presences":"Motifs de correction, avis parents, consentements","ext-comms":"Annonces programmées, RSVP réunions, canaux/coûts","ext-finances":"Échéanciers datés, bourses, remboursements, compta","ext-biblio":"Ressources candidates : à vérifier, licence, listes, paquets","ext-rapports":"Filtres + presets MENFP configurables","ext-audit":"Traçabilité, exports, portabilité","ext-setup":"Parcours progressif : école → classe pilote","ext-comptes":"Rôles, codes d'activation à usage unique","ext-impressions":"Rapports par module : aperçu + permissions","ext-pret":"Carte de prêt, limite d'école, QR identifiant","ext-cal":"Publication, partage ciblé, historique","ext-pilote":"Checklist terrain : cibles à mesurer, pas des promesses","ext-continuite":"Perturbation → reprise : événement, plans par classe, suivi" }[m.r]||"";
     return `<div class="card"><h3>${m.ic} ${esc(lbl(m))}</h3><div class="small mut">${esc(desc)}</div><div class="toolbar"><button class="soft" data-action="KL.go" data-a0="s:${esc(m.r)}">${esc(T("view"))}</button></div></div>`;}).join("")}</div>`;
 }
 
@@ -407,7 +410,7 @@ function vPortails(){
   <div class="u8 card"><label class="chk"><input type="checkbox" ${X.discParentWrite?"checked":""} data-action-change="KLX.parentWrite" data-a0="c"> ${ht?"Paran yo ka ekri nan diskisyon klas la":"Les parents peuvent écrire dans la discussion de la classe"}</label><p class="small mut">${ht?"Si sa pa tcheke, paran an li sèlman mesaj pitit li.":"Sans cette case, le parent lit seulement les messages de la classe de son enfant."}</p></div>
   ${roles.map(rn=>`<section class="u8 card"><h3>${esc(ht&&rn==="enseignant"?"Pwofesè":ROLE_LBL[rn])}</h3><div class="checks">${Object.keys(CORE_LBL).map(k=>cell(rn,k,"core")).join("")}${Object.keys(SPACE_LBL).map(k=>cell(rn,k,"spaces")).join("")}</div></section>`).join("")}`;
 }
-const VV = {"ext-hub":vHub,"ext-devoirs":vDevoirs,"ext-classe":vClasse,"ext-reunion":vReunion,"ext-visuel":vVisuel,"ext-discussion":vDiscussion,"ext-portails":vPortails,"ext-structure":vStructure,"ext-inscriptions":vInsc,"ext-presences":vPres,"ext-comms":vComms,"ext-finances":vFin,"ext-biblio":vBib,"ext-rapports":vRep,"ext-audit":vAudit,"ext-setup":vSetup,"ext-comptes":vComptes,"ext-impressions":vPrint,"ext-pret":vPret,"ext-cal":vCal,"ext-pilote":vPilote,"ext-continuite":vContinuite};
+const VV = {"ext-hub":vHub,"ext-salles":vSalles,"ext-devoirs":vDevoirs,"ext-classe":vClasse,"ext-reunion":vReunion,"ext-visuel":vVisuel,"ext-discussion":vDiscussion,"ext-portails":vPortails,"ext-structure":vStructure,"ext-inscriptions":vInsc,"ext-presences":vPres,"ext-comms":vComms,"ext-finances":vFin,"ext-biblio":vBib,"ext-rapports":vRep,"ext-audit":vAudit,"ext-setup":vSetup,"ext-comptes":vComptes,"ext-impressions":vPrint,"ext-pret":vPret,"ext-cal":vCal,"ext-pilote":vPilote,"ext-continuite":vContinuite};
 
 /* ---------- installation progressive d'école (PRD §14) ---------- */
 function vSetup(){
@@ -533,11 +536,25 @@ function syncLive(meet){
     frame.appendChild(iframe);
   }
 }
+function vSalles(){
+  // Module chargé à la demande (src/salles-cours.js) ; il remplit #salRoot.
+  setTimeout(()=>{ const el=document.getElementById("salRoot"); if(!el) return;
+    (window.NORIA_ECO?NORIA_ECO.load("src/salles-cours.js"):Promise.reject()).then(()=>{ if(el.isConnected) NORIA_SAL.render(el); }).catch(()=>{ el.innerHTML="<div class='badbox'>"+esc(T("noAccess"))+"</div>"; }); },0);
+  return '<div id="salRoot"><p class="mut">…</p></div>';
+}
+// Barre « Retour » commune à tout l'espace Extensions : page parente (salle → réunions) puis l'accueil des extensions ;
+// depuis l'accueil des extensions, retour au tableau de bord.
+const XPARENT={"ext-visuel":"ext-reunion","ext-classe":"ext-hub"};
+function backBar(r){
+  const ht=lang()==="ht"; const up=XPARENT[r]||"ext-hub"; const upL=(XR.find(m=>m.r===up)||{});
+  if(r==="ext-hub") return `<nav class="xback noprint" aria-label="${ht?"Navigasyon":"Navigation"}"><button class="ghost" data-action="KL.go" data-a0="s:dashboard">← ${ht?"Retounen nan tablo debò":"Retour au tableau de bord"}</button></nav>`;
+  return `<nav class="xback noprint" aria-label="${ht?"Navigasyon":"Navigation"}"><button class="ghost" data-action="KL.go" data-a0="s:${up}">← ${ht?"Retounen":"Retour"}${up!=="ext-hub"?" · "+esc(lbl(upL)):""}</button>${up!=="ext-hub"?`<button class="ghost small" data-action="KL.go" data-a0="s:ext-hub">${esc(T("ext"))}</button>`:""}<span class="mut small">${esc(T("ext"))} › ${esc(lbl(XR.find(m=>m.r===r)||{fr:r,ht:r}))}</span></nav>`;
+}
 function XGO(r){
   if(!canX(r)){ toast(T("noAccess")); return; }
   XROUTE = r;
   const v = document.querySelector("#view"); if(!v) return;
-  try{ v.innerHTML = '<div data-xview="1" class="u34">'+VV[r]()+'</div>'; }catch(e){ v.innerHTML = "<div class='badbox'>Erreur extension : "+esc(e.message)+"</div>"; }
+  try{ v.innerHTML = '<div data-xview="1" class="u34">'+backBar(r)+VV[r]()+'</div>'; }catch(e){ v.innerHTML = "<div class='badbox'>Erreur extension : "+esc(e.message)+"</div>"; }
   if(r==="ext-visuel") syncLive(focusedMeet());
   else { liveWanted=false; syncLive(null); }
   markNav(); window.scrollTo(0,0);

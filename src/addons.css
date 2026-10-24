@@ -7,3 +7,36 @@ details.small summary{cursor:pointer;color:var(--mut)}
 #view .button-link{display:inline-flex;align-items:center;border-radius:10px;padding:9px 13px;font:inherit;font-weight:600;text-decoration:none}
 #view .button-link.soft{background:#e8effd;color:#123a8f}
 #view .button-link.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+
+/* Barre « Retour » de l'espace Extensions */
+.xback{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+/* Salles de cours (src/salles-cours.js) */
+.sal-meta{gap:14px;flex-wrap:wrap;margin-top:8px;font-size:.92rem}
+.sal-agenda{white-space:pre-wrap;font:inherit;margin:10px 0 0;opacity:.9}
+.sal-ctl .row{flex-wrap:wrap;gap:8px;align-items:center}
+.sal-live{margin-top:10px}
+.sal-jitsi{width:100%;height:min(60vh,520px);border:0;border-radius:6px;background:#000}
+.sal-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:14px;margin-top:14px}
+@media (max-width:860px){.sal-grid{grid-template-columns:1fr}}
+.sal-side{display:flex;flex-direction:column;gap:14px}
+.sal-rl{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+.sal-r{border:1px solid var(--line,#ddd);border-radius:6px;padding:10px}
+.sal-txt{white-space:pre-wrap;margin:6px 0}
+.sal-tex{overflow-x:auto;padding:6px 0}
+.sal-pdf canvas,.sal-pdfc{max-width:100%;height:auto;border:1px solid var(--line,#ddd);margin-top:8px}
+.sal-add{margin-top:10px}
+.sal-hl{padding-left:18px}
+.sal-poll{border-top:1px solid var(--line,#eee);padding:8px 0}
+.sal-bars{list-style:none;padding:0;margin:6px 0}
+.sal-bars li{display:grid;grid-template-columns:minmax(60px,1fr) 2fr auto;gap:6px;align-items:center}
+.sal-bars li.mine span{font-weight:700}
+.sal-bars progress{width:100%}
+.sal-timer output{display:block;font-size:2.4rem;font-variant-numeric:tabular-nums;font-weight:700;text-align:center}
+.sal-timer input{width:70px}
+.sal-boardw{margin-top:14px}
+.sal-canvas{width:100%;aspect-ratio:2/1;height:auto;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;touch-action:none;cursor:crosshair}
+.sal-sw{width:26px;height:26px;min-height:0;padding:0;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #999}
+.sal-sw-111111{background:#111}.sal-sw-c62828{background:#c62828}.sal-sw-1565c0{background:#1565c0}.sal-sw-2e7d32{background:#2e7d32}
+.elv-g{border:1px solid var(--line,#ddd);border-radius:6px;padding:8px;margin:8px 0}
+.elv-gl{list-style:none;padding:0}.elv-gl li{border-bottom:1px solid var(--line,#eee);padding:6px 0}
+.elv-sheet{max-height:90vh;overflow:auto}

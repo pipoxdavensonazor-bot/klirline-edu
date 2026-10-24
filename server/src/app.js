@@ -131,7 +131,9 @@ function csv(rows, cols) {
 
 function getStudent(db, u, id) {
   const sc = P.studentScope(u);
-  const cols = P.studentFields(u).map((c) => `st.${c}`).join(', ');
+  let cols = P.studentFields(u).map((c) => `st.${c}`).join(', ');
+  // Direction et secrétariat (fiche modifiable, lot 2) : sexe, statut du dossier et classe active en plus.
+  if (P.can.editStudent(u)) cols += `, st.sex, st.status, (SELECT e.class_id FROM enrollment e WHERE e.student_id = st.id AND e.school_id = st.school_id AND e.status = 'actif' ORDER BY e.id DESC LIMIT 1) AS class_id`;
   return db.get(`SELECT ${cols} FROM student st WHERE st.id = ? AND ${sc.sql}`, Number(id), ...sc.params);
 }
 

@@ -131,7 +131,7 @@ function createStatic(root) {
       etag: f.etag, vary: 'Accept-Encoding',
     };
     // Caméra autorisée pour la page elle-même seulement (scan des badges) ; jamais pour un cadre tiers.
-    if (f.ext === '.html') { headers['content-security-policy'] = HTML_CSP; headers['permissions-policy'] = 'camera=(self), microphone=(), geolocation=()'; }
+    if (f.ext === '.html') { headers['content-security-policy'] = HTML_CSP; headers['permissions-policy'] = 'camera=(self "https://meet.systemli.org"), microphone=(self "https://meet.systemli.org"), display-capture=(self "https://meet.systemli.org"), geolocation=()'; }
     else delete headers['content-security-policy'];
     if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, headers); res.end(); return true; }
     const gzip = f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '');

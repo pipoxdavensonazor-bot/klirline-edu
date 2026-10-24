@@ -143,7 +143,10 @@ function vStudents(){
 function bStu(){ const f=$("#csvIn"); if(f) f.onchange=e=>{ const fl=e.target.files[0]; if(!fl)return; const r=new FileReader(); r.onload=()=>{ const lines=String(r.result).split("\n").slice(1).filter(Boolean); let add=0; lines.forEach((ln,i)=>{ const p=ln.split(",").map(x=>x.replace(/^"|"$/g,"")); if(p.length<3)return; const fn=p[0]||"Prénom"+i,ln2=p[1]||"Nom",cl=p[2]||"c7a"; S.students.push({id:"e"+Date.now()+i,code:"KL-2025-"+String(S.students.length+1).padStart(3,"0"),firstName:fn,lastName:ln2,sex:"M",birth:"2012-01-01",level:classById(cl)?.level||"7e AF",classId:cl,campus:"Delmas",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}); add++; }); save(); render(); toast(add+" importés"); }; r.readAsText(fl); }; }
 KL.stuQ=v=>{stuQ=v; const i=$("#stuQ"); render(); const n=$("#stuQ"); if(n){n.focus(); n.setSelectionRange(n.value.length,n.value.length);}};
 KL.stuCSV=()=>{ if(SERVER&&window.NORIA_TAB){ NORIA_TAB.exportStudents(); return; } if(!["direction","secretariat","comptable"].includes(S.role)){toast(t("noAccess"));return;} const rows=[["prenom","nom","classe","code","niveau","statut"],...S.students.map(s=>[s.firstName,s.lastName,s.classId,s.code,s.level,s.status])]; dl("eleves.csv","\uFEFF"+toCSV(rows),"text/csv"); logExport("CSV","eleves.csv ("+S.students.length+")"); toast(t("savedOk")); };
-KL.stuModal=id=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;} const s=id?stuById(id):{firstName:"",lastName:"",sex:"F",birth:"2013-05-01",level:"7e AF",classId:"c7a",campus:"Delmas",guardians:[{name:"",link:"Manman",phone:""}]};
+KL.stuModal=id=>{ if(!["direction","secretariat"].includes(S.role)){toast(t("noAccess"));return;} 
+  // Mode serveur (lot 2) : fiche enregistrée sur le serveur (création, motif, classe, responsables), module chargé à la demande.
+  if(SERVER&&window.NORIA_ECO){ const sv=id?stuById(id):null; NORIA_ECO.load("src/eleves-fiche.js").then(()=>NORIA_ELV.open(sv?sv.serverId:null,S.classes)).catch(()=>toast(t("noAccess"))); return; }
+  const s=id?stuById(id):{firstName:"",lastName:"",sex:"F",birth:"2013-05-01",level:"7e AF",classId:"c7a",campus:"Delmas",guardians:[{name:"",link:"Manman",phone:""}]};
   const dups=!id?S.students.filter(x=>x.firstName.toLowerCase()===String($("#stuQ")?.value||"").toLowerCase().slice(0,4)): [];
   $("#stuModal").innerHTML=`<div class="modal"><div class="sheet"><h3>${id?t("edit"):t("newStudent")}</h3>
   ${S.students.filter(x=>x.firstName===s.firstName&&x.lastName===s.lastName).length?`<div class="warnbox"> ${esc(t("dupWarn"))}</div>`:""}
@@ -463,6 +466,7 @@ const ROLE_ORDER=["direction","secretariat","enseignant","comptabilite","bibliot
 // Reçoit les données du serveur et les met en mémoire (jamais dans localStorage).
 function stuFromServer(x,byId){ const c=byId[x.class_id]; return {id:"s"+x.id,serverId:x.id,code:x.code,firstName:x.first_name,lastName:x.last_name,sex:x.sex||"",birth:x.birth_date||"",level:c?c.level:"",classId:c?c.id:"",campus:c?c.campus:"",status:"inscrit",guardians:[],siblings:[],address:"",year:S.year}; }
 // Remplace la liste des élèves (après un import) sans changer d'écran.
+KL.refresh=()=>render();
 KL.setStudents=list=>{ if(!S||!Array.isArray(list)) return; const byId=Object.fromEntries(S.classes.filter(c=>c.serverId).map(c=>[c.serverId,c])); S.students=list.map(x=>stuFromServer(x,byId)); };
 KL.applyServer=d=>{
   if(!S) load();

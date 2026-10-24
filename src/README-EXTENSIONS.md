@@ -23,3 +23,16 @@ Ce fichier conserve le contexte d'architecture de la maquette. Les descriptions 
 Les extensions utilisent la clé locale `klirline_ext_v1` et lisent le registre de démonstration `klirline_school_v1`. L'action « Appliquer au registre » modifie explicitement le registre local de démonstration. Ces noms de clés et contrôles ne fournissent aucune isolation réelle entre écoles ou utilisateurs.
 
 Les filtres et sélecteurs de rôle sont utiles pour parcourir les écrans, mais toute permission de production doit être imposée et vérifiée par un serveur authentifié. N'utilisez pas cette maquette avec des dossiers scolaires réels.
+
+## Retour et salles de cours (lot école)
+
+- **Barre « Retour »** : `XGO` ajoute une barre commune en tête de chaque page de l'espace Extensions
+  (page parente, puis accueil des extensions ; depuis l'accueil, retour au tableau de bord).
+- **Salles de cours** (`ext-salles`, mode serveur seulement) : module `src/salles-cours.js` (`NORIA_SAL`), API `/api/salles`
+  (`server/src/salles.js`). Infos du cours (classe, matière, enseignant, horaire, ordre du jour), ressources (lien, texte,
+  formule KaTeX, PDF ≤ 700 Ko lu avec PDF.js), tableau blanc (canvas, local), minuteur, main levée, sondages,
+  mode faible connexion (Jitsi audio seul, actualisation 45 s, PDF chargé seulement au clic).
+- **Bibliothèques libres hébergées** dans `src/vendor/` : KaTeX 0.19.1 (MIT) rendu par `katex.render` (DOM, compatible CSP),
+  PDF.js / pdfjs-dist 6.4.299 (Apache 2.0, `isEvalSupported:false`). Chargées à la demande, jamais au premier affichage.
+- **Vidéo** : Jitsi public `meet.systemli.org` (iframe) ; la `permissions-policy` autorise caméra, micro et partage d'écran
+  pour cette seule origine.
