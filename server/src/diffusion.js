@@ -62,6 +62,7 @@ const routes = [
     if (!isOrganizer(u)) await refuse(ctx, u, 'reunion_parents.diffusion', 'parent_meeting', mid, 'rôle');
     need(ctx); const m = await meetingFor(db, u, mid);
     await db.run("UPDATE parent_meeting SET direct_state = 'arretee' WHERE id = ? AND school_id = ?", m.id, u.school_id);
+    await require('./parole').endAll(db, ctx, m.id, 'fin');
     const r = await ctx.relay.stop(m.id);
     await audit(db, u, 'reunion_parents.diffusion.stop', 'parent_meeting', m.id, `${r.retires} segment(s) retiré(s) de R2`);
     return { ok: true, ...r };
@@ -74,6 +75,7 @@ const routes = [
     const active = m.direct_state === 'active' && m.status === 'en_cours';
     const out = { active, configuree: true, liste: active ? `/api/direct/${m.id}/index.m3u8?t=${sign(ctx, 'e', m.id, u.id, LISTEN_TTL)}` : null };
     if (isSpeaker(u)) { out.auditeurs = ctx.relay.listeners(m.id); out.relais = ctx.relay.stats(m.id); }
+    if (isOrganizer(u)) Object.assign(out, await require('./parole').organizerView(db, ctx, u, m));
     return out;
   }],
 ];
@@ -97,7 +99,9 @@ const publicRoutes = [
   //   publish : jeton « p » valide pour cette réunion et diffusion active ; read : ffmpeg local (127.0.0.1) seulement.
   ['POST', /^\/api\/interne\/diffusion\/auth$/, async (db, req, _u, _m, ctx) => {
     if (!enabled(ctx)) throw new HttpError(404, 'introuvable');
-    const b = req.body || {}; const pm = /^reunion-(\d{1,9})$/.exec(String(b.path || ''));
+    const b = req.body || {};
+    const pr = await require('./parole').authorize(db, ctx, b); if (pr !== null) { if (!pr) throw new HttpError(401, 'refusé'); return { ok: true }; }
+    const pm = /^reunion-(\d{1,9})$/.exec(String(b.path || ''));
     if (b.action === 'read' && ['127.0.0.1', '::1'].includes(String(b.ip)) && pm) return { ok: true };
     if (b.action !== 'publish' || !pm) throw new HttpError(401, 'refusé');
     const mid = Number(pm[1]); const q = new URLSearchParams(String(b.query || ''));
@@ -115,4 +119,4 @@ async function resume(db, relay) {
   return rows.length;
 }
 
-module.exports = { routes, publicRoutes, enabled, sign, verify, resume };
+module.exports = { routes, publicRoutes, enabled, sign, verify, resume, meetingFor, need, isOrganizer, isParent, isSpeaker, env };

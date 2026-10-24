@@ -2,7 +2,11 @@
 #   Entrée unique : WHIP (WebRTC) sur :8889, derrière Caddy (/direct/whip/*). Média WebRTC : UDP 8189 (TCP 8189 en secours)
 #   directement sur l'IP du serveur (NORIA_DIRECT_IP → MTX_WEBRTCADDITIONALHOSTS).
 #   Autorisation : chaque action est demandée à NORIA (authMethod http) — publication avec le jeton signé de la direction,
-#   lecture RTSP par le seul ffmpeg local. Aucun autre protocole n'est ouvert (RTMP, SRT, HLS, API, métriques : désactivés).
+#   lecture RTSP par le seul ffmpeg local. Aucun autre protocole n'est ouvert (RTMP, SRT, HLS, métriques : désactivés).
+#   Prise de parole d'un parent (docs/reunion-diffusion-r2.md) : chemin parole-<réunion>-<autorisation>, publication avec
+#   le jeton à usage unique accordé par la direction, lecture WHEP par la direction seule (qui mélange la voix au direct).
+#   API (:9997) : réseau Docker interne seulement (port non publié, absent de Caddy), utilisateur « noria » vérifié par
+#   NORIA ; sert uniquement à expulser un orateur quand la direction coupe son micro.
 #   Sortie : ffmpeg (runOnAvailable) transcode l'Opus en AAC 32 kbit/s mono et écrit une liste HLS (segments de 6 s) dans
 #   /diffusion/<chemin>/ (volume en mémoire partagé avec l'application, qui envoie les segments vers R2).
 logLevel: warn
@@ -15,7 +19,8 @@ authMethod: http
 authHTTPAddress: http://app:3100/api/interne/diffusion/auth
 authHTTPExclude: []
 
-api: false
+api: true
+apiAddress: :9997
 metrics: false
 pprof: false
 playback: false
@@ -48,6 +53,10 @@ pathDefaults:
   overridePublisher: true
 
 paths:
+  # Voix d'un parent à qui la direction a donné la parole : audio seul, aucun traitement, jamais remplacé par un autre.
+  "~^parole-[0-9]{1,9}-[0-9]{1,9}$":
+    overridePublisher: false
+    maxReaders: 1
   "~^reunion-[0-9]{1,9}$":
     # MediaMTX remplace lui-même $MTX_PATH (et vide toute autre variable $X) : pas de variable de shell ici.
     # Le chemin est validé par le motif ci-dessus (reunion-<chiffres>), donc sûr sans guillemets.

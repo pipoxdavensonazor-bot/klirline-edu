@@ -34,7 +34,7 @@ const TABLES = ['school', 'campus', 'school_year', 'term', 'level', 'class', 'su
   // Lot école : document officiel des demandes ; lot 2 : responsables des élèves ; lot 6 : salles de cours.
   'school_request_document', 'student_guardian', 'class_session', 'class_resource', 'class_hand', 'class_poll', 'class_poll_vote',
   // Lot 3 : messagerie familles ↔ école, réunions de parents, inscriptions en ligne.
-  'school_thread', 'school_message', 'school_thread_read', 'parent_meeting', 'parent_meeting_attendance', 'parent_meeting_question',
+  'school_thread', 'school_message', 'school_thread_read', 'parent_meeting', 'parent_meeting_attendance', 'parent_meeting_question', 'parent_meeting_speaker',
   'enrolment_campaign', 'enrolment_application', 'enrolment_document'];
 
 // Tables volontairement exclues : rien de métier, et rien qu'il soit souhaitable de remettre en service.

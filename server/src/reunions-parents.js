@@ -117,7 +117,12 @@ const routes = [
     if (!isParent(u)) await refuse(ctx, u, `reunion_parents.${act}`, 'parent_meeting', mid, 'rôle');
     const m = await meetingFor(db, u, mid);
     if (m.status === 'terminee') throw new HttpError(409, 'réunion terminée');
-    if (act === 'baisser') { await db.run("UPDATE parent_meeting_question SET status = 'ecartee' WHERE meeting_id = ? AND user_id = ? AND kind = 'main' AND status = 'en_attente'", m.id, u.id); return { ok: true }; }
+    if (act === 'baisser') {
+      await db.run("UPDATE parent_meeting_question SET status = 'ecartee' WHERE meeting_id = ? AND user_id = ? AND kind = 'main' AND status = 'en_attente'", m.id, u.id);
+      // Baisser la main met aussi fin à une parole accordée (le parent peut toujours se taire, jamais se redonner la parole).
+      if (require('./diffusion').enabled(ctx)) await require('./parole').endFor(db, ctx, m.id, u.id, 'parent');
+      return { ok: true };
+    }
     if (!m.qa_open) throw new HttpError(409, 'questions fermées pour le moment');
     if (act === 'main') {
       const had = await db.get("SELECT id FROM parent_meeting_question WHERE meeting_id = ? AND user_id = ? AND kind = 'main' AND status = 'en_attente'", m.id, u.id);

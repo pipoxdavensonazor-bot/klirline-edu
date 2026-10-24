@@ -185,7 +185,7 @@ async function answerQ(id,qid,statut){
   if(!r||r.status!==200) return toast(errOf(r)); moderation(id);
 }
 async function ask(id){ const f=document.getElementById("l3Q"); const r=await send("POST",`/api/reunions-parents/${id}/question`,{texte:fd(f).texte}); if(!r||r.status!==200) return toast(errOf(r)); f.reset(); toast(t("saved")); }
-async function hand(id){ const h=document.getElementById("l3Hand"); const up=h&&h.dataset.up==="1"; const r=await send("POST",`/api/reunions-parents/${id}/${up?"baisser":"main"}`); if(!r||r.status!==200) return toast(errOf(r)); if(h){ h.dataset.up=up?"":"1"; h.textContent=up?t("hand"):t("lower"); } if(!up) toast(t("handUp")); }
+async function hand(id){ const h=document.getElementById("l3Hand"); const up=h&&h.dataset.up==="1"; const r=await send("POST",`/api/reunions-parents/${id}/${up?"baisser":"main"}`); if(!r||r.status!==200) return toast(errOf(r)); if(h){ h.dataset.up=up?"":"1"; h.textContent=up?t("hand"):t("lower"); } if(!up) toast(t("handUp")); if(window.NORIA_DIRECT) window.NORIA_DIRECT.poke(); }
 async function meetSet(id,statut){ const r=await send("PUT",`/api/reunions-parents/${id}`,{statut}); if(!r||r.status!==200) return toast(errOf(r)); await meetings(); meeting(id); }
 async function meetQa(id,on){ const r=await send("PUT",`/api/reunions-parents/${id}`,{questions_ouvertes:!!on}); if(!r||r.status!==200) return toast(errOf(r)); await meetings(); meeting(id); }
 

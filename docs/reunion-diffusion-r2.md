@@ -12,6 +12,39 @@ Parents ◄── segments .ts (direct.noriaedu.com = R2 + cache Cloudflare, imm
 
 Questions, main levée, présence et modération : module existant des réunions. Jitsi reste la salle des intervenants.
 
+## Prise de parole des parents (audio seul, micro ouvert par la direction)
+
+Réseaux faibles en Haïti : aucune vidéo, et **seule la direction (modératrice) ouvre le micro d'un parent**.
+
+1. Le parent clique « Lever la main » → sa carte affiche « ✋ Main levée — en attente ».
+2. La direction voit la main dans « Prise de parole » et clique « Donner la parole ». NORIA crée une autorisation
+   (`parent_meeting_speaker`, état `accordee`) valable **60 s, à usage unique, liée à ce parent et à cette réunion**.
+3. La page du parent (sondage 3 s) demande le micro et publie en WHIP sur `parole-<réunion>-<autorisation>` :
+   Opus mono **≈ 24 kbit/s** (`maxBitrate` + `maxaveragebitrate=24000;stereo=0;useinbandfec=1;usedtx=1`). Le son HLS
+   est mis en pause chez lui pendant qu'il parle (sinon il s'entend avec 10 s de retard) → « 🎙 Vous avez la parole ».
+4. MediaMTX demande l'accord à NORIA : jeton signé `v.<réunion>.<parent>.<autorisation>.<exp>` + passage atomique
+   `accordee → publie` (une seconde publication avec le même jeton est refusée). Sans jeton valable : 401.
+5. Le téléphone de la direction lit cette voix en WHEP (jeton de lecture « l », direction seulement) et la mélange à son
+   micro avec Web Audio : la voix part dans le même flux WHIP → HLS → R2. **Les autres parents restent sur HLS** ;
+   seul l'orateur (et la direction) utilise WebRTC.
+6. « Couper le micro » (direction) : l'autorisation est terminée, NORIA expulse la session par l'API MediaMTX
+   (`/v3/webrtcsessions/kick`, port 9997 du réseau Docker, jamais publié, utilisateur `noria` + mot de passe dérivé de
+   `NORIA_DIRECT_SECRET`), la direction cesse de mélanger, le parent voit « 🔇 Micro coupé ». Le parent peut aussi
+   « Arrêter de parler » ou baisser la main, mais **ne peut jamais se redonner la parole**. Fin de diffusion = toutes
+   les paroles terminées.
+
+Un orateur à la fois par défaut ; `NORIA_PAROLE_MAX=2` en autorise deux. Chaque don/coupure est journalisé (audit).
+
+Essai local (`/workspace/e2e-reunion/parole.js`, Chrome directeur + Chrome parent avec un ton de 1 kHz comme micro) :
+publication sans jeton → 401 ; parole donnée → parent « parle » en ≈ 1 s ; ton 1 kHz dans les segments HLS envoyés à
+R2 : −72 dB avant, −49 à −54 dB pendant, −72 dB après la coupure ; chemin MediaMTX supprimé après « Couper le micro »
+(parent informé en ≈ 2 s) ; écoute HLS du parent en pause pendant sa parole puis reprise.
+
+Limites : la coupure par l'API est « au mieux » (si MediaMTX ne répond pas, la direction cesse quand même de mélanger
+au sondage suivant, ≤ 3 s, et le jeton ne peut pas resservir) ; écho possible si le parent écoute sur haut-parleur un
+autre appareil ; la direction reçoit en plus ≈ 24 kbit/s par orateur ; retard de 10–20 s entre une question et la
+réponse entendue (HLS).
+
 ## Ce que Philippe doit faire (une fois, rien n'est fait sans son accord)
 
 1. **Bucket R2** `noria-direct` (Cloudflare → R2 → Create bucket ; emplacement automatique). Ne pas activer l'URL `r2.dev`.
@@ -64,6 +97,8 @@ R2 → noria-direct → Metrics (opérations A/B, stockage). Option : alerte de 
   l'écouter (même niveau qu'un appel Jitsi ouvert).
 - Publication : jeton de publication (4 h) vérifié par MediaMTX via `/api/interne/diffusion/auth` (réseau Docker ;
   Caddy répond 404 de l'extérieur). Lecture RTSP réservée à 127.0.0.1 (ffmpeg du conteneur).
+- Prise de parole : jeton à usage unique de 60 s (voir ci-dessus) ; lecture WHEP des chemins `parole-*` réservée à la
+  direction ; API MediaMTX sur le réseau Docker interne seulement, authentifiée par NORIA.
 - CSP : seule l'origine `NORIA_DIRECT_URL` est ajoutée à `connect-src` et `media-src` (plus `blob:` pour hls.js).
 
 ## Essai local (sans Docker)
