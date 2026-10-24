@@ -41,8 +41,11 @@ async function studentVisible(db, u, id) {
 }
 // Enseignant : la classe ET la matière doivent figurer dans ses affectations.
 async function teaches(db, u, classId, subjectId) {
-  return db.get('SELECT 1 AS x FROM teacher_assignment WHERE school_id = ? AND teacher_user_id = ? AND class_id = ? AND (subject_id = ? OR subject_id IS NULL)',
-    u.school_id, u.id, classId, subjectId);
+  // Titulaire (subject_id NULL) : toute matière commune ou propre au niveau de la classe.
+  return db.get(`SELECT 1 AS x FROM teacher_assignment ta JOIN class c ON c.id = ta.class_id AND c.school_id = ta.school_id
+    WHERE ta.school_id = ? AND ta.teacher_user_id = ? AND ta.class_id = ? AND (ta.subject_id = ? OR (ta.subject_id IS NULL AND EXISTS (
+      SELECT 1 FROM subject s WHERE s.id = ? AND s.school_id = ta.school_id AND (s.level_id IS NULL OR s.level_id = c.level_id))))`,
+    u.school_id, u.id, classId, subjectId, subjectId);
 }
 async function loadEvaluation(db, u, id) {
   const ev = await db.get('SELECT * FROM evaluation WHERE id = ? AND school_id = ?', int(id), u.school_id);
@@ -199,8 +202,11 @@ const routes = [
     // Matières actives de l'année de travail ; level_id : matière propre à un niveau (NULL = toutes les classes).
     const y = await workingYear(db, u.school_id); if (!y) return [];
     if (P.has(u, 'direction', 'secretariat')) return db.all('SELECT id, name, coefficient, level_id FROM subject WHERE school_id = ? AND school_year_id = ? AND archived_at IS NULL ORDER BY name', u.school_id, y.id);
+    // Titulaire (subject_id NULL) : toutes les matières de la classe (communes ou propres à son niveau).
     if (P.has(u, 'enseignant')) return db.all(`SELECT DISTINCT s.id, s.name, s.coefficient, s.level_id, ta.class_id FROM subject s
-      JOIN teacher_assignment ta ON ta.subject_id = s.id AND ta.school_id = s.school_id WHERE s.school_id = ? AND s.school_year_id = ? AND s.archived_at IS NULL AND ta.teacher_user_id = ? ORDER BY s.name`, u.school_id, y.id, u.id);
+      JOIN teacher_assignment ta ON ta.school_id = s.school_id
+      JOIN class c ON c.id = ta.class_id AND c.school_id = ta.school_id
+      WHERE (ta.subject_id = s.id OR (ta.subject_id IS NULL AND (s.level_id IS NULL OR s.level_id = c.level_id))) AND s.school_id = ? AND s.school_year_id = ? AND s.archived_at IS NULL AND ta.teacher_user_id = ? ORDER BY s.name`, u.school_id, y.id, u.id);
     forbid();
   }],
 
