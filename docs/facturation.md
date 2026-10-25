@@ -46,9 +46,13 @@ Rien n'est branché. Pour automatiser :
 
 ## Questions ouvertes pour Philippe
 
-* **Prix** : combien par élève et par an (HTG ? USD ?) ; quel forfait pour les petites écoles ; tarif dégressif ?
-* Facturation **annuelle** seulement, ou aussi par trimestre / mensuelle ?
-* Durée de l'**essai gratuit** (30 jours ? une année scolaire ?) et du **délai de grâce** (30 jours par défaut).
+* ~~Prix~~ — **validé par Philippe le 2026-10-24** (publié sur `/tarifs`) : forfaits annuels plafonnés, pas de prix par élève sur la page publique.
+  * Starter — jusqu'à 100 élèves : 25 000 HTG / an ou 200 USD / an
+  * Plus — jusqu'à 250 élèves : 55 000 HTG / an ou 420 USD / an
+  * Pro — jusqu'à 500 élèves : 95 000 HTG / an ou 720 USD / an
+  * Réseau — au-delà de 500 élèves : sur devis
+* Facturation **annuelle** (validé) ; trimestrielle / mensuelle : à décider.
+* ~~Essai / grâce~~ — **validé** : essai gratuit de **60 jours**, **15 jours** de grâce avant lecture seule (à aligner avec les valeurs par défaut du code, aujourd'hui 30 jours).
 * Mentions légales de la facture : raison sociale, NIF, adresse de NORIA, coordonnées bancaires et numéro MonCash marchand.
-* Taxes (TCA 10 %) à faire apparaître ?
+* ~~Taxes~~ — **validé** : TCA 10 % appliquée sur les factures.
 * Taux de change HTG/USD si une école veut payer dans l'autre devise.
