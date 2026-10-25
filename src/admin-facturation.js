@@ -46,7 +46,7 @@ function view(){
       <td><form class="fac-row" data-action-submit="NORIA_FAC.saveSchool" data-a0="t" data-id="${s.id}" novalidate>
         <select name="plan_id" aria-label="Formule"><option value="">— formule —</option>${d.plans.map(p=>`<option value="${p.id}"${a.plan&&a.plan.id===p.id?" selected":""}>${esc(p.name)}</option>`).join("")}</select>
         <input name="trial_days" type="number" min="0" max="365" placeholder="Essai (jours)" aria-label="Essai gratuit (jours)">
-        <input name="grace_days" type="number" min="0" max="365" value="${a.configured?Number(a.grace_days):30}" aria-label="Délai de grâce (jours)" title="Délai de grâce (jours)">
+        <input name="grace_days" type="number" min="0" max="365" value="${a.configured?Number(a.grace_days):15}" aria-label="Délai de grâce (jours)" title="Délai de grâce (jours)">
         <select name="read_only_mode" aria-label="Lecture seule">${["auto","jamais","force"].map(m=>`<option value="${m}"${(a.read_only_mode||"auto")===m?" selected":""}>${{auto:"Lecture seule auto",jamais:"Jamais (dérogation)",force:"Forcer"}[m]}</option>`).join("")}</select>
         <input name="billing_email" type="email" value="${esc(a.billing_email||"")}" placeholder="E-mail de facturation" aria-label="E-mail de facturation">
         <button type="submit" class="btn-sm">Enregistrer</button></form></td>
@@ -75,7 +75,7 @@ window.NORIA_FAC={
   money(c,cur){ const v=(Number(c)/100).toFixed(2).split("."); return v[0].replace(/\B(?=(\d{3})+(?!\d))/g," ")+","+v[1]+" "+cur; },
   async addPlan(f){ const r=await post("/api/admin/facturation/formules",{name:val(f,"name"),kind:val(f,"kind"),currency:val(f,"currency"),amount:val(f,"amount")}); flash(r,"Formule ajoutée."); refresh(); },
   async togglePlan(id,on){ const r=await post(`/api/admin/facturation/formules/${id}`,{active:!!on},"PATCH"); flash(r,on?"Formule réactivée.":"Formule désactivée."); refresh(); },
-  async saveSchool(f){ const b={plan_id:val(f,"plan_id")||null,grace_days:Number(val(f,"grace_days")||30),read_only_mode:val(f,"read_only_mode"),billing_email:val(f,"billing_email")};
+  async saveSchool(f){ const b={plan_id:val(f,"plan_id")||null,grace_days:Number(val(f,"grace_days")||15),read_only_mode:val(f,"read_only_mode"),billing_email:val(f,"billing_email")};
     if(val(f,"trial_days")) b.trial_days=Number(val(f,"trial_days"));
     const r=await post(`/api/admin/facturation/ecoles/${f.dataset.id}`,b,"PUT"); flash(r,"Abonnement enregistré."); refresh(); },
   async invoice(f){ const b={school_id:Number(f.dataset.id)}; if(val(f,"due_on")) b.due_on=val(f,"due_on");

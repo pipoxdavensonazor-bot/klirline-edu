@@ -181,7 +181,7 @@ function adminRoutes({ log }) {
     ['PUT', /^\/api\/admin\/facturation\/ecoles\/(\d+)$/, async (db, req, a, [id], ctx) => {
       const sid = int(id); const b = req.body || {};
       if (!(await db.get('SELECT 1 AS x FROM school WHERE id = ?', sid))) throw new HttpError(404, 'école introuvable');
-      const cur = (await db.get('SELECT * FROM school_billing WHERE school_id = ?', sid)) || { plan_id: null, trial_ends_on: null, grace_days: 30, read_only_mode: 'auto', billing_email: null, notes: null };
+      const cur = (await db.get('SELECT * FROM school_billing WHERE school_id = ?', sid)) || { plan_id: null, trial_ends_on: null, grace_days: 15, read_only_mode: 'auto', billing_email: null, notes: null };
       const n = { ...cur };
       if (b.plan_id !== undefined) { n.plan_id = b.plan_id == null || b.plan_id === '' ? null : int(b.plan_id); if (n.plan_id && !(await db.get('SELECT 1 AS x FROM billing_plan WHERE id = ?', n.plan_id))) throw new HttpError(400, 'formule inconnue'); }
       if (b.trial_days !== undefined && b.trial_days !== null && b.trial_days !== '') { const d = Number(b.trial_days); if (!Number.isInteger(d) || d < 0 || d > 365) throw new HttpError(400, 'essai : 0 à 365 jours'); n.trial_ends_on = d ? addDays(today(ctx), d) : null; }

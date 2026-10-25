@@ -8,7 +8,7 @@ configuré, sinon simulé), aucune passerelle de paiement payante. **Aucune donn
 | Élément | Détail |
 |---|---|
 | Formules | `par_eleve` (prix × élèves actifs, par an) ou `forfait` (prix fixe par an) ; devise **HTG** ou **USD** ; montants stockés en centimes. Une formule se désactive, elle ne se supprime pas. |
-| Abonnement d'une école | formule, **essai gratuit** (N jours à partir d'aujourd'hui ou date de fin), **délai de grâce** (30 j par défaut), mode lecture seule `auto` / `jamais` (dérogation) / `force`, e-mail de facturation. |
+| Abonnement d'une école | formule, **essai gratuit** (N jours à partir d'aujourd'hui ou date de fin), **délai de grâce** (15 j par défaut, valeur validée), mode lecture seule `auto` / `jamais` (dérogation) / `force`, e-mail de facturation. |
 | Factures | numéro `NOR-AAAA-0001` attribué dans une transaction ; élèves comptés depuis les inscriptions actives (modifiable) ; échéance à 30 jours par défaut ; **PDF** (`/api/admin/facturation/factures/:id/pdf`). |
 | Paiements | manuels : **MonCash, NatCash, virement, espèces** ; référence obligatoire (3–80 car.), unique par mode ; paiement partiel possible ; facture soldée → « payée ». Paiements immuables (ni modification ni suppression). |
 | Statuts | `a_payer`, `payee`, `annulee` (motif obligatoire, seulement sans paiement) sont stockés ; **« en retard » est calculé** (à payer et échéance dépassée, heure d'Haïti). |
@@ -54,7 +54,7 @@ Rien n'est branché. Pour automatiser :
   * Réseau — au-delà de 500 élèves : sur devis
   * **Par élève** (formule `par_eleve`) : **250 HTG / élève / an** ou **2,50 USD / élève / an** ; montant de la facture = élèves actifs × prix unitaire, calculé à l'émission. À effectif plein, le forfait est égal (Starter = 100 × 250) ou moins cher.
 * Facturation **annuelle** (validé) ; trimestrielle / mensuelle : à décider.
-* ~~Essai / grâce~~ — **validé** : essai gratuit de **60 jours**, **15 jours** de grâce avant lecture seule (à aligner avec les valeurs par défaut du code, aujourd'hui 30 jours).
+* ~~Essai / grâce~~ — **validé** : essai gratuit de **60 jours**, **15 jours** de grâce avant lecture seule — désormais la valeur par défaut du code (abonnement créé sans délai précisé : 15 j). La colonne SQL grace_days garde DEFAULT 30 (migration 028 déjà appliquée), mais l'API fournit toujours la valeur explicitement..
 * Mentions légales de la facture : raison sociale, NIF, adresse de NORIA, coordonnées bancaires et numéro MonCash marchand.
 * ~~Taxes~~ — **validé** : TCA 10 % appliquée sur les factures.
 * Taux de change HTG/USD si une école veut payer dans l'autre devise.
