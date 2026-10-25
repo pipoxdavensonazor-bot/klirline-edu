@@ -10,6 +10,15 @@ const { Page, buildDoc } = require('./pdf');
 
 const KINDS = ['par_eleve', 'forfait'];
 const CURRENCIES = ['HTG', 'USD'];
+// TCA 10 % : les prix des formules (publiés sur /tarifs) sont HT ; la facture ajoute la TCA → TTC = HT × 1,10.
+const TCA_BP = 1000; // 10 % en points de base
+function tca(htCents) { const tax = Math.round(htCents * TCA_BP / 10000); return { ht: htCents, tax, ttc: htCents + tax }; }
+// Mentions légales NORIA : fournies par variables d'environnement, jamais inventées.
+function legal() {
+  const e = process.env;
+  const l = [e.NORIA_RAISON_SOCIALE, e.NORIA_NIF && `NIF : ${e.NORIA_NIF}`, e.NORIA_ADRESSE].filter(Boolean);
+  return l.length ? l.join(' — ') : 'Mentions légales : à compléter (raison sociale, NIF, adresse de NORIA).';
+}
 const METHODS = { moncash: 'MonCash', natcash: 'NatCash', virement: 'Virement bancaire', especes: 'Espèces' };
 const LABEL = { a_payer: 'À payer', payee: 'Payée', en_retard: 'En retard', annulee: 'Annulée' };
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -37,7 +46,8 @@ async function invoiceOut(db, inv, t) {
   const paid = await db.all('SELECT id, method, reference, amount_cents, paid_on, note, created_at FROM billing_payment WHERE invoice_id = ? ORDER BY id', inv.id);
   const paidCents = paid.reduce((a, p) => a + Number(p.amount_cents), 0);
   const st = shownStatus(inv, t);
-  return { ...inv, id: Number(inv.id), amount_cents: Number(inv.amount_cents), unit_cents: Number(inv.unit_cents), students: inv.students == null ? null : Number(inv.students),
+  return { ...inv, id: Number(inv.id), amount_cents: Number(inv.amount_cents), tax_rate_bp: Number(inv.tax_rate_bp || 0), tax_cents: Number(inv.tax_cents || 0),
+    ht_cents: Number(inv.amount_cents) - Number(inv.tax_cents || 0), unit_cents: Number(inv.unit_cents), students: inv.students == null ? null : Number(inv.students),
     statut: st, statut_label: LABEL[st], paid_cents: paidCents, reste_cents: Math.max(0, Number(inv.amount_cents) - paidCents),
     montant: money(inv.amount_cents, inv.currency), payments: paid.map((p) => ({ ...p, amount_cents: Number(p.amount_cents), method_label: METHODS[p.method] })) };
 }
@@ -97,9 +107,16 @@ function invoicePdf(inv, school) {
   y -= 22;
   p.text(56, y, inv.label.slice(0, 60), { size: 9 });
   p.text(330, y, inv.kind === 'par_eleve' ? `${inv.students} élève(s)` : '1', { size: 9 });
-  p.text(400, y, money(inv.unit_cents, inv.currency), { size: 9 }).text(480, y, money(inv.amount_cents, inv.currency), { size: 9 });
+  p.text(400, y, money(inv.unit_cents, inv.currency), { size: 9 }).text(480, y, money(inv.ht_cents, inv.currency), { size: 9 });
   y -= 14; p.line(50, y, 545, y);
-  y -= 18; p.text(400, y, 'Total', { size: 10, bold: true }).text(480, y, money(inv.amount_cents, inv.currency), { size: 10, bold: true });
+  if (inv.tax_rate_bp) {
+    const pct = `${inv.tax_rate_bp / 100} %`;
+    y -= 18; p.text(400, y, 'Total HT', { size: 9 }).text(480, y, money(inv.ht_cents, inv.currency), { size: 9 });
+    y -= 14; p.text(400, y, `TCA ${pct}`, { size: 9 }).text(480, y, money(inv.tax_cents, inv.currency), { size: 9 });
+    y -= 14; p.text(400, y, 'Total TTC', { size: 10, bold: true }).text(480, y, money(inv.amount_cents, inv.currency), { size: 10, bold: true });
+  } else {
+    y -= 18; p.text(400, y, 'Total', { size: 10, bold: true }).text(480, y, money(inv.amount_cents, inv.currency), { size: 10, bold: true });
+  }
   y -= 14; p.text(400, y, 'Déjà payé', { size: 9 }).text(480, y, money(inv.paid_cents, inv.currency), { size: 9 });
   y -= 14; p.text(400, y, 'Reste dû', { size: 10, bold: true }).text(480, y, money(inv.reste_cents, inv.currency), { size: 10, bold: true });
   y -= 36;
@@ -112,6 +129,7 @@ function invoicePdf(inv, school) {
     for (const x of inv.payments) { p.text(50, y, `${x.paid_on} — ${x.method_label} — réf. ${x.reference} — ${money(x.amount_cents, inv.currency)}`, { size: 9 }); y -= 13; }
   }
   if (inv.status === 'annulee') { y -= 10; p.text(50, y, `Facture annulée : ${inv.cancel_reason || ''}`.slice(0, 100), { size: 10, bold: true }); }
+  p.text(50, 74, legal().slice(0, 120), { size: 8, gray: 0.35 });
   p.text(50, 60, "En cas de retard, l'espace de l'école passe en lecture seule après le délai de grâce : aucune donnée n'est supprimée.", { size: 8, gray: 0.35 });
   return buildDoc([p], { title: `Facture ${inv.number}` });
 }
@@ -219,14 +237,15 @@ function adminRoutes({ log }) {
       const t = today(ctx);
       const students = plan.kind === 'par_eleve' ? (b.students != null && b.students !== '' ? Number(b.students) : await activeStudents(db, sid)) : null;
       if (students != null && (!Number.isInteger(students) || students < 0 || students > 100000)) throw new HttpError(400, 'nombre d’élèves invalide');
-      const amount = plan.kind === 'par_eleve' ? Number(plan.amount_cents) * students : Number(plan.amount_cents);
+      const ht = plan.kind === 'par_eleve' ? Number(plan.amount_cents) * students : Number(plan.amount_cents);
+      const { tax, ttc: amount } = tca(ht);
       const due = b.due_on ? day(b.due_on, 'échéance') : addDays(t, 30);
       if (due < t) throw new HttpError(400, 'échéance dans le passé');
       const label = str(b.label, 160) || `Abonnement NORIA — ${plan.name}${b.periode ? ` — ${str(b.periode, 40)}` : ''}`;
       const inv = await db.tx(async (x) => {
         const number = await nextNumber(x, t.slice(0, 4));
-        const id = await x.insert(`INSERT INTO billing_invoice (number, school_id, plan_id, label, kind, currency, students, unit_cents, amount_cents, issued_on, due_on, created_by)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, number, sid, plan.id, label, plan.kind, plan.currency, students, plan.amount_cents, amount, t, due, a.id);
+        const id = await x.insert(`INSERT INTO billing_invoice (number, school_id, plan_id, label, kind, currency, students, unit_cents, amount_cents, tax_rate_bp, tax_cents, issued_on, due_on, created_by)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, number, sid, plan.id, label, plan.kind, plan.currency, students, plan.amount_cents, amount, TCA_BP, tax, t, due, a.id);
         return x.get('SELECT * FROM billing_invoice WHERE id = ?', id);
       });
       await log(db, a, 'admin.facturation.facture.emettre', inv.id, `${inv.number} ${school.name} ${money(amount, plan.currency)}`, 'ok', req.ip);
@@ -311,4 +330,4 @@ const schoolRoutes = [
   }, { system: true }],
 ];
 
-module.exports = { adminRoutes, schoolRoutes, state, guardWrite, cents, money, today, addDays, METHODS };
+module.exports = { tca, invoicePdf, adminRoutes, schoolRoutes, state, guardWrite, cents, money, today, addDays, METHODS };

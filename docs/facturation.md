@@ -14,6 +14,19 @@ configuré, sinon simulé), aucune passerelle de paiement payante. **Aucune donn
 | Statuts | `a_payer`, `payee`, `annulee` (motif obligatoire, seulement sans paiement) sont stockés ; **« en retard » est calculé** (à payer et échéance dépassée, heure d'Haïti). |
 | Rappels | par facture ou groupés (toutes les factures en retard, au plus un par jour) : e-mail `facturation_rappel` (FR/HT) à l'e-mail de facturation + comptes direction, **notification dans l'application** pour la direction ; chaque envoi est tracé (`billing_reminder`) et journalisé (`platform_audit`). |
 
+## TCA 10 %
+
+Décision : les prix des formules (ceux publiés sur `/tarifs`, ex. Starter 25 000 HTG / an) sont **HT** ; la facture
+ajoute la **TCA 10 %** : `TCA = arrondi(HT × 10 %)` (au centime), `TTC = HT + TCA`. Exemple Starter : 25 000 HT +
+2 500 TCA = **27 500 HTG TTC**. Par élève : HT = élèves × prix unitaire, puis TCA sur ce total.
+
+* `billing_invoice.amount_cents` = **montant dû TTC** (paiements, reste dû et statut « payée » s'appuient dessus) ;
+  détail stocké dans `tax_rate_bp` (1000 = 10 %) et `tax_cents` (migration `029_facturation_tca.sql`). HT = amount − tax.
+* PDF : ligne en HT, puis **Total HT / TCA 10 % / Total TTC**, déjà payé, reste dû.
+* Factures émises avant la migration : `tax_cents = 0`, montant inchangé, PDF avec un simple « Total ».
+* Mentions légales en pied de PDF depuis `NORIA_RAISON_SOCIALE`, `NORIA_NIF`, `NORIA_ADRESSE` ; sinon
+  « Mentions légales : à compléter » (rien n'est inventé).
+
 ## Lecture seule douce
 
 Une école passe en lecture seule (HTTP **423** sur toute écriture) quand :
@@ -56,5 +69,5 @@ Rien n'est branché. Pour automatiser :
 * Facturation **annuelle** (validé) ; trimestrielle / mensuelle : à décider.
 * ~~Essai / grâce~~ — **validé** : essai gratuit de **60 jours**, **15 jours** de grâce avant lecture seule — désormais la valeur par défaut du code (abonnement créé sans délai précisé : 15 j). La colonne SQL grace_days garde DEFAULT 30 (migration 028 déjà appliquée), mais l'API fournit toujours la valeur explicitement..
 * Mentions légales de la facture : raison sociale, NIF, adresse de NORIA, coordonnées bancaires et numéro MonCash marchand.
-* ~~Taxes~~ — **validé** : TCA 10 % appliquée sur les factures.
+* ~~Taxes~~ — **validé** : TCA 10 % appliquée sur les factures (voir « TCA 10 % » ci-dessous).
 * Taux de change HTG/USD si une école veut payer dans l'autre devise.

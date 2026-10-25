@@ -38,6 +38,12 @@ before(async () => {
 });
 after(async () => { server.close(); await db.cleanup(); });
 
+function pdfText(buf) { // flux FlateDecode → texte brut des opérateurs (assez pour vérifier les libellés)
+  const zlib = require('zlib'); const raw = buf.toString('latin1'); let out = '';
+  for (const m of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) { try { out += zlib.inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1'); } catch { /* non compressé */ } }
+  return Buffer.from(out, 'latin1').toString('latin1');
+}
+
 test('montants : saisie en unités → centimes, affichage', () => {
   assert.equal(F.cents('1500'), 150000); assert.equal(F.cents('12,5'), 1250); assert.throws(() => F.cents('-3')); assert.throws(() => F.cents('abc'));
   assert.equal(F.money(150000, 'HTG'), '1 500,00 HTG');
@@ -64,18 +70,20 @@ test('facture par élève : numéro NOR-AAAA-0001, montant = élèves actifs × 
   const inv = await call(admin, 'POST', '/api/admin/facturation/factures', { school_id: sa, periode: '2026-2027' });
   assert.equal(inv.status, 200, JSON.stringify(inv.json));
   assert.match(inv.json.number, /^NOR-\d{4}-0001$/);
-  assert.equal(inv.json.students, n); assert.equal(inv.json.amount_cents, n * 50000); assert.equal(inv.json.statut, 'a_payer');
+  assert.equal(inv.json.students, n); assert.equal(inv.json.ht_cents, n * 50000); assert.equal(inv.json.tax_cents, n * 5000); assert.equal(inv.json.amount_cents, n * 55000); assert.equal(inv.json.statut, 'a_payer');
   const inv2 = await call(admin, 'POST', '/api/admin/facturation/factures', { school_id: sa, students: 3 });
-  assert.match(inv2.json.number, /-0002$/); assert.equal(inv2.json.amount_cents, 150000);
+  assert.match(inv2.json.number, /-0002$/); assert.equal(inv2.json.amount_cents, 165000); assert.equal(inv2.json.tax_rate_bp, 1000);
   const pdf = await call(admin, 'GET', `/api/admin/facturation/factures/${inv.json.id}/pdf`);
   assert.equal(pdf.status, 200); assert.equal(pdf.buf.subarray(0, 5).toString(), '%PDF-');
+  const txt = pdfText(pdf.buf);
+  assert.match(txt, /Total HT/); assert.match(txt, /TCA 10 %/); assert.match(txt, /Total TTC/); assert.match(txt, /Mentions légales : à compléter/);
   // Paiement : méthode et référence obligatoires ; référence unique par méthode.
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'cheque', reference: 'ABC123' })).status, 400);
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'moncash', reference: '' })).status, 400);
   const p1 = await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'moncash', reference: 'MC-0001', amount: '1000' });
-  assert.equal(p1.json.statut, 'a_payer'); assert.equal(p1.json.reste_cents, 50000);
+  assert.equal(p1.json.statut, 'a_payer'); assert.equal(p1.json.reste_cents, 65000);
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'moncash', reference: 'MC-0001', amount: '500' })).status, 409);
-  const p2 = await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'natcash', reference: 'NC-77', amount: '500' });
+  const p2 = await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'natcash', reference: 'NC-77', amount: '650' });
   assert.equal(p2.json.statut, 'payee'); assert.equal(p2.json.payments.length, 2);
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'especes', reference: 'REC-1' })).status, 409);
   // Paiements immuables.
@@ -124,7 +132,7 @@ test('essai gratuit puis lecture seule ; annulation avec motif ; rappel groupé'
   assert.equal(st.read_only, true); assert.equal(st.reason, 'essai_termine');
   const forf = await call(admin, 'POST', '/api/admin/facturation/formules', { name: 'Forfait HTG', kind: 'forfait', currency: 'HTG', amount: '25000' });
   const inv = await call(admin, 'POST', '/api/admin/facturation/factures', { school_id: sb, plan_id: forf.json.id });
-  assert.equal(inv.json.amount_cents, 2500000); assert.equal(inv.json.students, null);
+  assert.equal(inv.json.amount_cents, 2750000); assert.equal(inv.json.tax_cents, 250000); assert.equal(inv.json.ht_cents, 2500000); assert.equal(inv.json.students, null);
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv.json.id}/annuler`, { reason: '' })).status, 400);
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv.json.id}/annuler`, { reason: 'erreur de formule' })).json.statut, 'annulee');
   const late = await call(admin, 'POST', '/api/admin/facturation/factures', { school_id: sb, plan_id: forf.json.id });
