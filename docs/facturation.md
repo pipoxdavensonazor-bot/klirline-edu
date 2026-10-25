@@ -46,11 +46,13 @@ Rien n'est branché. Pour automatiser :
 
 ## Questions ouvertes pour Philippe
 
-* ~~Prix~~ — **validé par Philippe le 2026-10-24** (publié sur `/tarifs`) : forfaits annuels plafonnés, pas de prix par élève sur la page publique.
+* ~~Prix~~ — **validé par Philippe le 2026-10-24** (publié sur `/tarifs`) : deux modèles publiés.
+  * **Forfaits** annuels plafonnés (formule `forfait`) :
   * Starter — jusqu'à 100 élèves : 25 000 HTG / an ou 200 USD / an
   * Plus — jusqu'à 250 élèves : 55 000 HTG / an ou 420 USD / an
   * Pro — jusqu'à 500 élèves : 95 000 HTG / an ou 720 USD / an
   * Réseau — au-delà de 500 élèves : sur devis
+  * **Par élève** (formule `par_eleve`) : **250 HTG / élève / an** ou **2,50 USD / élève / an** ; montant de la facture = élèves actifs × prix unitaire, calculé à l'émission. À effectif plein, le forfait est égal (Starter = 100 × 250) ou moins cher.
 * Facturation **annuelle** (validé) ; trimestrielle / mensuelle : à décider.
 * ~~Essai / grâce~~ — **validé** : essai gratuit de **60 jours**, **15 jours** de grâce avant lecture seule (à aligner avec les valeurs par défaut du code, aujourd'hui 30 jours).
 * Mentions légales de la facture : raison sociale, NIF, adresse de NORIA, coordonnées bancaires et numéro MonCash marchand.
