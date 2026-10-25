@@ -1,0 +1,39 @@
+/* NORIA — page publique des tarifs (/tarifs). Feuille autonome (aucune dépendance). */
+:root{--ink:#0e1218;--mut:#5b6573;--line:#dfe3e8;--bg:#f4f6f9;--card:#fff;--acc:#0b3d6e;--acc2:#e7eef7;--ok:#13703a;--okbg:#e5f4ea;--r:12px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg)}
+a{color:var(--acc)}
+h1{font-size:1.35rem;margin:.2em 0 .5em;line-height:1.25}
+h2{font-size:1.1rem;margin:.2em 0 .6em}
+h3{font-size:1rem;margin:.1em 0 .4em}
+p{margin:.35em 0}
+a:focus-visible{outline:3px solid #6aa3e0;outline-offset:2px}
+.skip{position:absolute;left:-999px;top:0;background:#fff;padding:.5em}
+.skip:focus{left:8px;z-index:9}
+.m-top{position:sticky;top:0;z-index:5;background:var(--acc);color:#fff;display:flex;align-items:center;gap:.6em;padding:.55em 14px;flex-wrap:wrap}
+.m-top .ttl{font-weight:700;line-height:1.15;flex:1;min-width:150px}
+.m-top .ttl small{display:block;font-weight:400;opacity:.85;font-size:.75rem}
+.t-logo{height:34px;width:auto;background:#fff;border-radius:8px;padding:2px 6px}
+.t-main{max-width:1060px;margin:0 auto;padding:16px 14px 40px}
+.t-main section{margin:0 0 28px}
+.t-hero{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.t-cta{display:flex;flex-wrap:wrap;gap:.6em;margin-top:.8em}
+.t-btn{display:inline-block;background:var(--acc);color:#fff;text-decoration:none;font-weight:600;border-radius:10px;padding:.6em 1.1em}
+.t-btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
+.t-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.t-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.t-star{border:2px solid var(--acc)}
+.t-cap{color:var(--mut)}
+.t-price{font-size:1.5rem;font-weight:800;margin:.4em 0 0}
+.t-price span{font-size:.85rem;font-weight:400;color:var(--mut);margin-left:.3em}
+.t-alt{color:var(--mut);font-size:.9rem}
+.t-terms,.t-incl{background:var(--acc2);border-radius:var(--r);padding:12px 12px 12px 32px;margin:14px 0}
+.t-incl{background:var(--okbg)}
+.t-note{color:var(--mut);font-size:.85rem}
+.t-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+.t-table{border-collapse:collapse;width:100%;min-width:760px;font-size:.9rem}
+.t-table th,.t-table td{text-align:left;vertical-align:top;padding:.6em .7em;border-bottom:1px solid var(--line)}
+.t-table thead th{background:var(--acc2)}
+.t-us{background:var(--okbg)}
+.t-foot{text-align:center;color:var(--mut);font-size:.8rem;padding:18px}

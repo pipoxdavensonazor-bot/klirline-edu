@@ -161,7 +161,7 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
 <nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav>${acc}</div>
 <nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}</div></nav></header>
 <main id="contenu" class="wrap" tabindex="-1">${body}</main>
-<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
+<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="/tarifs">${L === 'ht' ? 'Pri' : 'Tarifs'}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
 </body></html>`;
 }
 
@@ -220,6 +220,9 @@ async function home(pub, L) {
       + section('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : empty(t.noAds), more(L, 'annonces', t.allAds))
       + section('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : empty(t.noCommunity), more(L, 'communaute', t.allCommunity))
       + `<section class="sec box-reg" aria-labelledby="s-join"><h2 id="s-join">${esc(t.joinTitle)}</h2><p>${esc(t.joinText)}</p><p class="cta"><a class="btn" href="${href(L, 'compte')}?inscription=1">${esc(t.signup)}</a> <a class="btn btn-o" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a></p></section>`
+      + (L === 'ht'
+        ? `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Pri NORIA pou lekòl yo</h2><p>Fòfè apati <strong>25 000 HTG / ane</strong> oswa <strong>250 HTG / elèv / ane</strong>. Esè gratis 60 jou, san angajman.</p><p class="cta"><a class="btn" href="/tarifs">Gade pri yo</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`
+        : `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Tarifs NORIA pour les écoles</h2><p>Forfaits dès <strong>25 000 HTG / an</strong> ou <strong>250 HTG / élève / an</strong>. Essai gratuit de 60 jours, sans engagement.</p><p class="cta"><a class="btn" href="/tarifs">Voir les tarifs</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`)
       + section('s-pa', t.partners, `<p class="mut">${esc(t.partnersHelp)}</p>${partners.length ? `<ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : empty(t.noPartners)}`),
   };
 }
