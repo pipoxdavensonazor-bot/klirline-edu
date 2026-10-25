@@ -1,4 +1,19 @@
-/* NORIA — page publique des tarifs (/tarifs). S'appuie sur ministere.css. */
+/* NORIA — page publique des tarifs (/tarifs). Feuille autonome (aucune dépendance). */
+:root{--ink:#0e1218;--mut:#5b6573;--line:#dfe3e8;--bg:#f4f6f9;--card:#fff;--acc:#0b3d6e;--acc2:#e7eef7;--ok:#13703a;--okbg:#e5f4ea;--r:12px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg)}
+a{color:var(--acc)}
+h1{font-size:1.35rem;margin:.2em 0 .5em;line-height:1.25}
+h2{font-size:1.1rem;margin:.2em 0 .6em}
+h3{font-size:1rem;margin:.1em 0 .4em}
+p{margin:.35em 0}
+a:focus-visible{outline:3px solid #6aa3e0;outline-offset:2px}
+.skip{position:absolute;left:-999px;top:0;background:#fff;padding:.5em}
+.skip:focus{left:8px;z-index:9}
+.m-top{position:sticky;top:0;z-index:5;background:var(--acc);color:#fff;display:flex;align-items:center;gap:.6em;padding:.55em 14px;flex-wrap:wrap}
+.m-top .ttl{font-weight:700;line-height:1.15;flex:1;min-width:150px}
+.m-top .ttl small{display:block;font-weight:400;opacity:.85;font-size:.75rem}
 .t-logo{height:34px;width:auto;background:#fff;border-radius:8px;padding:2px 6px}
 .t-main{max-width:1060px;margin:0 auto;padding:16px 14px 40px}
 .t-main section{margin:0 0 28px}
