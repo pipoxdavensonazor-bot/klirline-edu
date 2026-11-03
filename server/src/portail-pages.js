@@ -126,7 +126,10 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
     `<meta property="og:description" content="${esc(desc)}">`, `<meta property="og:url" content="${esc(abs(canonical))}">`, `<meta property="og:image" content="${esc(og)}">`,
     `<meta property="og:locale" content="${t.locale}">`, `<meta property="og:locale:alternate" content="${T[other].locale}">`,
     `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
-    '<meta name="theme-color" content="#0e1218">', '<link rel="icon" href="/src/favicon.svg" type="image/svg+xml">', '<link rel="apple-touch-icon" href="/src/icon-192.png">',
+    '<meta name="theme-color" content="#0e1218">',
+    '<link rel="icon" href="/src/favicon-32.png?v=20261103" type="image/png" sizes="32x32">',
+    '<link rel="icon" href="/favicon.ico?v=20261103" sizes="any">',
+    '<link rel="apple-touch-icon" href="/src/apple-touch-icon.png?v=20261103" sizes="180x180">',
     `<link rel="stylesheet" href="/src/portail.css?v=${assets.css}">`, `<script src="/src/portail.js?v=${assets.js}"></script>`,
   ].join('');
   const nav = PAGES.map((p) => `<a href="${href(L, p)}"${p === page ? ' aria-current="page"' : ''}>${esc(t.nav[p])}</a>`).join('');

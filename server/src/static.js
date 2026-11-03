@@ -9,12 +9,12 @@ const crypto = require('node:crypto');
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 const COMPRESS = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
 // Fichiers servis à la racine (application installable) en plus de index.html et src/.
-const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest']);
+const ROOT_FILES = new Set(['/sw.js', '/manifest.webmanifest', '/favicon.ico']);
 
 // CSP de la page : aucun script ni style en ligne (gestionnaires par délégation data-action, styles en classes).
 // Le test test/csp.test.js échoue si un attribut on* ou style="" réapparaît dans le HTML ou les gabarits JS.
@@ -48,7 +48,7 @@ function createStatic(root) {
   function precacheList() {
     const html = fs.readFileSync(path.join(rootAbs, 'index.html'), 'utf8');
     const found = [...html.matchAll(/(?:href|src)="(src\/[^"#?]+)"/g)].map((m) => '/' + m[1]);
-    return [...new Set([...found, '/manifest.webmanifest', '/src/icon-192.png', '/src/icon-512.png'])]
+    return [...new Set([...found, '/manifest.webmanifest', '/favicon.ico', '/src/favicon-32.png', '/src/apple-touch-icon.png', '/src/icon-192.png', '/src/icon-512.png'])]
       .filter((u) => { const a = resolve(u); return a && fs.existsSync(a); });
   }
   function swSource(src) {
