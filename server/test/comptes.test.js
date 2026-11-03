@@ -136,7 +136,11 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   const home = await raw('/app', { 'accept-encoding': 'gzip' });
   assert.equal(home.status, 200);
   assert.equal(home.headers['content-encoding'], 'gzip');
-  assert.match(zlib.gunzipSync(home.body).toString(), /<meta name="noria-server" content="1">/);
+  const appHtml = zlib.gunzipSync(home.body).toString();
+  assert.match(appHtml, /<meta name="noria-server" content="1">/);
+  assert.match(appHtml, /src\/pwa-install\.js/);
+  assert.match(appHtml, /apple-mobile-web-app-capable" content="yes"/);
+  assert.match(appHtml, /rel="manifest" href="manifest\.webmanifest"/);
   assert.match(home.headers['content-security-policy'], /frame-ancestors 'none'/);
   const again = await raw('/app', { 'if-none-match': home.headers.etag });
   assert.equal(again.status, 304);
@@ -145,7 +149,7 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   const portal = await raw('/', { 'accept-encoding': 'gzip' });
   assert.equal(portal.status, 200); assert.equal(portal.headers['content-encoding'], 'gzip');
   const ph = zlib.gunzipSync(portal.body).toString();
-  assert.match(ph, /<html lang="fr">/); assert.match(ph, /href="\/app"/); assert.doesNotMatch(ph, /noria-server|manifest\.webmanifest/);
+  assert.match(ph, /<html lang="fr">/); assert.match(ph, /href="\/app"/); assert.doesNotMatch(ph, /noria-server|manifest\.webmanifest|pwa-install|apple-mobile-web-app-capable/);
   assert.match(portal.headers['content-security-policy'], /default-src 'none'/);
   assert.equal(portal.headers['set-cookie'], undefined);
   assert.equal((await raw('/', { 'if-none-match': portal.headers.etag })).status, 304);
@@ -159,8 +163,24 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   assert.match(swText, /startsWith\("\/api\/"\)/, 'les réponses API ne sont jamais mises en cache');
   const mf = await raw('/manifest.webmanifest');
   assert.equal(mf.status, 200); assert.match(mf.headers['content-type'], /manifest\+json/);
-  assert.equal(JSON.parse(mf.body.toString()).display, 'standalone');
-  assert.equal(JSON.parse(mf.body.toString()).start_url, '/app');
+  const manifest = JSON.parse(mf.body.toString());
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.start_url, '/app');
+  assert.equal(manifest.scope, '/');
+  assert.equal(manifest.prefer_related_applications, false);
+  for (const key of ['name', 'short_name', 'description']) {
+    assert.equal(typeof manifest[key], 'string', key);
+    assert.ok(manifest[key].trim(), key);
+    assert.doesNotMatch(manifest[key], /démo|d[ée]monstration|\bdemo\b|placeholder/i, key);
+  }
+  assert.ok(manifest.icons.some((i) => /\/src\/icon-192/.test(i.src) && /192/.test(i.sizes)));
+  assert.ok(manifest.icons.some((i) => /\/src\/icon-512/.test(i.src) && /512/.test(i.sizes)));
+  const loginSrc = (await raw('/src/login.js')).body.toString();
+  assert.match(loginSrc, /id="lgInstallSlot"/);
+  assert.match(loginSrc, /Installer l'app/);
+  assert.match(loginSrc, /Sur l'écran d'accueil/);
+  assert.match((await raw('/src/pwa-install.js')).body.toString(), /beforeinstallprompt/);
+  assert.match(swText, /"\/src\/pwa-install\.js"/, 'le script d\'installation est mis en cache');
   assert.match(swText, /"\/app"/, 'le service worker met /app en cache');
   for (const p of ['/server/src/seed.js', '/src/../server/package.json', '/src/%2e%2e/server/package.json', '/.git/config', '/src/x.sqlite', '/package.json'])
     assert.equal((await raw(p)).status, 404, p);
