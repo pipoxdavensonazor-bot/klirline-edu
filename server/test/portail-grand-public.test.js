@@ -75,7 +75,7 @@ test('Espaces des écoles : annonces par catégorie, pagination légère, campag
 
 test('aucun lien public vers les portails des écoles ; /app reste servi quand on le tape', async () => {
   for (const L of ['', '/ht']) {
-    for (const p of ['', '/ecoles', '/evenements', '/laureats', '/communaute', '/annonces', '/compte', '/compte?inscription=1', '/inscrire-ecole', '/confidentialite']) {
+    for (const p of ['', '/ecoles', '/evenements', '/laureats', '/communaute', '/annonces', '/tarifs', '/compte', '/compte?inscription=1', '/inscrire-ecole', '/confidentialite']) {
       const r = await page(`${L}${p}` || '/');
       assert.equal(r.status, 200, `${L}${p}`);
       assert.doesNotMatch(r.text, /href="[^"]*\/app\b/, `${L}${p} : aucun lien vers /app`);
@@ -123,6 +123,42 @@ test('inscription grand public : abonnements choisis, suivi d’école, témoin 
   const out = await form('/compte/deconnexion', {}, { cookie });
   assert.equal(out.status, 303); assert.equal(out.headers.get('location'), '/');
   assert.ok(out.headers.getSetCookie().some((c) => /^noria_pub_in=;.*Max-Age=0/.test(c)));
+});
+
+test('/tarifs reprend l’en-tête et le pied de page du portail ; le texte des prix reste en français', async () => {
+  const chrome = (html) => ({
+    header: html.match(/<header class="hd">[\s\S]*?<\/header>/)[0].replace(/ aria-current="page"/g, '').replace(/href="[^"]*"/g, 'href="#"'),
+    footer: html.match(/<footer class="ft">[\s\S]*?<\/footer>/)[0].replace(/ aria-current="page"/g, '').replace(/href="[^"]*"/g, 'href="#"'),
+  });
+  const home = await page('/'); const schools = await page('/ecoles'); const laureates = await page('/laureats');
+  const fr = await page('/tarifs');
+  assert.equal(fr.status, 200);
+  assert.equal(chrome(fr.text).header, chrome(home.text).header);
+  assert.equal(chrome(fr.text).header, chrome(schools.text).header);
+  assert.equal(chrome(fr.text).header, chrome(laureates.text).header);
+  assert.equal(chrome(fr.text).footer, chrome(laureates.text).footer);
+  assert.match(fr.text, /<html lang="fr">/);
+  assert.match(fr.text, /href="\/src\/portail\.css\?v=/); assert.match(fr.text, /href="\/src\/tarifs\.css\?v=/);
+  assert.match(fr.text, /href="\/tarifs" aria-current="page">Tarifs</);
+  assert.match(fr.text, /Forfaits annuels plafonnés ou prix par élève/);
+  assert.match(fr.text, /25 000 HTG/); assert.match(fr.text, /250 HTG/); assert.match(fr.text, /TCA 10 %/);
+  assert.match(fr.text, /Educa HT/); assert.match(fr.text, /href="\/inscrire-ecole">Inscrire mon école/);
+  assert.doesNotMatch(fr.text, /class="m-top"|class="t-foot"|class="t-logo"/);
+  assert.doesNotMatch(fr.text, /href="[^"]*\/app\b/);
+  const htHome = await page('/ht'); const ht = await page('/ht/tarifs');
+  assert.equal(ht.status, 200);
+  assert.equal(chrome(ht.text).header, chrome(htHome.text).header);
+  assert.equal(chrome(ht.text).footer, chrome((await page('/ht/laureats')).text).footer);
+  assert.match(ht.text, /<html lang="ht">/);
+  assert.match(ht.text, /class="tarifs" lang="fr"/);
+  assert.match(ht.text, /href="\/ht\/tarifs" aria-current="page">Pri</);
+  assert.match(ht.text, /25 000 HTG/); assert.match(ht.text, /Gade pri yo|Forfaits annuels/);
+  assert.match((await page('/')).text, /href="\/tarifs">Voir les tarifs/);
+  assert.match(htHome.text, /href="\/ht\/tarifs">Gade pri yo/);
+  const slash = await page('/tarifs/'); assert.equal(slash.status, 301); assert.equal(slash.headers.get('location'), '/tarifs');
+  const slashHt = await page('/ht/tarifs/'); assert.equal(slashHt.status, 301); assert.equal(slashHt.headers.get('location'), '/ht/tarifs');
+  const sm = await page('/sitemap.xml');
+  assert.match(sm.text, /\/tarifs<\/loc>/); assert.match(sm.text, /\/ht\/tarifs<\/loc>/);
 });
 
 test('script d’en-tête et styles : témoin, bascule S’inscrire / Mon compte', () => {
