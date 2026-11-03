@@ -40,11 +40,17 @@ for (const [L, p] of [['fr', '/confidentialite'], ['ht', '/ht/confidentialite']]
     assert.doesNotMatch(r.text, /(src|href)="https?:\/\/(?!127\.0\.0\.1)/);
     const c = PV.C[L];
     assert.ok(r.text.includes(`<h1>${c.title}</h1>`));
-    for (const s of ['Klirline', 'contact@klirline.ca', 'mailto:contact@klirline.ca', 'Vultr', 'Miami', 'Cloudflare', 'R2', 'Resend', 'WhatsApp', 'Telegram',
-      'noria_session', 'noria_appareil', 'chat id', '30', '35', '12', 'datetime="2026-10-17"']) assert.ok(r.text.includes(s), `${L} contient ${s}`);
-    assert.ok(r.text.includes(L === 'fr' ? '17 octobre 2026' : '17 oktòb 2026'));
+    for (const s of ['Klirline', 'contact@klirline.ca', 'mailto:contact@klirline.ca', 'Philippe Davenson Azor', '777880576RC0001',
+      'Vultr', 'Miami', 'Cloudflare', 'R2', 'Resend', 'WhatsApp', 'Telegram', 'Jitsi',
+      'noria_session', 'noria_appareil', 'noria_public', 'noria_pub_in', 'noria_admin', 'noria_ministere',
+      'chat id', 'TCA', '30', '35', '12', 'datetime="2026-11-03"']) assert.ok(r.text.includes(s), `${L} contient ${s}`);
+    assert.ok(r.text.includes(L === 'fr' ? '3 novembre 2026' : '3 novanm 2026'));
     assert.ok(r.text.includes(L === 'fr' ? 'Nous ne vendons ni ne louons aucune donnée personnelle.' : 'Nou pa vann ni lwe okenn done pèsonèl.'));
-    assert.equal(c.sections.length, 10);
+    assert.ok(r.text.includes(L === 'fr' ? 'Aucune reconnaissance faciale' : 'Pa gen rekonesans figi'));
+    assert.ok(r.text.includes('Network Error Logging'));
+    assert.ok(r.text.includes('Web Analytics'));
+    assert.doesNotMatch(r.text, /privacy@noriaedu\.com|PROJET NON PUBLI/);
+    assert.equal(c.sections.length, 17);
     // Aucune revendication de certification ou de conformité (texte à faire relire par un juriste).
     assert.doesNotMatch(r.text, /certifié|certification|sètifye|ISO ?27001|SOC ?2|RGPD|GDPR|HIPAA|conforme|konfòm/i);
   });
@@ -67,7 +73,7 @@ test('liens : pied de page du portail (FR/HT), écran de connexion, plan du site
   assert.match(login, /class="login-priv"><a href="\$\{lang\(\)==="ht"\?"\/ht":""\}\/confidentialite"/);
   assert.match(login, /priv:"Politique de confidentialité"/); assert.match(login, /priv:"Politik konfidansyalite"/);
   const sm = await fetch(`${base}/sitemap.xml`).then((r) => r.text());
-  assert.match(sm, /<loc>[^<]*\/confidentialite<\/loc><lastmod>2026-10-17<\/lastmod>/);
+  assert.match(sm, /<loc>[^<]*\/confidentialite<\/loc><lastmod>2026-11-03<\/lastmod>/);
   assert.match(sm, /<loc>[^<]*\/ht\/confidentialite<\/loc>/);
   assert.notEqual((await get('/confidentialite/')).status, 200);
   assert.notEqual((await get('/confidentialite/x')).status, 200);
