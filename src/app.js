@@ -59,6 +59,7 @@ function feeDue(s){ const f=S.fees[s.level]; if(!f) return {due:0,paid:0,rest:0}
 
 /* ---------- shell ---------- */
 function renderShell(){
+  if(!S) return;
   const L=window.KL_I18N[S.lang];
   $("#roleSel").value=S.role; $("#langSel").value=S.lang;
   $("#connBtn").innerHTML=`<span class="dot ${S.online?"on":"off"}"></span> ${S.online?L.online:L.offline}`;
@@ -450,8 +451,8 @@ KL.reset=()=>{ if(!confirm("Réinitialiser la démo ?"))return; try{localStorage
 function openPrint(title,html){ const w=document.createElement("div"); w.innerHTML=`<div class="modal"><div class="sheet"><div class="noprint row sp"><b>${esc(title)}</b><span class="row"><button data-action="print">${t("print")}</button><button class="ghost" data-action="retirer" data-a0="s:.modal">${t("close")}</button></span></div><div>${html}</div></div></div>`; document.body.appendChild(w); }
 KL.go=m=>{ROUTE=m;render();};
 KL.refreshNav=function(){ renderShell(); };
-KL.lang=l=>{S.lang=l;save();render();};
-KL.role=r=>{ if(SERVER){ toast(S.lang==="ht"?"Wòl la soti nan sèvè a.":"Le rôle vient du serveur."); return; } S.role=r;ROUTE="dashboard";save();render();};
+KL.lang=l=>{ const s=document.getElementById("langSel"); if(s) s.value=l; if(!S) return; S.lang=l;save();render();};
+KL.role=r=>{ if(!S) return; if(SERVER){ toast(S.lang==="ht"?"Wòl la soti nan sèvè a.":"Le rôle vient du serveur."); return; } S.role=r;ROUTE="dashboard";save();render();};
 const ROLE_MAP={direction:"direction",secretariat:"secretariat",enseignant:"enseignant",comptabilite:"comptable",bibliotheque:"bibliothecaire",parent:"parent",eleve:"eleve"};
 const ROLE_ORDER=["direction","secretariat","enseignant","comptabilite","bibliotheque","parent","eleve"];
 // Reçoit les données du serveur et les met en mémoire (jamais dans localStorage).
@@ -460,6 +461,7 @@ function stuFromServer(x,byId){ const c=byId[x.class_id]; return {id:"s"+x.id,se
 KL.setStudents=list=>{ if(!S||!Array.isArray(list)) return; const byId=Object.fromEntries(S.classes.filter(c=>c.serverId).map(c=>[c.serverId,c])); S.students=list.map(x=>stuFromServer(x,byId)); };
 KL.applyServer=d=>{
   if(!S) load();
+  const sel=document.getElementById("langSel"); if(sel&&(sel.value==="fr"||sel.value==="ht")) S.lang=sel.value;
   const cls=d.classes.map(c=>({id:"c"+c.id,serverId:c.id,name:c.name,level:c.level,campus:c.campus,teacherId:null,room:"—"}));
   const byId=Object.fromEntries(cls.map(c=>[c.serverId,c]));
   const stu=d.students.map(x=>stuFromServer(x,byId));
@@ -475,7 +477,10 @@ if(window.NORIA_OFF) NORIA_OFF.onChange(onOfflineChange);
 KL.serverState=()=>SERVER?S:null;
 KL.conn=()=>{S.online=!S.online;save();render();toast(S.online?t("online"):t("offlineNote"));};
 KL.sync=()=>{ if(!S.online){toast(t("offline"));return;} const n=S.queue.length; S.queue=[]; Object.values(S.attendance).forEach(a=>{if(a.sync==="pending")a.sync="synced";}); save(); render(); toast(t("syncedOk")+(n?` (${n})`:"")); };
-function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); if(window.NORIA_GES) NORIA_GES.bind(()=>{ if(SERVER) render(); }); try{ load(); render(); }catch(e){ console.error(e); } }
+function bootLocal(){ try{ load(); render(); }catch(e){ console.error(e); } }
+// Page servie par NORIA (meta noria-server) : pas de tableau de démonstration avant la connexion.
+function boot(){ if(window.NORIA_SCO) NORIA_SCO.bind(()=>{ if(SERVER) render(); }); if(window.NORIA_GES) NORIA_GES.bind(()=>{ if(SERVER) render(); }); if(document.querySelector('meta[name="noria-server"]')) return; bootLocal(); }
+KL.bootLocal=bootLocal;
 if(document.readyState!=="loading") boot(); else document.addEventListener("DOMContentLoaded",boot);
 window.KL=KL;
 })();
