@@ -165,6 +165,49 @@ test('configuration de production et rapport npm audit (sans lancer npm)', async
   const d = await alerts('dependances'); assert.equal(d[0].severity, 'critique'); assert.match(d[0].evidence, /paquet-fictif/);
 });
 
+test('NORIA_SMS_CONSOLE_ACCEPTE=1 : le SMS console ne rouvre pas l’alerte ; l’e-mail console reste signalé', async () => {
+  const d = await openTestDb();
+  let clock = Date.parse('2026-06-01T12:00:00.000Z');
+  const base = {
+    NODE_ENV: 'production', NODE_TEST_CONTEXT: '1', NORIA_SMS_PROVIDER: 'console',
+    NORIA_CLE_MAITRE: 'cle', NORIA_OTP_SECRET: 'otp', NORIA_BACKUP_AGE_RECIPIENT: 'age1',
+  };
+  const o = { backups: () => ({ configure: true, chiffrement: true, hors_site: true, last: { at: '2026-06-01T11:00:00.000Z', name: 'noria-test.sql.gz.age' } }), dbSize: async () => 1024 };
+  const openSms = () => d.get("SELECT id, status FROM security_alert WHERE fingerprint = 'configuration:NORIA_SMS_PROVIDER' AND status = 'ouverte'");
+  const traiter = async () => {
+    const row = await openSms();
+    assert.ok(row, 'alerte SMS ouverte avant traitement');
+    await d.run("UPDATE security_alert SET status = 'traitee', closed_at = ? WHERE id = ?", new Date(clock).toISOString(), row.id);
+  };
+  try {
+    const sans = createSecurity({ db: d, env: base, secureCookie: true, now: () => clock, log: () => {} });
+    await sans.analyse(o);
+    assert.ok(await openSms(), 'sans acceptation, le SMS console ouvre l’alerte');
+    assert.ok(await d.get("SELECT id FROM security_alert WHERE fingerprint = 'configuration:NORIA_EMAIL_PROVIDER' AND status = 'ouverte'"));
+    await traiter();
+    clock += 61 * 60e3;
+    await sans.analyse(o);
+    assert.ok(await openSms(), 'traitée depuis plus d’une heure : elle se rouvre');
+    await traiter();
+    clock += 61 * 60e3;
+    const flou = createSecurity({ db: d, env: { ...base, NORIA_SMS_CONSOLE_ACCEPTE: 'oui' }, secureCookie: true, now: () => clock, log: () => {} });
+    await flou.analyse(o);
+    assert.ok(await openSms(), 'seule la valeur 1 compte comme acceptation');
+    await traiter();
+    clock += 61 * 60e3;
+    const ok = createSecurity({ db: d, env: { ...base, NORIA_SMS_CONSOLE_ACCEPTE: '1' }, secureCookie: true, now: () => clock, log: () => {} });
+    await ok.analyse(o);
+    assert.equal(await openSms(), undefined, 'accepté : l’alerte traitée reste fermée');
+    assert.ok(await d.get("SELECT id FROM security_alert WHERE fingerprint = 'configuration:NORIA_EMAIL_PROVIDER' AND status = 'ouverte'"), 'l’e-mail console n’est pas couvert par ce drapeau');
+    const frais = await openTestDb();
+    try {
+      const s = createSecurity({ db: frais, env: { ...base, NORIA_SMS_CONSOLE_ACCEPTE: '1', NORIA_EMAIL_PROVIDER: 'resend' }, secureCookie: true, now: () => clock, log: () => {} });
+      await s.analyse(o);
+      assert.equal(await frais.get("SELECT id FROM security_alert WHERE fingerprint = 'configuration:NORIA_SMS_PROVIDER'"), undefined, 'jamais ouverte si déjà accepté');
+    } finally { await frais.cleanup(); }
+  } finally { await d.cleanup(); }
+});
+
 test('un utilisateur d’école n’a jamais accès à l’assistant', async () => {
   const r = await call(null, 'POST', '/api/login', { school: 'ecole-a', identifier: 'direction@a.exemple.invalid', password: DEMO_PASSWORD });
   for (const [m, p] of [['GET', '/api/admin/securite'], ['GET', '/api/admin/securite/actions'], ['POST', '/api/admin/securite/analyser'], ['POST', '/api/admin/securite/actions/preparer'], ['POST', '/api/admin/securite/actions/confirmer'], ['GET', '/api/admin/securite/guide']]) {

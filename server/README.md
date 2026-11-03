@@ -168,6 +168,7 @@ Sauvegarde logique (JSON compressé, fichier en droits 600) de **toutes** les ta
 | Variable | Rôle |
 |---|---|
 | `NORIA_SMS_PROVIDER` | `console` (défaut), `twilio`, `http` |
+| `NORIA_SMS_CONSOLE_ACCEPTE` | `1` : l'opérateur accepte le SMS simulé. L'assistant sécurité ne crée plus l'alerte `configuration:NORIA_SMS_PROVIDER` et ne la rouvre pas. Autre valeur : l'alerte reste active. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Twilio |
 | `TWILIO_FROM` ou `TWILIO_MESSAGING_SERVICE_SID` | expéditeur Twilio |
 | `NORIA_SMS_HTTP_URL` (https), `NORIA_SMS_HTTP_TOKEN` (facultatif), `NORIA_SMS_SENDER` (défaut `NORIA`) | passerelle HTTP : `POST { to, message, sender }`, `Authorization: Bearer` |

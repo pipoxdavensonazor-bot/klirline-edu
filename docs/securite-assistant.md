@@ -51,6 +51,7 @@ Tous les seuils peuvent être modifiés avec `NORIA_ASSISTANT_SEUILS` (JSON, cl�
 | **Santé : certificat HTTPS** | expiration dans moins de 21 jours (`certAttentionJours`), lue dans `NORIA_TLS_CERT_FILE` ou par une connexion TLS à `NORIA_PUBLIC_URL` | attention ; critique < 7 jours (`certCritiqueJours`) |
 | **Configuration** (`configuration`, production seulement) | `NORIA_CLE_MAITRE` ou `NORIA_OTP_SECRET` absente, cookies sans `Secure` | critique |
 | | clé de sauvegarde absente (`NORIA_BACKUP_AGE_RECIPIENT`), SMS ou e-mail en mode console | attention |
+| | SMS console **accepté** (`NORIA_SMS_CONSOLE_ACCEPTE=1`) | pas d'alerte : le constat n'est pas proposé, donc une alerte déjà traitée ne se rouvre pas |
 | **Dépendances** (`dependances`) | rapport `npm audit --json` (`NORIA_AUDIT_RAPPORT`, défaut `server/data/npm-audit.json`) : failles critiques ou élevées | critique (critiques), attention (élevées), info (modérées) ; rapport de plus de 7 jours (`rapportAuditMaxJours`) : info |
 
 Le serveur ne lance jamais `npm`. Le rapport est produit par `npm run audit:rapport` sur un poste ou par cron, ou
@@ -126,6 +127,7 @@ SQLite et PostgreSQL).
 | `NORIA_TLS_CERT_FILE` | — | certificat à surveiller (PEM) |
 | `NORIA_ASSISTANT_CERT_RESEAU` | activé si `NORIA_PUBLIC_URL` est en https | `0` pour ne pas ouvrir de connexion TLS |
 | `NORIA_ASSISTANT_CONFIG_TOUJOURS` | — | `1` : contrôle de configuration même hors production |
+| `NORIA_SMS_CONSOLE_ACCEPTE` | — | `1` : l'opérateur accepte les SMS simulés (`NORIA_SMS_PROVIDER=console`, ou absent). L'alerte `configuration:NORIA_SMS_PROVIDER` n'est plus créée ; une alerte déjà marquée traitée ne se rouvre pas. Toute autre valeur (vide, `oui`, `true`) laisse l'alerte active. L'e-mail console n'est pas concerné. |
 | `NORIA_ASSISTANT_LLM`, `_URL`, `_TOKEN` | désactivé | adaptateur de modèle externe |
 | `BACKUP_DIR` | — | dossier des sauvegardes (monté en lecture seule dans le conteneur) |
 | `NORIA_TZ` | `America/Port-au-Prince` | fuseau des heures habituelles |

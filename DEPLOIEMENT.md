@@ -215,7 +215,8 @@ NORIA_DERRIERE_CLOUDFLARE=1        # Caddy derrière Cloudflare : CF-Connecting-
 POSTGRES_PASSWORD=…                # openssl rand -hex 32
 NORIA_CLE_MAITRE=…                 # openssl rand -hex 32 — à garder AUSSI hors du serveur (coffre)
 NORIA_OTP_SECRET=…                 # openssl rand -hex 32
-NORIA_SMS_PROVIDER=…               # twilio | http (sinon simulé)
+NORIA_SMS_PROVIDER=…               # twilio | http (sinon simulé : console)
+# NORIA_SMS_CONSOLE_ACCEPTE=1      # SMS simulé voulu (pas de SMS payant) : l'alerte configuration SMS ne se rouvre plus. Valeur exacte : 1. Si elle est encore ouverte, la marquer traitée une fois après redémarrage.
 NORIA_EMAIL_PROVIDER=…             # resend | smtp (sinon simulé)
 # Bloc 9, codes gratuits (facultatif, voir docs/codes-connexion.md) : WhatsApp inversé et bot Telegram
 # NORIA_WHATSAPP_NUMBER=+509…  NORIA_WHATSAPP_VERIFY_TOKEN=…  NORIA_WHATSAPP_APP_SECRET=…  NORIA_WHATSAPP_TOKEN=…  NORIA_WHATSAPP_PHONE_ID=…
