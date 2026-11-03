@@ -21,6 +21,19 @@ body.login-open { overflow: hidden; }
   padding: 22px 20px; box-shadow: 0 10px 30px rgba(14,18,24,.08);
 }
 .login-logo { display: block; height: 60px; width: auto; margin: 0 auto 8px; }
+.login-install-slot:not(:empty) {
+  position: sticky; top: 0; z-index: 2; margin: 0 0 8px; padding-top: 2px; background: #fff;
+}
+.login-install {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px;
+  margin: 0; padding: 10px 14px; border-radius: 12px; font-size: 16px; font-weight: 700;
+}
+.login-install-note {
+  margin: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid #b7ddd6;
+  border-left: 4px solid var(--pri, #0f6e64); background: #f3faf8; text-align: start;
+}
+.login-install-title { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--ink, #0e1218); }
+.login-install-note p:last-child { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink, #0e1218); }
 .login-card h1 { font-size: 20px; margin: 6px 0 12px; text-align: center; }
 .login-card .fld { display: block; margin: 10px 0; font-size: 14px; font-weight: 600; }
 .login-card input, .login-card select { display: block; width: 100%; min-height: 48px; margin-top: 4px; font-size: 16px; padding: 10px 12px; border-radius: 10px; }

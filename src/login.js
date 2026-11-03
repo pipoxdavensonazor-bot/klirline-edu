@@ -4,7 +4,7 @@
 (function(){
 "use strict";
 const T={
-  fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",forgot:"Mot de passe oublié ?",
+  fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",install:"Installer l'app",installIos:"Sur iPhone ou iPad : touchez Partager, puis « Sur l'écran d'accueil ».",forgot:"Mot de passe oublié ?",
       back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:l=>`Se connecter avec un code (${l})`,chName:{whatsapp:"WhatsApp",telegram:"Telegram",email:"e-mail",sms:"SMS"},or:" ou ",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:f=>`Choisissez comment recevoir votre code.${f.length?` ${f.join(" et ")} ${f.length>1?"sont gratuits":"est gratuit"}.`:""}`,enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
       reg:"Votre école n’est pas encore sur NORIA ? Inscrire mon école",priv:"Politique de confidentialité",demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
@@ -22,7 +22,7 @@ const T={
       waOpen:"Ouvrir WhatsApp",waManual:(c,n)=>`Sinon, envoyez « NORIA ${c} » au ${n} sur WhatsApp.`,waWait:"En attente de votre message…",waExpired:"Délai dépassé. Demandez un nouveau code.",waRetry:"Nouveau code",
       waNote:"Gratuit pour vous et pour l'école. Personne de l'école ne vous demandera ce code : ne l'envoyez qu'au numéro NORIA.",resume:"Reconnexion sur cet appareil de confiance…",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
-  ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
+  ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",install:"Enstale aplikasyon an",installIos:"Sou iPhone oswa iPad : peze Pataje, epi « Ajoute sou ekran dakèy ».",forgot:"Ou bliye modpas ou ?",
       back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:l=>`Konekte ak yon kòd (${l})`,chName:{whatsapp:"WhatsApp",telegram:"Telegram",email:"imèl",sms:"SMS"},or:" oswa ",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:f=>`Chwazi kijan pou w resevwa kòd ou.${f.length?` ${f.join(" ak ")} gratis.`:""}`,enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       reg:"Lekòl ou poko sou NORIA ? Enskri lekòl mwen",priv:"Politik konfidansyalite",demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
@@ -94,6 +94,32 @@ function gateNow(){
   const el=document.getElementById("loginScreen"); if(el) el.dataset.view="wait";
 }
 
+// Bouton « Installer l'app » (Android, Chrome, tablette) ou guide iPhone/iPad. Vide si le navigateur ne peut pas installer.
+function paintInstall(){
+  const slot=document.getElementById("lgInstallSlot");
+  if(!slot) return;
+  const pwa=window.NORIA_PWA;
+  const kind=pwa?pwa.kind():"hidden";
+  if(kind==="prompt"){
+    slot.innerHTML=`<button type="button" class="login-install" id="lgInstall">${esc(t("install"))}</button>`;
+    slot.querySelector("#lgInstall").addEventListener("click",()=>{
+      const b=document.getElementById("lgInstall"); if(b) b.disabled=true;
+      pwa.prompt();
+    });
+  }else if(kind==="ios"){
+    slot.innerHTML=`<div class="login-install-note" role="note"><p class="login-install-title">${esc(t("install"))}</p><p>${esc(t("installIos"))}</p></div>`;
+  }else slot.innerHTML="";
+  // Le focus du premier champ peut faire défiler l'écran : on ramène le bloc d'installation dans la vue.
+  setTimeout(()=>{
+    const s=document.getElementById("lgInstallSlot");
+    if(!s||!s.firstElementChild) return;
+    const r=s.getBoundingClientRect();
+    if(r.top>=12) return;
+    const scroller=s.closest(".login-screen");
+    if(scroller) scroller.scrollTop+=r.top-16;
+  },120);
+}
+
 // Case « appareil de confiance » (décochée par défaut) et canaux gratuits (bloc 9).
 const trustBox=on=>`<label class="login-trust"><input type="checkbox" id="lgTrust"${on?" checked":""}> ${esc(t("trust"))}</label>`;
 const trusted=el=>{ const c=el.querySelector("#lgTrust"); return !!(c&&c.checked); };
@@ -110,6 +136,7 @@ function schoolField(){
 const views={
   login(){
     const el=screen(`<h1 id="loginTitle">${esc(t("title"))}</h1>
+      <div id="lgInstallSlot" class="login-install-slot" aria-live="polite"></div>
       <form id="lgForm" novalidate>${schoolField()}
         <label class="fld">${esc(t("ident"))}<input id="lgId" required autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email"></label>
         <label class="fld">${esc(t("pw"))}<input id="lgPw" type="password" required autocomplete="current-password"></label>
@@ -137,6 +164,7 @@ const views={
       }catch(x){ err.textContent=t("net"); }
       finally{ btn.disabled=false; }
     });
+    paintInstall();
   },
   forgot(){
     const el=screen(`<h1 id="loginTitle">${esc(t("forgot"))}</h1><form id="rcForm" novalidate>${schoolField()}
@@ -435,5 +463,6 @@ async function init(){
   if(!CONFIG.session){ if(window.NORIA_OFF) await NORIA_OFF.clearCache(); return views.login(); }
   try{ await start(); }catch(e){ views.login(); }
 }
+if(window.NORIA_PWA) window.NORIA_PWA.onChange(paintInstall);
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init); else init();
 })();
