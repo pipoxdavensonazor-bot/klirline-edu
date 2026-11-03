@@ -60,6 +60,26 @@ function screen(html){
   return el;
 }
 function closeScreen(){ const el=document.getElementById("loginScreen"); if(el){ el.hidden=true; el.innerHTML=""; } document.body.classList.remove("login-open"); background(false); }
+// Page servie par le serveur : la maquette reste masquée (CSS) jusqu'à une session réelle.
+function hosted(){ return !!document.querySelector('meta[name="noria-server"]'); }
+function revealApp(){ document.documentElement.dataset.auth="in"; }
+function openApp(draw){
+  revealApp();
+  try{ draw(); }
+  catch(e){ delete document.documentElement.dataset.auth; throw e; }
+  closeScreen();
+}
+function releaseLocalDemo(){ document.documentElement.dataset.auth="local"; closeScreen(); try{ window.KL&&KL.bootLocal&&KL.bootLocal(); }catch(e){} }
+function gateNow(){
+  if(!hosted()) return;
+  // Retire le texte de maquette déjà dans le HTML, avant le premier affichage utile.
+  const v=document.getElementById("view"); if(v) v.replaceChildren();
+  const nav=document.getElementById("nav"); if(nav) nav.replaceChildren();
+  const mn=document.getElementById("mnav"); if(mn) mn.replaceChildren();
+  if(document.getElementById("loginScreen")) return;
+  screen(`<h1 id="loginTitle">${esc(t("title"))}</h1><p class="small mut">…</p>`);
+  const el=document.getElementById("loginScreen"); if(el) el.dataset.view="wait";
+}
 
 function schoolField(){
   // Identité globale : l'école est facultative (« Toutes mes écoles ») ; avec plusieurs écoles, un choix suit la connexion.
@@ -194,7 +214,7 @@ const views={
   async choose(){
     const r=await api("/api/me/ecoles").catch(()=>null);
     const list=r&&r.status===200?r.body:[];
-    if(list.length<2){ closeScreen(); return start(); }
+    if(list.length<2) return start();
     const M=window.NORIA_ECO;
     const el=screen(`<h1 id="loginTitle">${esc(t("chooseTitle"))}</h1><p class="small mut">${esc(t("chooseHelp"))}</p>
       <div class="eco-choose">${list.map(e=>`<button type="button" class="eco-pick" data-id="${e.school_id}">${M?M.mark(e,"eco-sm"):""}<span><b>${esc(e.name)}</b><small>${esc(e.initials)}</small></span></button>`).join("")}</div>`);
@@ -203,7 +223,7 @@ const views={
       const id=Number(b.dataset.id), cur=list.find(x=>x.active);
       b.disabled=true;
       if(!cur||cur.school_id!==id){ const s=await post("/api/session/ecole",{school_id:id}).catch(()=>null); if(!s||s.status!==200){ b.disabled=false; return; } }
-      closeScreen(); await start(); }));
+      await start(); }));
   },
   async token(kind,token){
     // Page d'arrivée d'une invitation : logo (ou initiales) et nom de l'école qui invite.
@@ -229,7 +249,7 @@ const views={
 
 async function afterLogin(body){
   if(body&&body.choisir) return views.choose();
-  closeScreen(); await start();
+  try{ await start(); }catch(e){ views.login(); }
 }
 
 function userChip(me){
@@ -262,7 +282,7 @@ async function start(){
   if(kid) students=students.filter(x=>x.id===kid.student_id);
   const data={me:me.body,students,classes:cl.status===200?cl.body:[],demo:!!CONFIG.demo,eco:{me:me.body,schools,kids,kid}};
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
-  window.KL.applyServer(data);
+  openApp(()=>window.KL.applyServer(data));
   userChip(me.body);
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   // Copie de lecture pour rouvrir sans réseau (noria_cache_v1) ; effacée à la déconnexion.
@@ -277,7 +297,7 @@ async function startOffline(){
   CONFIG={demo:data.demo,methods:["password"],offline:true};
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
-  window.KL.applyServer(data);
+  openApp(()=>window.KL.applyServer(data));
   userChip(data.me);
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   NORIA_OFF.init(data.me);
@@ -291,12 +311,13 @@ function serverFooter(){
 }
 
 async function init(){
-  if(!document.querySelector('meta[name="noria-server"]')) return; // fichiers statiques seuls : démonstration locale
+  if(!hosted()) return; // fichiers statiques seuls : démonstration locale
+  gateNow(); // connexion seule, avant même /api/config : pas de tableau de démonstration
   if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
   if(!navigator.onLine){ serverFooter(); return startOffline(); } // pas de requête inutile sans réseau
   try{
     const r=await api("/api/config");
-    if(r.status!==200||!r.body||!Array.isArray(r.body.methods)) return; // pas de serveur : démonstration locale
+    if(r.status!==200||!r.body||!Array.isArray(r.body.methods)) return releaseLocalDemo(); // pas de serveur : démonstration locale
     CONFIG=r.body;
   }catch(e){ serverFooter(); return startOffline(); }
   document.documentElement.dataset.backend="server";
@@ -305,7 +326,7 @@ async function init(){
   if(CONFIG.emailsEleves) document.documentElement.dataset.emailsEleves="1"; // bloc 7 : NORIA_EMAIL_ELEVES=1
   serverFooter();
   // Administration de la plateforme : interface séparée, chargée à la demande.
-  if(location.hash==="#admin"&&window.NORIA_ECO){ try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }
+  if(location.hash==="#admin"&&window.NORIA_ECO){ closeScreen(); try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }
   if(window.NORIA_ECO) NORIA_ECO.onRestart(async()=>{ try{ await start(); }catch(e){ location.reload(); } });
   const vm=location.hash.match(/^#verifier=([A-Za-z0-9-]{4,40})$/);
   if(vm) return views.verify(vm[1]);
