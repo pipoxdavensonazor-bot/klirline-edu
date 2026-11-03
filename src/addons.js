@@ -623,7 +623,9 @@ function todayHTML(){
   const doors=[["ext-reunion",ht?"Reyinyon":"Réunions"],["ext-visuel",ht?"Klas vizyèl":"Classe visuelle"],["ext-discussion",ht?"Diskisyon":"Discussion"],["ext-portails",ht?"Pòtay":"Portails"]].filter(([id])=>canX(id));
   return `<div class="u14 notice"><div class="row sp"><b> ${ht?"Jodi a":"Aujourd'hui"} — ${esc(td)}</b><span class="row"><button class="ghost" data-action="KLX.help"> ${ht?"Èd":"Aide"}</button></span></div><p class="u35 small">${esc(demoLn)}${queueLn}</p><p class="portal-kicker">${esc(ROLE_LBL[r]||r)}</p>${body}${doors.length?`<div class="toolbar">${doors.map(([id,lb])=>`<button class="ghost" data-action="KL.go" data-a0="s:${esc(id)}">${lb}</button>`).join("")}</div>`:""}<div class="small mut"> ${ht?"Dènye aktivite lokal":"Dernière activité locale"} : ${esc(ageL)}</div></div>`;
 }
+function appLocked(){ const h=document.documentElement; return !!document.querySelector('meta[name="noria-server"]')&&h.dataset.auth!=="in"&&h.dataset.auth!=="local"; }
 function injectToday(){
+  if(appLocked()) return;
   if(XROUTE) return;
   if((window.__klLast||"dashboard")!=="dashboard") return;
   const v=document.querySelector("#view"); if(!v||v.querySelector("#todayStrip")) return;
@@ -1080,6 +1082,7 @@ function installWraps(){
 
 /* ---------- injection nav (après chaque renderShell) ---------- */
 function injectNav(){
+  if(appLocked()) return;
   const o = O(); const L = (o&&o.lang)||"fr"; const ht=L==="ht";
   const label = ht?"Konpleman":"Compléments";
   const name = ht?" Ekstansyon":" Extensions";

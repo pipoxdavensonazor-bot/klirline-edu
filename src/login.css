@@ -1,5 +1,14 @@
 /* NORIA — écran de connexion et puce utilisateur (mode serveur). */
 [data-backend="server"] #roleSel, [data-backend="server"] #connBtn, [data-backend="server"] #syncBtn { display: none !important; }
+/* Tant que la session n'est pas ouverte, la maquette (menu, tableau, pied « démonstration ») ne s'affiche pas.
+   data-auth=local : repli fichier sans API. L'écran de connexion et l'admin restent visibles. */
+html:has(meta[name="noria-server"]):not([data-auth="in"]):not([data-auth="local"]) body {
+  background: #f2f3f1; padding-bottom: 0 !important;
+}
+html:has(meta[name="noria-server"]):not([data-auth="in"]):not([data-auth="local"]) :is(
+  .skip-link, .topbar, .layout, .site-foot, #mnav, #mnvBar, .mnv-bar, .mnv-drawer, .mnv-menu-btn,
+  .toast, #tourSheet, .live-dock, .modal
+) { display: none !important; }
 .login-screen {
   position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; overflow-y: auto;
   padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
