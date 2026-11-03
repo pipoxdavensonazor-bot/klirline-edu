@@ -10,7 +10,7 @@ NORIA envoie ses codes de connexion **sans SMS payant**. Il y a cinq façons de 
 | **Appareil de confiance** | Elle coche « Faire confiance à cet appareil » : NORIA se rouvre sans code pendant 30 jours. | 0 | toujours actif |
 | **Code de l'école** | La direction ou le secrétariat imprime un code à usage unique pour un élève ou un parent sans e-mail ni messagerie. | 0 (une feuille) | toujours actif |
 
-**Aucun SMS payant n'est ajouté ni activé.** Le code SMS existant (`server/src/notify.js`) n'est pas modifié ; `NORIA_SMS_PROVIDER` reste `console` (simulé) par défaut. Le choix « SMS » n'apparaît à l'écran de connexion que si un fournisseur SMS réel est réglé (ou sur le serveur de démonstration). L'assistant sécurité continue de signaler que les SMS sont simulés : c'est normal et voulu.
+**Aucun SMS payant n'est ajouté ni activé.** Le code SMS existant (`server/src/notify.js`) n'est pas modifié ; `NORIA_SMS_PROVIDER` reste `console` (simulé) par défaut. Le choix « SMS » n'apparaît à l'écran de connexion que si un fournisseur SMS réel est réglé (ou sur le serveur de démonstration). L'assistant sécurité signale que les SMS sont simulés, sauf acceptation explicite `NORIA_SMS_CONSOLE_ACCEPTE=1` (l'alerte de configuration n'est plus proposée et ne se rouvre pas).
 
 WhatsApp et Telegram sont **désactivés par défaut** : tant que leurs variables ne sont pas réglées, leurs routes répondent 404 et l'écran de connexion ne les propose pas.
 

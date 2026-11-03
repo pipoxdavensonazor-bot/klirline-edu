@@ -484,7 +484,9 @@ function createSecurity({ db, env = process.env, notifier = null, secureCookie =
     let bk = null; try { bk = opts.backups ? opts.backups() : null; } catch { bk = null; }
     // La clé peut vivre dans /etc/noria/sauvegarde.env (script root) : etat.json confirme alors le chiffrement.
     if (!env.NORIA_BACKUP_AGE_RECIPIENT && !(bk && bk.chiffrement)) miss('NORIA_BACKUP_AGE_RECIPIENT', 'attention', 'Clé de chiffrement des sauvegardes absente (NORIA_BACKUP_AGE_RECIPIENT) : les sauvegardes ne seraient pas chiffrées.', 'Kle chifreman sovgad yo pa la : sovgad yo pa t ap chifre.');
-    if ((env.NORIA_SMS_PROVIDER || 'console') === 'console') miss('NORIA_SMS_PROVIDER', 'attention', 'Les SMS sont en mode console (simulés) : aucun code ni alerte ne part réellement par SMS.', 'SMS yo an mòd konsòl (simile) : okenn kòd pa pati vre.');
+    // NORIA_SMS_CONSOLE_ACCEPTE=1 : l'opérateur accepte explicitement le SMS simulé (pas de passerelle payante).
+    // L'alerte n'est plus proposée : une alerte déjà traitée ne se rouvre pas à l'analyse suivante.
+    if ((env.NORIA_SMS_PROVIDER || 'console') === 'console' && env.NORIA_SMS_CONSOLE_ACCEPTE !== '1') miss('NORIA_SMS_PROVIDER', 'attention', 'Les SMS sont en mode console (simulés) : aucun code ni alerte ne part réellement par SMS.', 'SMS yo an mòd konsòl (simile) : okenn kòd pa pati vre.');
     if ((env.NORIA_EMAIL_PROVIDER || 'console') === 'console') miss('NORIA_EMAIL_PROVIDER', 'attention', 'Les e-mails sont en mode console (simulés).', 'Imèl yo an mòd konsòl (simile).');
     if (!secureCookie) miss('NORIA_SECURE_COOKIE', 'critique', 'Les cookies de session ne sont pas marqués Secure : ils peuvent circuler sans HTTPS.', 'Cookie sesyon yo pa make Secure : yo ka pase san HTTPS.');
     return out;
