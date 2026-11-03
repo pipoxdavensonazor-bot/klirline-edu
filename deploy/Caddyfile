@@ -17,6 +17,14 @@
 	@statiques path /src/* /manifest.webmanifest
 	header @statiques >Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
 
+	# Digital Asset Links de la TWA Android NORIA Élève. L'empreinte Play est connue :
+	# ce bloc est versionné pour que chaque déploiement continue de le servir.
+	handle /.well-known/assetlinks.json {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		respond `[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"ca.klirline.noria.eleve","sha256_cert_fingerprints":["BA:EA:33:AA:DF:82:4E:EC:B4:74:59:42:67:3B:56:C7:30:8A:45:A8:C8:40:72:4B:7E:F3:5C:13:08:84:6B:5B"]}}]` 200
+	}
+
 	# La sonde de santé n'est pas publique.
 	@sante path /healthz
 	respond @sante 404
