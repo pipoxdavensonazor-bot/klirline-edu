@@ -59,17 +59,19 @@ test('logo et favicon : /favicon.ico, apple-touch-icon, balises du portail, de l
   assert.deepEqual([...buf.subarray(0, 4)], [0, 0, 1, 0], 'en-tête ICO'); assert.ok(buf.length < 8000, 'favicon léger');
   const ap = await fetch(`${base}/apple-touch-icon.png`); assert.equal(ap.status, 200); assert.equal(ap.headers.get('content-type'), 'image/png');
   for (const f of ['/src/favicon-32.png', '/src/apple-touch-icon.png', '/src/icon-192.png', '/src/icon-512.png', '/src/noria-logo.png']) {
-    const r = await fetch(base + f); assert.equal(r.status, 200, f); assert.ok((await r.arrayBuffer()).byteLength < 6000, `${f} léger`);
+    const r = await fetch(base + f); assert.equal(r.status, 200, f); assert.ok((await r.arrayBuffer()).byteLength < 12000, `${f} léger`);
   }
   for (const p of ['/', '/ht', '/evenements']) {
     const h = (await page(p)).text;
     assert.match(h, /<img src="\/src\/noria-logo\.png" alt="NORIA[^"]*" width="89" height="48">/, `logo ${p}`);
-    assert.match(h, /<link rel="icon" href="\/favicon\.ico"/); assert.match(h, /rel="apple-touch-icon" href="\/src\/apple-touch-icon\.png" sizes="180x180"/);
+    assert.match(h, /<link rel="icon" href="\/favicon\.ico/); assert.match(h, /rel="apple-touch-icon" href="\/src\/apple-touch-icon\.png(?:\?v=[^"]*)?" sizes="180x180"/);
+    assert.doesNotMatch(h, /rel="icon"[^>]*favicon\.svg/); assert.doesNotMatch(h, /manifest\.webmanifest/);
   }
   const app = (await page('/app')).text;
-  assert.match(app, /<link rel="icon" href="\/favicon\.ico"/); assert.match(app, /<link rel="manifest" href="\/manifest\.webmanifest">/); assert.match(app, /href="\/src\/favicon-32\.png"/);
+  assert.match(app, /<link rel="icon" href="\/favicon\.ico/); assert.match(app, /<link rel="manifest" href="\/manifest\.webmanifest">/); assert.match(app, /href="\/src\/favicon-32\.png/);
+  assert.doesNotMatch(app, /favicon\.svg/);
   const fs = require('node:fs'); const path = require('node:path');
-  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'ministere.html'), 'utf8'), /<link rel="icon" href="\/favicon\.ico"/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'ministere.html'), 'utf8'), /<link rel="icon" href="\/favicon\.ico/);
 });
 
 test('portail : bouton « Inscrire mon école » (FR/HT), encadré, mention du pied de page, aucun cookie sans compte', async () => {

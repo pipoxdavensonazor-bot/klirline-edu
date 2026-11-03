@@ -59,7 +59,7 @@ function createStatic(root) {
   function precacheList() {
     const html = fs.readFileSync(path.join(rootAbs, 'index.html'), 'utf8');
     const found = [...html.matchAll(/(?:href|src)="(src\/[^"#?]+)"/g)].map((m) => '/' + m[1]);
-    return [...new Set([...found, '/manifest.webmanifest', '/src/icon-192.png', '/src/icon-512.png'])]
+    return [...new Set([...found, '/manifest.webmanifest', '/favicon.ico', '/src/favicon-32.png', '/src/apple-touch-icon.png', '/src/icon-192.png', '/src/icon-512.png'])]
       .filter((u) => { const a = resolve(u); return a && fs.existsSync(a); });
   }
   function swSource(src) {

@@ -146,6 +146,8 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   assert.equal(portal.status, 200); assert.equal(portal.headers['content-encoding'], 'gzip');
   const ph = zlib.gunzipSync(portal.body).toString();
   assert.match(ph, /<html lang="fr">/); assert.doesNotMatch(ph, /href="\/app/, "aucun lien du portail public vers les portails des écoles"); assert.doesNotMatch(ph, /noria-server|manifest\.webmanifest/);
+  assert.match(ph, /rel="icon" href="\/src\/favicon-32\.png\?v=/); assert.match(ph, /apple-touch-icon\.png\?v=/);
+  assert.doesNotMatch(ph, /rel="icon"[^>]*favicon\.svg/);
   assert.match(portal.headers['content-security-policy'], /default-src 'none'/);
   assert.equal(portal.headers['set-cookie'], undefined);
   assert.equal((await raw('/', { 'if-none-match': portal.headers.etag })).status, 304);
@@ -159,8 +161,22 @@ test('fichiers statiques : liste blanche, pas de traversée, gzip, ETag, CSP', a
   assert.match(swText, /startsWith\("\/api\/"\)/, 'les réponses API ne sont jamais mises en cache');
   const mf = await raw('/manifest.webmanifest');
   assert.equal(mf.status, 200); assert.match(mf.headers['content-type'], /manifest\+json/);
-  assert.equal(JSON.parse(mf.body.toString()).display, 'standalone');
-  assert.equal(JSON.parse(mf.body.toString()).start_url, '/app');
+  const manifest = JSON.parse(mf.body.toString());
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.start_url, '/app');
+  assert.ok(manifest.icons.every((i) => /\/src\/icon-(192|512)\.png/.test(i.src)), 'icônes d’installation : mot-symbole 192 et 512');
+  assert.doesNotMatch(JSON.stringify(manifest.icons), /favicon\.svg/);
+  const appHtml = zlib.gunzipSync(home.body).toString();
+  assert.match(appHtml, /href="\/src\/favicon-32\.png\?v=/); assert.match(appHtml, /apple-touch-icon\.png\?v=/);
+  assert.doesNotMatch(appHtml, /favicon\.svg/);
+  assert.match(swText, /"\/favicon\.ico"/); assert.match(swText, /"\/src\/apple-touch-icon\.png"/);
+  assert.doesNotMatch(swText, /favicon\.svg/);
+  const ico = await raw('/favicon.ico');
+  assert.equal(ico.status, 200); assert.match(ico.headers['content-type'], /icon/);
+  for (const p of ['/src/favicon-32.png', '/src/apple-touch-icon.png', '/src/icon-192.png', '/src/icon-512.png']) {
+    const icon = await raw(p);
+    assert.equal(icon.status, 200, p); assert.match(icon.headers['content-type'], /image\/png/, p);
+  }
   assert.match(swText, /"\/app"/, 'le service worker met /app en cache');
   for (const p of ['/server/src/seed.js', '/src/../server/package.json', '/src/%2e%2e/server/package.json', '/.git/config', '/src/x.sqlite', '/package.json'])
     assert.equal((await raw(p)).status, 404, p);

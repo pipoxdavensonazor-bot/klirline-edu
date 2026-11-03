@@ -170,8 +170,9 @@ Code : `server/src/portail-public.js` (pages, formulaires, routes d'administrati
 
 ### Logo et icônes
 - En-tête du portail : `src/noria-logo.png` (optimisé : 13,7 Ko → 4 Ko, 32 couleurs), `width="89" height="48"`.
-- Icônes régénérées à partir du « N » du logo (couleur #123048) : `favicon.svg`, `favicon-32.png`,
-  `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, `/favicon.ico` (16/32/48, 3,5 Ko, servi à la
-  racine), `/apple-touch-icon.png` (alias). Balises sur le portail, `/app` (chemins absolus) et `ministere.html`.
+- Onglet et installation : mot-symbole NORIA sur fond blanc (`favicon-32.png`, `apple-touch-icon.png` 180×180,
+  `icon-192.png`, `icon-512.png`, `/favicon.ico` 16×16). `favicon.svg` reste le monogramme du fichier, pas l’icône
+  d’onglet (illisible à côté du mot NORIA). Balises sur le portail, `/app` (chemins absolus) et `ministere.html`.
+  `/apple-touch-icon.png` reste un alias. Le manifeste d’installation n’est pas lié depuis l’accueil public.
 - Service worker : sa version inclut désormais son propre source ; révision 8.
 - Premier chargement mesuré (Chrome headless, cache vide) : `/app` 142 Ko, portail 12,8 Ko.
