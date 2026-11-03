@@ -2,8 +2,8 @@
 // Bloc 5 : pages du portail public, rendues côté serveur en HTML simple (aucun cadriciel, aucun script nécessaire à la
 // lecture). Mobile d'abord, très léger : une feuille de style et un script de quelques centaines d'octets, polices du
 // système, images en vignettes chargées à la demande. Cache en mémoire (60 s, invalidé à chaque publication) + ETag + gzip.
-// Adresses : / (français) et /ht/… (kreyòl) ; /evenements, /laureats, /communaute, /annonces ; détails /evenements/<id>,
-// /communaute/<id> ; /sitemap.xml, /robots.txt ; images /p/img/<id> (vignette : <id>-v) ; clics /p/clic/<id>.
+// Adresses : / (français) et /ht/… (kreyòl) ; /ecoles, /evenements, /laureats, /communaute, /annonces, /tarifs ;
+// détails /evenements/<id>, /communaute/<id> ; /sitemap.xml, /robots.txt ; images /p/img/<id> (vignette : <id>-v) ; clics /p/clic/<id>.
 // Aucun lien vers les portails des écoles (/app) : le grand public n'y a rien à faire ; /app reste joignable en direct.
 // Aucun cookie n'est posé ni lu par ces pages en cache ; aucune donnée d'école privée : seuls les champs de publicItem() sont affichés.
 const fs = require('node:fs');
@@ -13,6 +13,7 @@ const crypto = require('node:crypto');
 const Pt = require('./portail');
 const PP = require('./portail-public');
 const PV = require('./confidentialite');
+const Tarifs = require('./tarifs-page');
 
 // CSP du portail : plus stricte que celle de l'application (aucune connexion sortante, aucun cadre, aucun formulaire externe).
 const PORTAL_CSP = ["default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self'", "base-uri 'none'",
@@ -33,7 +34,7 @@ const T = {
     ctaSchools: 'Espaces des écoles', ctaEvents: 'Voir les événements',
     ec: { all: 'Toutes', inscriptions: 'Inscriptions', evenements: 'Événements', actualites: 'Actualités', examens: 'Examens et résultats', laureats: 'Lauréats', autres: 'Autres' },
     ecIntro: 'Toutes les annonces publiées par les écoles, rangées par catégorie. Créez un compte gratuit pour suivre vos écoles.',
-    ecEmpty: 'Aucune annonce dans cette catégorie pour le moment.', ecAll: 'Voir tout', ecSchool: 'École', ecAllSchools: 'Toutes les écoles',
+    ecAll: 'Voir tout', ecSchool: 'École', ecAllSchools: 'Toutes les écoles',
     ecApply: 'S’inscrire en ligne', ecUntil: (d) => `Inscriptions jusqu’au ${d}`, ecFollow: 'Suivre cette école', ecPublished: (d) => `Publié le ${d}`,
     ecRegTitle: 'Vous dirigez une école ?', ecRegText: 'Publiez vos annonces, événements et résultats ici, après vérification de l’école par l’équipe NORIA.',
     joinTitle: 'Suivez les écoles', joinText: 'Un compte gratuit, sans mot de passe, pour suivre les annonces, les événements et les actualités des écoles, par e-mail.',
@@ -42,8 +43,8 @@ const T = {
     community: 'Communauté', communityHelp: 'Articles et témoignages des écoles, publiés après relecture par l’équipe NORIA.', allCommunity: 'Toute la communauté',
     sponsored: 'Sponsorisé', official: 'Annonce', by: 'Par', visit: 'Visiter le site', read: 'Lire la suite', back: 'Retour',
     sponsoredBy: (s) => `Encart payé par ${s}`, until: (d) => `Jusqu’au ${d}`,
-    noEvents: 'Aucun événement publié pour le moment.', noLaureates: 'Aucun lauréat publié pour ces critères.', noCommunity: 'Aucun article publié pour le moment.',
-    noAds: 'Aucune annonce en cours.', noPartners: 'Aucune école partenaire pour le moment.',
+    noEvents: 'Aucun événement publié pour le moment.', noCommunity: 'Aucun article publié pour le moment.',
+    noAds: 'Aucune annonce en cours.',
     upcoming: 'À venir', past: 'Événements passés', pastLink: 'Voir les événements passés', upcomingLink: 'Voir les événements à venir', allCats: 'Toutes',
     category: 'Catégorie', place: 'Lieu', date: 'Date', dateRange: (a, b) => `du ${a} au ${b}`,
     cat: { examens: 'Examens officiels', concours: 'Concours', culture: 'Culture', sport: 'Sport', science: 'Sciences', autre: 'Autre' },
@@ -74,7 +75,7 @@ const T = {
     ctaSchools: 'Espas lekòl yo', ctaEvents: 'Gade evènman yo',
     ec: { all: 'Tout', inscriptions: 'Enskripsyon', evenements: 'Evènman', actualites: 'Nouvèl', examens: 'Egzamen ak rezilta', laureats: 'Laureya', autres: 'Lòt' },
     ecIntro: 'Tout anons lekòl yo pibliye, ranje pa kategori. Kreye yon kont gratis pou w swiv lekòl ou yo.',
-    ecEmpty: 'Poko gen anons nan kategori sa a.', ecAll: 'Gade tout', ecSchool: 'Lekòl', ecAllSchools: 'Tout lekòl yo',
+    ecAll: 'Gade tout', ecSchool: 'Lekòl', ecAllSchools: 'Tout lekòl yo',
     ecApply: 'Enskri sou entènèt', ecUntil: (d) => `Enskripsyon jiska ${d}`, ecFollow: 'Swiv lekòl sa a', ecPublished: (d) => `Pibliye ${d}`,
     ecRegTitle: 'Ou dirije yon lekòl ?', ecRegText: 'Pibliye anons, evènman ak rezilta ou yo isit la, apre ekip NORIA a fin verifye lekòl la.',
     joinTitle: 'Swiv lekòl yo', joinText: 'Yon kont gratis, san modpas, pou swiv anons, evènman ak nouvèl lekòl yo, pa imel.',
@@ -83,8 +84,8 @@ const T = {
     community: 'Kominote', communityHelp: 'Atik ak temwayaj lekòl yo, ekip NORIA a li yo anvan yo pibliye.', allCommunity: 'Tout kominote a',
     sponsored: 'Sponsorize', official: 'Anons', by: 'Pa', visit: 'Vizite sit la', read: 'Li rès la', back: 'Retounen',
     sponsoredBy: (s) => `Espas sa a peye pa ${s}`, until: (d) => `Jiska ${d}`,
-    noEvents: 'Poko gen evènman ki pibliye.', noLaureates: 'Pa gen laureya ki pibliye pou kritè sa yo.', noCommunity: 'Poko gen atik ki pibliye.',
-    noAds: 'Pa gen anons kounye a.', noPartners: 'Poko gen lekòl patnè.',
+    noEvents: 'Poko gen evènman ki pibliye.', noCommunity: 'Poko gen atik ki pibliye.',
+    noAds: 'Pa gen anons kounye a.',
     upcoming: 'K ap vini', past: 'Evènman ki pase deja', pastLink: 'Gade evènman ki pase yo', upcomingLink: 'Gade evènman k ap vini yo', allCats: 'Tout',
     category: 'Kategori', place: 'Kote', date: 'Dat', dateRange: (a, b) => `soti ${a} rive ${b}`,
     cat: { examens: 'Egzamen ofisyèl', concours: 'Konkou', culture: 'Kilti', sport: 'Espò', science: 'Syans', autre: 'Lòt' },
@@ -130,7 +131,7 @@ const qs = (o) => { const s = new URLSearchParams(Object.entries(o).filter(([, v
 /* ---------- Gabarit ---------- */
 // signedIn : true/false sur les pages de compte (jamais en cache) ; null sur les pages en cache, où src/portail.js choisit
 // d'après le témoin noria_pub_in. Sans script : « S'inscrire » et « Se connecter » (qui mènent à « Mon compte » si connecté).
-function layout({ L, page, title, desc, body, canonical, alt, base, image, type = 'website', assets, status = 200, signedIn = null }) {
+function layout({ L, page, title, desc, body, canonical, alt, base, image, type = 'website', assets, status = 200, signedIn = null, extraCss = '' }) {
   const t = T[L];
   const full = title ? `${title} · NORIA` : `NORIA — ${t.tagline}`;
   const abs = (p) => (base ? `${base}${p}` : p);
@@ -145,10 +146,14 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
     `<meta property="og:description" content="${esc(desc)}">`, `<meta property="og:url" content="${esc(abs(canonical))}">`, `<meta property="og:image" content="${esc(og)}">`,
     `<meta property="og:locale" content="${t.locale}">`, `<meta property="og:locale:alternate" content="${T[other].locale}">`,
     `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
-    '<meta name="theme-color" content="#0e1218">', '<link rel="icon" href="/favicon.ico" sizes="48x48">', '<link rel="icon" href="/src/favicon.svg" type="image/svg+xml">',
-    '<link rel="icon" href="/src/favicon-32.png" type="image/png" sizes="32x32">', '<link rel="apple-touch-icon" href="/src/apple-touch-icon.png" sizes="180x180">',
+    '<meta name="theme-color" content="#0e1218">',
+    '<link rel="icon" href="/src/favicon-32.png?v=20261103" type="image/png" sizes="32x32">',
+    '<link rel="icon" href="/favicon.ico?v=20261103" sizes="any">',
+    '<link rel="apple-touch-icon" href="/src/apple-touch-icon.png?v=20261103" sizes="180x180">',
     `<link rel="alternate" type="application/rss+xml" title="${esc(t.rss)}" href="${L === 'ht' ? '/ht' : ''}/annonces.rss">`,
-    `<link rel="stylesheet" href="/src/portail.css?v=${assets.css}">`, `<script src="/src/portail.js?v=${assets.js}"></script>`,
+    `<link rel="stylesheet" href="/src/portail.css?v=${assets.css}">`,
+    ...(extraCss ? [`<link rel="stylesheet" href="${esc(extraCss)}">`] : []),
+    `<script src="/src/portail.js?v=${assets.js}"></script>`,
   ].join('');
   const nav = PAGES.map((p) => `<a href="${href(L, p)}"${p === page ? ' aria-current="page"' : ''}>${esc(t.nav[p])}</a>`).join('');
   const langs = ['fr', 'ht'].map((l) => `<a href="${esc(alt ? alt[l] : href(l))}" hreflang="${l}" lang="${l}"${l === L ? ' aria-current="true"' : ''} title="${esc(T[l].name)}">${l.toUpperCase()}</a>`).join('');
@@ -161,7 +166,7 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
 <nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav>${acc}</div>
 <nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}</div></nav></header>
 <main id="contenu" class="wrap" tabindex="-1">${body}</main>
-<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="/tarifs">${L === 'ht' ? 'Pri' : 'Tarifs'}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
+<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="${href(L, Tarifs.SLUG)}"${page === Tarifs.SLUG ? ' aria-current="page"' : ''}>${L === 'ht' ? 'Pri' : 'Tarifs'}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
 </body></html>`;
 }
 
@@ -198,6 +203,8 @@ function postCard(p, L) {
 <p class="ex">${esc(excerpt(pick(p, 'body', L)))}</p>${p.author ? `<p class="meta">${esc(t.by)} ${esc(p.author)}</p>` : ''}</div></article>`;
 }
 const section = (id, title, inner, more) => `<section class="sec" aria-labelledby="${id}"><div class="sec-h"><h2 id="${id}">${esc(title)}</h2>${more || ''}</div>${inner}</section>`;
+// Bloc affiché seulement s'il a des éléments : pas de titre ni de carte vide.
+const filled = (id, title, inner, moreLink) => (inner ? section(id, title, inner, moreLink) : '');
 const more = (L, p, label) => `<a class="more" href="${href(L, p)}">${esc(label)} →</a>`;
 const empty = (s) => `<p class="empty">${esc(s)}</p>`;
 function pager(L, p, page, total, per, extra = {}) {
@@ -213,17 +220,18 @@ async function home(pub, L) {
   const [events, featured, ads, partners, posts] = await Promise.all([pub.latestEvents(3), pub.featured(6), pub.ads({ n: 3 }), pub.partners(), pub.community({ per: 3 })]);
   const hero = `<section class="hero"><h1>${esc(t.heroTitle)}</h1><p>${esc(t.heroText)}</p>
 <p class="cta"><a class="btn" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a> <a class="btn btn-o" href="${href(L, 'evenements')}">${esc(t.ctaEvents)}</a></p></section>`;
+  const partnerList = partners.length ? `<p class="mut">${esc(t.partnersHelp)}</p><ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : '';
   return {
     body: hero
-      + section('s-ev', t.latestEvents, events.length ? `<div class="list">${events.map((e) => eventCard(e, L, { thumb: false })).join('')}</div>` : empty(t.noEvents), more(L, 'evenements', t.allEvents))
-      + section('s-la', t.featured, featured.length ? `<ul class="grid la-g">${featured.map((p) => laureateCard(p, L, { photo: false })).join('')}</ul>` : empty(t.noLaureates), more(L, 'laureats', t.allLaureates))
-      + section('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : empty(t.noAds), more(L, 'annonces', t.allAds))
-      + section('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : empty(t.noCommunity), more(L, 'communaute', t.allCommunity))
+      + filled('s-ev', t.latestEvents, events.length ? `<div class="list">${events.map((e) => eventCard(e, L, { thumb: false })).join('')}</div>` : '', more(L, 'evenements', t.allEvents))
+      + filled('s-la', t.featured, featured.length ? `<ul class="grid la-g">${featured.map((p) => laureateCard(p, L, { photo: false })).join('')}</ul>` : '', more(L, 'laureats', t.allLaureates))
+      + filled('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : '', more(L, 'annonces', t.allAds))
+      + filled('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : '', more(L, 'communaute', t.allCommunity))
       + `<section class="sec box-reg" aria-labelledby="s-join"><h2 id="s-join">${esc(t.joinTitle)}</h2><p>${esc(t.joinText)}</p><p class="cta"><a class="btn" href="${href(L, 'compte')}?inscription=1">${esc(t.signup)}</a> <a class="btn btn-o" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a></p></section>`
       + (L === 'ht'
-        ? `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Pri NORIA pou lekòl yo</h2><p>Fòfè apati <strong>25 000 HTG / ane</strong> oswa <strong>250 HTG / elèv / ane</strong>. Esè gratis 60 jou, san angajman.</p><p class="cta"><a class="btn" href="/tarifs">Gade pri yo</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`
-        : `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Tarifs NORIA pour les écoles</h2><p>Forfaits dès <strong>25 000 HTG / an</strong> ou <strong>250 HTG / élève / an</strong>. Essai gratuit de 60 jours, sans engagement.</p><p class="cta"><a class="btn" href="/tarifs">Voir les tarifs</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`)
-      + section('s-pa', t.partners, `<p class="mut">${esc(t.partnersHelp)}</p>${partners.length ? `<ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : empty(t.noPartners)}`),
+        ? `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Pri NORIA pou lekòl yo</h2><p>Fòfè apati <strong>25 000 HTG / ane</strong> oswa <strong>250 HTG / elèv / ane</strong>. Esè gratis 60 jou, san angajman.</p><p class="cta"><a class="btn" href="${href(L, Tarifs.SLUG)}">Gade pri yo</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`
+        : `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Tarifs NORIA pour les écoles</h2><p>Forfaits dès <strong>25 000 HTG / an</strong> ou <strong>250 HTG / élève / an</strong>. Essai gratuit de 60 jours, sans engagement.</p><p class="cta"><a class="btn" href="${href(L, Tarifs.SLUG)}">Voir les tarifs</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`)
+      + filled('s-pa', t.partners, partnerList),
   };
 }
 async function events(pub, L, q) {
@@ -268,10 +276,10 @@ async function laureates(pub, L, q) {
   // Regroupement par année puis par examen ou concours.
   const groups = new Map();
   for (const p of r.list) { const k = `${p.year}|${p.exam}`; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
-  const list = [...groups].map(([k, ps]) => { const [y, ex] = k.split('|'); return `<section class="lg"><h2>${esc(ex)} <span class="mut">${esc(y)}</span></h2><ul class="grid la-g">${ps.map((p) => laureateCard(p, L)).join('')}</ul></section>`; }).join('');
+  const list = [...groups].filter(([, ps]) => ps.length).map(([k, ps]) => { const [y, ex] = k.split('|'); return `<section class="lg"><h2>${esc(ex)} <span class="mut">${esc(y)}</span></h2><ul class="grid la-g">${ps.map((p) => laureateCard(p, L)).join('')}</ul></section>`; }).join('');
   return {
     title: t.nav.laureats,
-    body: `<h1>${esc(t.nav.laureats)}</h1>${form}${r.list.length ? list : empty(t.noLaureates)}${r.list.some((p) => p.masked) ? `<p class="mut small">* ${esc(t.masked)}</p>` : ''}
+    body: `<h1>${esc(t.nav.laureats)}</h1>${form}${list}${r.list.some((p) => p.masked) ? `<p class="mut small">* ${esc(t.masked)}</p>` : ''}
 ${pager(L, 'laureats', page, r.total, PER.laureats, { annee: year, type, departement: dep })}`,
   };
 }
@@ -332,12 +340,11 @@ async function schools(pub, L, q) {
   let inner;
   if (cat) {
     const r = await get(cat, { page, per: PER.ecoles });
-    inner = `${r.list.length ? `<div class="grid ec-g">${r.list.map((x) => ecCard(x, L)).join('')}</div>` : empty(t.ecEmpty)}${pager(L, 'ecoles', page, r.total, PER.ecoles, { categorie: cat, ecole: school })}`;
+    inner = r.list.length ? `<div class="grid ec-g">${r.list.map((x) => ecCard(x, L)).join('')}</div>${pager(L, 'ecoles', page, r.total, PER.ecoles, { categorie: cat, ecole: school })}` : '';
   } else {
     const all = await Promise.all(Pt.FEED_CATS.map((c) => get(c, { per: 3 })));
-    const secs = Pt.FEED_CATS.map((c, i) => (all[i].list.length ? section(`ec-${c}`, t.ec[c], `<div class="grid ec-g">${all[i].list.map((x) => ecCard(x, L)).join('')}</div>`,
+    inner = Pt.FEED_CATS.map((c, i) => (all[i].list.length ? section(`ec-${c}`, t.ec[c], `<div class="grid ec-g">${all[i].list.map((x) => ecCard(x, L)).join('')}</div>`,
       all[i].total > 3 ? `<a class="more" href="${href(L, 'ecoles')}${qs({ categorie: c, ecole: school })}">${esc(t.ecAll)} (${all[i].total}) →</a>` : '') : '')).join('');
-    inner = secs || empty(t.ecEmpty);
   }
   const reg = `<aside class="sec ec-reg" aria-labelledby="ec-reg"><h2 id="ec-reg">${esc(t.ecRegTitle)}</h2><p class="mut">${esc(t.ecRegText)}</p><p><a class="btn btn-o btn-s" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></aside>`;
   return { title: cat ? `${t.nav.ecoles} — ${t.ec[cat]}` : t.nav.ecoles,
@@ -350,7 +357,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
   const cache = new Map();
   const assetHash = (f) => { try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(root, 'src', f))).digest('hex').slice(0, 10); } catch { return '1'; } };
   let assets = null; let assetsAt = 0;
-  const getAssets = () => { if (!assets || Date.now() - assetsAt > 60e3) { assets = { css: assetHash('portail.css'), js: assetHash('portail.js') }; assetsAt = Date.now(); } return assets; };
+  const getAssets = () => { if (!assets || Date.now() - assetsAt > 60e3) { assets = { css: assetHash('portail.css'), js: assetHash('portail.js'), tarifs: assetHash('tarifs.css') }; assetsAt = Date.now(); } return assets; };
   const baseOf = (req) => {
     if (publicUrl) return publicUrl.replace(/\/$/, '');
     const h = req.headers.host || '';
@@ -369,13 +376,15 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
     else if (page === 'annonces' && !rest) r = await ads(pub, L);
     else if (page === 'ecoles' && !rest) r = await schools(pub, L, q);
     else if (page === PV.SLUG && !rest) r = { title: PV.C[L].title, desc: PV.C[L].desc, body: PV.body(L, esc) };
+    else if (page === Tarifs.SLUG && !rest) r = Tarifs.page(L);
     if (!r) return notFoundPage(L, base);
     // Adresse canonique : sans paramètres de pagination ni filtres non reconnus ; les filtres reconnus restent.
     const keep = new URLSearchParams();
     for (const k of ['categorie', 'passes', 'annee', 'type', 'departement', 'ecole', 'page']) if (q.get(k) && /^[\w-]{1,60}$/.test(q.get(k))) keep.set(k, q.get(k));
     const suffix = keep.toString() ? `?${keep}` : '';
     const alt = { fr: href('fr', canon) + suffix, ht: href('ht', canon) + suffix };
-    return { status: 200, html: layout({ L, page, title: r.title, desc: r.desc || t.desc[page], body: r.body, canonical: alt[L], alt, base, image: r.image, type: r.type, assets: getAssets() }) };
+    const a = getAssets();
+    return { status: 200, html: layout({ L, page, title: r.title, desc: r.desc || t.desc[page], body: r.body, canonical: alt[L], alt, base, image: r.image, type: r.type, assets: a, extraCss: page === Tarifs.SLUG ? `/src/tarifs.css?v=${a.tarifs}` : '' }) };
   }
   function notFoundPage(L, base) {
     const t = T[L];
@@ -393,7 +402,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
   const t0 = (L) => T[L];
   async function sitemap(base) {
     const rows = await pub.sitemap();
-    const urls = PAGES.concat(PV.SLUG).map((p) => ({ p, mod: p === PV.SLUG ? PV.UPDATED : null })).concat(rows.map((r) => ({ p: `${r.kind === 'evenement' ? 'evenements' : 'communaute'}/${r.id}`, mod: String(r.updated_at || r.published_at || '').slice(0, 10) })));
+    const urls = PAGES.concat(PV.SLUG, Tarifs.SLUG).map((p) => ({ p, mod: p === PV.SLUG ? PV.UPDATED : null })).concat(rows.map((r) => ({ p: `${r.kind === 'evenement' ? 'evenements' : 'communaute'}/${r.id}`, mod: String(r.updated_at || r.published_at || '').slice(0, 10) })));
     const u = (p) => esc(`${base}${p === '' ? '/' : `/${p}`}`); const uh = (p) => esc(`${base}${href('ht', p)}`);
     const one = (loc, p, mod) => `<url><loc>${loc}</loc>${mod ? `<lastmod>${esc(mod)}</lastmod>` : ''}<xhtml:link rel="alternate" hreflang="fr" href="${u(p)}"/><xhtml:link rel="alternate" hreflang="ht" href="${uh(p)}"/></url>`;
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls.map(({ p, mod }) => one(u(p), p, mod) + one(uh(p), p, mod)).join('')}</urlset>\n`;
@@ -418,6 +427,9 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
   // Rend true si la requête a été servie. GET/HEAD seulement ; jamais /api/, /src/, /sw.js, /manifest.webmanifest, /app.
   async function serve(req, res, url, baseHeaders, ip) {
     const p = url.pathname;
+    if (p === '/tarifs/' || p === '/ht/tarifs/') {
+      res.writeHead(301, { ...baseHeaders, location: p.slice(0, -1) + url.search, 'cache-control': 'public, max-age=86400' }); res.end(); return true;
+    }
     if (p === '/app/' || p === '/public' || p.startsWith('/public/')) {
       const to = p === '/app/' ? '/app' : (p.slice('/public'.length) || '/');
       res.writeHead(301, { ...baseHeaders, location: to + url.search, 'cache-control': 'public, max-age=86400' }); res.end(); return true;
@@ -439,7 +451,7 @@ function createPortal(db, { ctx = null, publicUrl = null, secureCookie = false, 
       res.writeHead(302, { ...baseHeaders, location: to || '/annonces', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex' }); res.end(); return true;
     }
     m = p.match(/^\/(?:(ht)(?:\/|$))?([a-z]*)(?:\/([^/]*))?\/?$/);
-    if (!m || !(PAGES.includes(m[2]) || m[2] === PV.SLUG) || (p.length > 1 && p.endsWith('/') && p !== '/ht/')) return false;
+    if (!m || !(PAGES.includes(m[2]) || m[2] === PV.SLUG || m[2] === Tarifs.SLUG) || (p.length > 1 && p.endsWith('/') && p !== '/ht/')) return false;
     const L = m[1] ? 'ht' : 'fr'; const page = m[2]; const rest = m[3] || '';
     if (m[1] && p === '/ht/') { res.writeHead(301, { ...baseHeaders, location: `/ht${url.search}`, 'cache-control': 'public, max-age=86400' }); res.end(); return true; }
     const base = baseOf(req);

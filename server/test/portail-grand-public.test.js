@@ -71,11 +71,38 @@ test('Espaces des écoles : annonces par catégorie, pagination légère, campag
   assert.equal(p1.headers.get('set-cookie'), null, 'aucun cookie sans compte');
   assert.ok(Buffer.byteLength(p1.text) < 40000, 'page légère');
   const ht = await page('/ht/ecoles'); assert.equal(ht.status, 200); assert.match(ht.text, /lang="ht"/);
+  // Rubriques sans contenu publié : pas de titre ni de carte vide. Le brouillon reste en base, hors page.
+  const draft = await db.get("SELECT status FROM portal_item WHERE title_fr = 'Brouillon fictif'");
+  assert.equal(draft.status, 'en_attente', 'proposition non publiée conservée');
+  Pt.bump();
+  const home = await page('/');
+  assert.doesNotMatch(home.text, /class="empty"/);
+  assert.match(home.text, /id="s-co"/); assert.match(home.text, /Actualité fictive/);
+  assert.match(home.text, /id="s-join"/); assert.match(home.text, /id="s-tarifs"/);
+  assert.doesNotMatch(home.text, /id="s-ev"|id="s-la"|id="s-ad"|id="s-pa"/);
+  const la0 = await page('/laureats');
+  assert.doesNotMatch(la0.text, /class="empty"/); assert.doesNotMatch(la0.text, /<section class="lg">/);
+  assert.match(la0.text, /<h1>Lauréats<\/h1>/);
+  await db.insert("INSERT INTO portal_item (kind, school_id, status, person_name, year, exam, exam_type, published_at, featured) VALUES ('laureat', ?, 'publie', 'Lauréate fictive Visible', 2026, 'Bac fictif', 'examen', CURRENT_TIMESTAMP, 1)", sidA);
+  Pt.bump();
+  const la = await page('/laureats');
+  assert.match(la.text, /Lauréate fictive Visible/); assert.match(la.text, /Bac fictif/);
+  assert.match(la.text, /<section class="lg">/); assert.doesNotMatch(la.text, /class="empty"/);
+  const home2 = await page('/');
+  assert.match(home2.text, /id="s-la"/); assert.match(home2.text, /Lauréate fictive Visible/); assert.doesNotMatch(home2.text, /class="empty"/);
+  const eco2 = await page('/ecoles');
+  assert.match(eco2.text, /id="ec-laureats"/); assert.match(eco2.text, /id="ec-actualites"/); assert.match(eco2.text, /id="ec-inscriptions"/);
+  assert.doesNotMatch(eco2.text, /id="ec-evenements"|id="ec-examens"|id="ec-autres"/);
+  assert.doesNotMatch(eco2.text, /class="empty"/); assert.doesNotMatch(eco2.text, /Brouillon fictif/);
+  const filtered = await page('/ecoles?categorie=evenements');
+  assert.doesNotMatch(filtered.text, /class="empty"/); assert.doesNotMatch(filtered.text, /id="ec-evenements"/);
+  const htHome = await page('/ht');
+  assert.doesNotMatch(htHome.text, /class="empty"/); assert.match(htHome.text, /id="s-la"/); assert.match(htHome.text, /id="s-co"/);
 });
 
 test('aucun lien public vers les portails des écoles ; /app reste servi quand on le tape', async () => {
   for (const L of ['', '/ht']) {
-    for (const p of ['', '/ecoles', '/evenements', '/laureats', '/communaute', '/annonces', '/compte', '/compte?inscription=1', '/inscrire-ecole', '/confidentialite']) {
+    for (const p of ['', '/ecoles', '/evenements', '/laureats', '/communaute', '/annonces', '/tarifs', '/compte', '/compte?inscription=1', '/inscrire-ecole', '/confidentialite']) {
       const r = await page(`${L}${p}` || '/');
       assert.equal(r.status, 200, `${L}${p}`);
       assert.doesNotMatch(r.text, /href="[^"]*\/app\b/, `${L}${p} : aucun lien vers /app`);
@@ -123,6 +150,42 @@ test('inscription grand public : abonnements choisis, suivi d’école, témoin 
   const out = await form('/compte/deconnexion', {}, { cookie });
   assert.equal(out.status, 303); assert.equal(out.headers.get('location'), '/');
   assert.ok(out.headers.getSetCookie().some((c) => /^noria_pub_in=;.*Max-Age=0/.test(c)));
+});
+
+test('/tarifs reprend l’en-tête et le pied de page du portail ; le texte des prix reste en français', async () => {
+  const chrome = (html) => ({
+    header: html.match(/<header class="hd">[\s\S]*?<\/header>/)[0].replace(/ aria-current="page"/g, '').replace(/href="[^"]*"/g, 'href="#"'),
+    footer: html.match(/<footer class="ft">[\s\S]*?<\/footer>/)[0].replace(/ aria-current="page"/g, '').replace(/href="[^"]*"/g, 'href="#"'),
+  });
+  const home = await page('/'); const schools = await page('/ecoles'); const laureates = await page('/laureats');
+  const fr = await page('/tarifs');
+  assert.equal(fr.status, 200);
+  assert.equal(chrome(fr.text).header, chrome(home.text).header);
+  assert.equal(chrome(fr.text).header, chrome(schools.text).header);
+  assert.equal(chrome(fr.text).header, chrome(laureates.text).header);
+  assert.equal(chrome(fr.text).footer, chrome(laureates.text).footer);
+  assert.match(fr.text, /<html lang="fr">/);
+  assert.match(fr.text, /href="\/src\/portail\.css\?v=/); assert.match(fr.text, /href="\/src\/tarifs\.css\?v=/);
+  assert.match(fr.text, /href="\/tarifs" aria-current="page">Tarifs</);
+  assert.match(fr.text, /Forfaits annuels plafonnés ou prix par élève/);
+  assert.match(fr.text, /25 000 HTG/); assert.match(fr.text, /250 HTG/); assert.match(fr.text, /TCA 10 %/);
+  assert.match(fr.text, /Educa HT/); assert.match(fr.text, /href="\/inscrire-ecole">Inscrire mon école/);
+  assert.doesNotMatch(fr.text, /class="m-top"|class="t-foot"|class="t-logo"/);
+  assert.doesNotMatch(fr.text, /href="[^"]*\/app\b/);
+  const htHome = await page('/ht'); const ht = await page('/ht/tarifs');
+  assert.equal(ht.status, 200);
+  assert.equal(chrome(ht.text).header, chrome(htHome.text).header);
+  assert.equal(chrome(ht.text).footer, chrome((await page('/ht/laureats')).text).footer);
+  assert.match(ht.text, /<html lang="ht">/);
+  assert.match(ht.text, /class="tarifs" lang="fr"/);
+  assert.match(ht.text, /href="\/ht\/tarifs" aria-current="page">Pri</);
+  assert.match(ht.text, /25 000 HTG/); assert.match(ht.text, /Gade pri yo|Forfaits annuels/);
+  assert.match((await page('/')).text, /href="\/tarifs">Voir les tarifs/);
+  assert.match(htHome.text, /href="\/ht\/tarifs">Gade pri yo/);
+  const slash = await page('/tarifs/'); assert.equal(slash.status, 301); assert.equal(slash.headers.get('location'), '/tarifs');
+  const slashHt = await page('/ht/tarifs/'); assert.equal(slashHt.status, 301); assert.equal(slashHt.headers.get('location'), '/ht/tarifs');
+  const sm = await page('/sitemap.xml');
+  assert.match(sm.text, /\/tarifs<\/loc>/); assert.match(sm.text, /\/ht\/tarifs<\/loc>/);
 });
 
 test('script d’en-tête et styles : témoin, bascule S’inscrire / Mon compte', () => {

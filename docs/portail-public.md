@@ -110,7 +110,9 @@ img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
 - Un contenu refusé ou dépublié reste en base (journal) ; seule une proposition « en attente » peut être retirée par
   l'école ; le super-admin peut republier un contenu dépublié ou refusé.
 - Accueil : lauréats « à la une » seulement (choix du super-admin), trois événements (à venir d'abord, puis les plus
-  récents), trois annonces, trois contenus de la communauté, toutes les écoles partenaires.
+  récents), trois annonces, trois contenus de la communauté, toutes les écoles partenaires. Un de ces blocs n'est
+  pas rendu s'il n'a aucun contenu publié (ni titre, ni carte vide). Même règle pour les rubriques de `/ecoles`
+  et les regroupements de `/laureats`. Les propositions non publiées restent en base et hors du portail.
 - Démonstration (`NORIA_DEMO=1`) : contenus fictifs publiés (`seedPortal`), dont un encart expiré qui ne doit pas
   apparaître et un lauréat mineur sans double consentement (initiales).
 
@@ -168,8 +170,9 @@ Code : `server/src/portail-public.js` (pages, formulaires, routes d'administrati
 
 ### Logo et icônes
 - En-tête du portail : `src/noria-logo.png` (optimisé : 13,7 Ko → 4 Ko, 32 couleurs), `width="89" height="48"`.
-- Icônes régénérées à partir du « N » du logo (couleur #123048) : `favicon.svg`, `favicon-32.png`,
-  `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, `/favicon.ico` (16/32/48, 3,5 Ko, servi à la
-  racine), `/apple-touch-icon.png` (alias). Balises sur le portail, `/app` (chemins absolus) et `ministere.html`.
+- Onglet et installation : mot-symbole NORIA sur fond blanc (`favicon-32.png`, `apple-touch-icon.png` 180×180,
+  `icon-192.png`, `icon-512.png`, `/favicon.ico` 16×16). `favicon.svg` reste le monogramme du fichier, pas l’icône
+  d’onglet (illisible à côté du mot NORIA). Balises sur le portail, `/app` (chemins absolus) et `ministere.html`.
+  `/apple-touch-icon.png` reste un alias. Le manifeste d’installation n’est pas lié depuis l’accueil public.
 - Service worker : sa version inclut désormais son propre source ; révision 8.
 - Premier chargement mesuré (Chrome headless, cache vide) : `/app` 142 Ko, portail 12,8 Ko.

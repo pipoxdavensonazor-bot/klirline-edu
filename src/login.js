@@ -4,7 +4,7 @@
 (function(){
 "use strict";
 const T={
-  fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",forgot:"Mot de passe oublié ?",
+  fr:{title:"Connexion à NORIA",school:"École",ident:"E-mail ou téléphone",pw:"Mot de passe",login:"Se connecter",install:"Installer l'app",installIos:"Sur iPhone ou iPad : touchez Partager, puis « Sur l'écran d'accueil ».",forgot:"Mot de passe oublié ?",
       back:"Retour à la connexion",send:"Recevoir un lien",sent:"Si ce compte existe, un message vient d'être envoyé.",useCode:l=>`Se connecter avec un code (${l})`,chName:{whatsapp:"WhatsApp",telegram:"Telegram",email:"e-mail",sms:"SMS"},or:" ou ",usePw:"Se connecter avec le mot de passe",codeTitle:"Connexion par code",getCode:"Recevoir le code",codeHelp:f=>`Choisissez comment recevoir votre code.${f.length?` ${f.join(" et ")} ${f.length>1?"sont gratuits":"est gratuit"}.`:""}`,enterTitle:"Saisir le code",code:"Code à 6 chiffres",codeSent:(m)=>`Si ce compte existe, un code vient d'être envoyé. Il est valable ${m} minutes et ne sert qu'une fois.`,codeTo:"Envoyé à",verify:"Valider",resend:"Renvoyer le code",resendIn:n=>`Renvoyer le code dans ${n} s`,resent:"Nouveau code demandé. L'ancien ne marche plus.",badCode:"Code invalide ou expiré. Après 5 essais, demandez un nouveau code.",digits:"Saisissez les 6 chiffres.",change:"Changer d'identifiant",
       bad:"Identifiants invalides.",many:"Trop de tentatives. Réessayez plus tard.",net:"Serveur injoignable. Vérifiez la connexion.",
       reg:"Votre école n’est pas encore sur NORIA ? Inscrire mon école",priv:"Politique de confidentialité",demo:"Serveur de démonstration — comptes et données fictifs.",demoAcc:"Comptes de démonstration",demoPw:"Mot de passe de démonstration",
@@ -22,7 +22,7 @@ const T={
       waOpen:"Ouvrir WhatsApp",waManual:(c,n)=>`Sinon, envoyez « NORIA ${c} » au ${n} sur WhatsApp.`,waWait:"En attente de votre message…",waExpired:"Délai dépassé. Demandez un nouveau code.",waRetry:"Nouveau code",
       waNote:"Gratuit pour vous et pour l'école. Personne de l'école ne vous demandera ce code : ne l'envoyez qu'au numéro NORIA.",resume:"Reconnexion sur cet appareil de confiance…",
       roles:{direction:"Direction",secretariat:"Secrétariat",enseignant:"Enseignant",comptabilite:"Comptabilité",bibliotheque:"Bibliothèque",parent:"Parent",eleve:"Élève"}},
-  ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",forgot:"Ou bliye modpas ou ?",
+  ht:{title:"Konekte nan NORIA",school:"Lekòl",ident:"Imèl oswa telefòn",pw:"Modpas",login:"Konekte",install:"Enstale aplikasyon an",installIos:"Sou iPhone oswa iPad : peze Pataje, epi « Ajoute sou ekran dakèy ».",forgot:"Ou bliye modpas ou ?",
       back:"Retounen nan koneksyon",send:"Resevwa yon lyen",sent:"Si kont sa a egziste, yon mesaj fèk pati.",useCode:l=>`Konekte ak yon kòd (${l})`,chName:{whatsapp:"WhatsApp",telegram:"Telegram",email:"imèl",sms:"SMS"},or:" oswa ",usePw:"Konekte ak modpas",codeTitle:"Koneksyon ak kòd",getCode:"Resevwa kòd la",codeHelp:f=>`Chwazi kijan pou w resevwa kòd ou.${f.length?` ${f.join(" ak ")} gratis.`:""}`,enterTitle:"Antre kòd la",code:"Kòd 6 chif",codeSent:(m)=>`Si kont sa a egziste, yon kòd fèk pati. Li bon pou ${m} minit epi li sèvi yon sèl fwa.`,codeTo:"Voye bay",verify:"Valide",resend:"Voye kòd la ankò",resendIn:n=>`Voye kòd la ankò nan ${n} s`,resent:"Nouvo kòd mande. Ansyen an pa mache ankò.",badCode:"Kòd la pa bon oswa li ekspire. Apre 5 eseye, mande yon nouvo kòd.",digits:"Antre 6 chif yo.",change:"Chanje idantifyan",
       bad:"Idantifyan yo pa bon.",many:"Twòp eseye. Eseye pita.",net:"Sèvè a pa reponn. Tcheke koneksyon an.",
       reg:"Lekòl ou poko sou NORIA ? Enskri lekòl mwen",priv:"Politik konfidansyalite",demo:"Sèvè demonstrasyon — kont ak done yo fiktif.",demoAcc:"Kont demonstrasyon",demoPw:"Modpas demonstrasyon",
@@ -73,6 +73,52 @@ function screen(html){
   return el;
 }
 function closeScreen(){ const el=document.getElementById("loginScreen"); if(el){ el.hidden=true; el.innerHTML=""; } document.body.classList.remove("login-open"); background(false); }
+// Page servie par le serveur : la maquette reste masquée (CSS) jusqu'à une session réelle.
+function hosted(){ return !!document.querySelector('meta[name="noria-server"]'); }
+function revealApp(){ document.documentElement.dataset.auth="in"; }
+function openApp(draw){
+  revealApp();
+  try{ draw(); }
+  catch(e){ delete document.documentElement.dataset.auth; throw e; }
+  closeScreen();
+}
+function releaseLocalDemo(){ document.documentElement.dataset.auth="local"; closeScreen(); try{ window.KL&&KL.bootLocal&&KL.bootLocal(); }catch(e){} }
+function gateNow(){
+  if(!hosted()) return;
+  // Retire le texte de maquette déjà dans le HTML, avant le premier affichage utile.
+  const v=document.getElementById("view"); if(v) v.replaceChildren();
+  const nav=document.getElementById("nav"); if(nav) nav.replaceChildren();
+  const mn=document.getElementById("mnav"); if(mn) mn.replaceChildren();
+  if(document.getElementById("loginScreen")) return;
+  screen(`<h1 id="loginTitle">${esc(t("title"))}</h1><p class="small mut">…</p>`);
+  const el=document.getElementById("loginScreen"); if(el) el.dataset.view="wait";
+}
+
+// Bouton « Installer l'app » (Android, Chrome, tablette) ou guide iPhone/iPad. Vide si le navigateur ne peut pas installer.
+function paintInstall(){
+  const slot=document.getElementById("lgInstallSlot");
+  if(!slot) return;
+  const pwa=window.NORIA_PWA;
+  const kind=pwa?pwa.kind():"hidden";
+  if(kind==="prompt"){
+    slot.innerHTML=`<button type="button" class="login-install" id="lgInstall">${esc(t("install"))}</button>`;
+    slot.querySelector("#lgInstall").addEventListener("click",()=>{
+      const b=document.getElementById("lgInstall"); if(b) b.disabled=true;
+      pwa.prompt();
+    });
+  }else if(kind==="ios"){
+    slot.innerHTML=`<div class="login-install-note" role="note"><p class="login-install-title">${esc(t("install"))}</p><p>${esc(t("installIos"))}</p></div>`;
+  }else slot.innerHTML="";
+  // Le focus du premier champ peut faire défiler l'écran : on ramène le bloc d'installation dans la vue.
+  setTimeout(()=>{
+    const s=document.getElementById("lgInstallSlot");
+    if(!s||!s.firstElementChild) return;
+    const r=s.getBoundingClientRect();
+    if(r.top>=12) return;
+    const scroller=s.closest(".login-screen");
+    if(scroller) scroller.scrollTop+=r.top-16;
+  },120);
+}
 
 // Case « appareil de confiance » (décochée par défaut) et canaux gratuits (bloc 9).
 const trustBox=on=>`<label class="login-trust"><input type="checkbox" id="lgTrust"${on?" checked":""}> ${esc(t("trust"))}</label>`;
@@ -90,6 +136,7 @@ function schoolField(){
 const views={
   login(){
     const el=screen(`<h1 id="loginTitle">${esc(t("title"))}</h1>
+      <div id="lgInstallSlot" class="login-install-slot" aria-live="polite"></div>
       <form id="lgForm" novalidate>${schoolField()}
         <label class="fld">${esc(t("ident"))}<input id="lgId" required autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email"></label>
         <label class="fld">${esc(t("pw"))}<input id="lgPw" type="password" required autocomplete="current-password"></label>
@@ -117,6 +164,7 @@ const views={
       }catch(x){ err.textContent=t("net"); }
       finally{ btn.disabled=false; }
     });
+    paintInstall();
   },
   forgot(){
     const el=screen(`<h1 id="loginTitle">${esc(t("forgot"))}</h1><form id="rcForm" novalidate>${schoolField()}
@@ -276,7 +324,7 @@ const views={
   async choose(){
     const r=await api("/api/me/ecoles").catch(()=>null);
     const list=r&&r.status===200?r.body:[];
-    if(list.length<2){ closeScreen(); return start(); }
+    if(list.length<2) return start();
     const M=window.NORIA_ECO;
     const el=screen(`<h1 id="loginTitle">${esc(t("chooseTitle"))}</h1><p class="small mut">${esc(t("chooseHelp"))}</p>
       <div class="eco-choose">${list.map(e=>`<button type="button" class="eco-pick" data-id="${e.school_id}">${M?M.mark(e,"eco-sm"):""}<span><b>${esc(e.name)}</b><small>${esc(e.initials)}</small></span></button>`).join("")}</div>`);
@@ -285,7 +333,7 @@ const views={
       const id=Number(b.dataset.id), cur=list.find(x=>x.active);
       b.disabled=true;
       if(!cur||cur.school_id!==id){ const s=await post("/api/session/ecole",{school_id:id}).catch(()=>null); if(!s||s.status!==200){ b.disabled=false; return; } }
-      closeScreen(); await start(); }));
+      await start(); }));
   },
   async token(kind,token){
     // Page d'arrivée d'une invitation : logo (ou initiales) et nom de l'école qui invite.
@@ -311,7 +359,7 @@ const views={
 
 async function afterLogin(body){
   if(body&&body.choisir) return views.choose();
-  closeScreen(); await start();
+  try{ await start(); }catch(e){ views.login(); }
 }
 
 function userChip(me){
@@ -344,7 +392,7 @@ async function start(){
   if(kid) students=students.filter(x=>x.id===kid.student_id);
   const data={me:me.body,students,classes:cl.status===200?cl.body:[],demo:!!CONFIG.demo,eco:{me:me.body,schools,kids,kid}};
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
-  window.KL.applyServer(data);
+  openApp(()=>window.KL.applyServer(data));
   userChip(me.body);
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   // Copie de lecture pour rouvrir sans réseau (noria_cache_v1) ; effacée à la déconnexion.
@@ -364,7 +412,7 @@ async function startOffline(){
   CONFIG={demo:data.demo,methods:["password"],offline:true};
   if(CONFIG.demo) document.documentElement.dataset.demo="1";
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
-  window.KL.applyServer(data);
+  openApp(()=>window.KL.applyServer(data));
   userChip(data.me);
   if(window.NORIA_ECO) NORIA_ECO.set(data.eco);
   NORIA_OFF.init(data.me);
@@ -382,12 +430,13 @@ function serverFooter(){
 }
 
 async function init(){
-  if(!document.querySelector('meta[name="noria-server"]')) return; // fichiers statiques seuls : démonstration locale
+  if(!hosted()) return; // fichiers statiques seuls : démonstration locale
+  gateNow(); // connexion seule, avant même /api/config : pas de tableau de démonstration
   if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
   if(!navigator.onLine){ serverFooter(); return startOffline(); } // pas de requête inutile sans réseau
   try{
     const r=await api("/api/config");
-    if(r.status!==200||!r.body||!Array.isArray(r.body.methods)) return; // pas de serveur : démonstration locale
+    if(r.status!==200||!r.body||!Array.isArray(r.body.methods)) return releaseLocalDemo(); // pas de serveur : démonstration locale
     CONFIG=r.body;
   }catch(e){ serverFooter(); return startOffline(); }
   document.documentElement.dataset.backend="server";
@@ -396,7 +445,7 @@ async function init(){
   if(CONFIG.emailsEleves) document.documentElement.dataset.emailsEleves="1"; // bloc 7 : NORIA_EMAIL_ELEVES=1
   serverFooter();
   // Administration de la plateforme : interface séparée, chargée à la demande.
-  if(location.hash==="#admin"&&window.NORIA_ECO){ try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }
+  if(location.hash==="#admin"&&window.NORIA_ECO){ closeScreen(); try{ await NORIA_ECO.load("src/admin.js"); return window.NORIA_ADM.start(); }catch(e){ return views.login(); } }
   if(window.NORIA_ECO) NORIA_ECO.onRestart(async()=>{ try{ await start(); }catch(e){ location.reload(); } });
   // Lien d'invitation à une réunion de parents : mémorisé le temps de la connexion, puis ouvert après start().
   const rv=location.hash.match(/^#reunion=(\d{1,9})$/);
@@ -414,5 +463,6 @@ async function init(){
   if(!CONFIG.session){ if(window.NORIA_OFF) await NORIA_OFF.clearCache(); return views.login(); }
   try{ await start(); }catch(e){ views.login(); }
 }
+if(window.NORIA_PWA) window.NORIA_PWA.onChange(paintInstall);
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init); else init();
 })();
