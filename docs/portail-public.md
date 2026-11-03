@@ -110,7 +110,9 @@ img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
 - Un contenu refusé ou dépublié reste en base (journal) ; seule une proposition « en attente » peut être retirée par
   l'école ; le super-admin peut republier un contenu dépublié ou refusé.
 - Accueil : lauréats « à la une » seulement (choix du super-admin), trois événements (à venir d'abord, puis les plus
-  récents), trois annonces, trois contenus de la communauté, toutes les écoles partenaires.
+  récents), trois annonces, trois contenus de la communauté, toutes les écoles partenaires. Un de ces blocs n'est
+  pas rendu s'il n'a aucun contenu publié (ni titre, ni carte vide). Même règle pour les rubriques de `/ecoles`
+  et les regroupements de `/laureats`. Les propositions non publiées restent en base et hors du portail.
 - Démonstration (`NORIA_DEMO=1`) : contenus fictifs publiés (`seedPortal`), dont un encart expiré qui ne doit pas
   apparaître et un lauréat mineur sans double consentement (initiales).
 
