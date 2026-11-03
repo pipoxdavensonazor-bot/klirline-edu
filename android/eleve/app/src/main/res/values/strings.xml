@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">NORIA Élève</string>
+    <string name="launcherName">NORIA Élève</string>
+    <string name="launchUrl">https://noriaedu.com/app</string>
+    <string name="providerAuthority">ca.klirline.noria.eleve.fileprovider</string>
+    <string name="assetStatements" translatable="false">[{\"relation\":[\"delegate_permission/common.handle_all_urls\"],\"target\":{\"namespace\":\"web\",\"site\":\"https://noriaedu.com\"}}]</string>
+</resources>

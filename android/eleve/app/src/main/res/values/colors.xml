@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- theme_color du manifeste web (/manifest.webmanifest). -->
+    <color name="colorPrimary">#0E1218</color>
+    <color name="navigationColor">#0E1218</color>
+    <!-- Coin de src/icon-512.png. Régénéré par scripts/generer-icones.py. -->
+    <color name="iconBackground">#123048</color>
+    <color name="splashBackground">#123048</color>
+</resources>
