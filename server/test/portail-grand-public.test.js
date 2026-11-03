@@ -71,6 +71,33 @@ test('Espaces des écoles : annonces par catégorie, pagination légère, campag
   assert.equal(p1.headers.get('set-cookie'), null, 'aucun cookie sans compte');
   assert.ok(Buffer.byteLength(p1.text) < 40000, 'page légère');
   const ht = await page('/ht/ecoles'); assert.equal(ht.status, 200); assert.match(ht.text, /lang="ht"/);
+  // Rubriques sans contenu publié : pas de titre ni de carte vide. Le brouillon reste en base, hors page.
+  const draft = await db.get("SELECT status FROM portal_item WHERE title_fr = 'Brouillon fictif'");
+  assert.equal(draft.status, 'en_attente', 'proposition non publiée conservée');
+  Pt.bump();
+  const home = await page('/');
+  assert.doesNotMatch(home.text, /class="empty"/);
+  assert.match(home.text, /id="s-co"/); assert.match(home.text, /Actualité fictive/);
+  assert.match(home.text, /id="s-join"/); assert.match(home.text, /id="s-tarifs"/);
+  assert.doesNotMatch(home.text, /id="s-ev"|id="s-la"|id="s-ad"|id="s-pa"/);
+  const la0 = await page('/laureats');
+  assert.doesNotMatch(la0.text, /class="empty"/); assert.doesNotMatch(la0.text, /<section class="lg">/);
+  assert.match(la0.text, /<h1>Lauréats<\/h1>/);
+  await db.insert("INSERT INTO portal_item (kind, school_id, status, person_name, year, exam, exam_type, published_at, featured) VALUES ('laureat', ?, 'publie', 'Lauréate fictive Visible', 2026, 'Bac fictif', 'examen', CURRENT_TIMESTAMP, 1)", sidA);
+  Pt.bump();
+  const la = await page('/laureats');
+  assert.match(la.text, /Lauréate fictive Visible/); assert.match(la.text, /Bac fictif/);
+  assert.match(la.text, /<section class="lg">/); assert.doesNotMatch(la.text, /class="empty"/);
+  const home2 = await page('/');
+  assert.match(home2.text, /id="s-la"/); assert.match(home2.text, /Lauréate fictive Visible/); assert.doesNotMatch(home2.text, /class="empty"/);
+  const eco2 = await page('/ecoles');
+  assert.match(eco2.text, /id="ec-laureats"/); assert.match(eco2.text, /id="ec-actualites"/); assert.match(eco2.text, /id="ec-inscriptions"/);
+  assert.doesNotMatch(eco2.text, /id="ec-evenements"|id="ec-examens"|id="ec-autres"/);
+  assert.doesNotMatch(eco2.text, /class="empty"/); assert.doesNotMatch(eco2.text, /Brouillon fictif/);
+  const filtered = await page('/ecoles?categorie=evenements');
+  assert.doesNotMatch(filtered.text, /class="empty"/); assert.doesNotMatch(filtered.text, /id="ec-evenements"/);
+  const htHome = await page('/ht');
+  assert.doesNotMatch(htHome.text, /class="empty"/); assert.match(htHome.text, /id="s-la"/); assert.match(htHome.text, /id="s-co"/);
 });
 
 test('aucun lien public vers les portails des écoles ; /app reste servi quand on le tape', async () => {

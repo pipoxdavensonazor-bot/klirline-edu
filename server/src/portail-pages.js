@@ -33,7 +33,7 @@ const T = {
     ctaSchools: 'Espaces des écoles', ctaEvents: 'Voir les événements',
     ec: { all: 'Toutes', inscriptions: 'Inscriptions', evenements: 'Événements', actualites: 'Actualités', examens: 'Examens et résultats', laureats: 'Lauréats', autres: 'Autres' },
     ecIntro: 'Toutes les annonces publiées par les écoles, rangées par catégorie. Créez un compte gratuit pour suivre vos écoles.',
-    ecEmpty: 'Aucune annonce dans cette catégorie pour le moment.', ecAll: 'Voir tout', ecSchool: 'École', ecAllSchools: 'Toutes les écoles',
+    ecAll: 'Voir tout', ecSchool: 'École', ecAllSchools: 'Toutes les écoles',
     ecApply: 'S’inscrire en ligne', ecUntil: (d) => `Inscriptions jusqu’au ${d}`, ecFollow: 'Suivre cette école', ecPublished: (d) => `Publié le ${d}`,
     ecRegTitle: 'Vous dirigez une école ?', ecRegText: 'Publiez vos annonces, événements et résultats ici, après vérification de l’école par l’équipe NORIA.',
     joinTitle: 'Suivez les écoles', joinText: 'Un compte gratuit, sans mot de passe, pour suivre les annonces, les événements et les actualités des écoles, par e-mail.',
@@ -42,8 +42,8 @@ const T = {
     community: 'Communauté', communityHelp: 'Articles et témoignages des écoles, publiés après relecture par l’équipe NORIA.', allCommunity: 'Toute la communauté',
     sponsored: 'Sponsorisé', official: 'Annonce', by: 'Par', visit: 'Visiter le site', read: 'Lire la suite', back: 'Retour',
     sponsoredBy: (s) => `Encart payé par ${s}`, until: (d) => `Jusqu’au ${d}`,
-    noEvents: 'Aucun événement publié pour le moment.', noLaureates: 'Aucun lauréat publié pour ces critères.', noCommunity: 'Aucun article publié pour le moment.',
-    noAds: 'Aucune annonce en cours.', noPartners: 'Aucune école partenaire pour le moment.',
+    noEvents: 'Aucun événement publié pour le moment.', noCommunity: 'Aucun article publié pour le moment.',
+    noAds: 'Aucune annonce en cours.',
     upcoming: 'À venir', past: 'Événements passés', pastLink: 'Voir les événements passés', upcomingLink: 'Voir les événements à venir', allCats: 'Toutes',
     category: 'Catégorie', place: 'Lieu', date: 'Date', dateRange: (a, b) => `du ${a} au ${b}`,
     cat: { examens: 'Examens officiels', concours: 'Concours', culture: 'Culture', sport: 'Sport', science: 'Sciences', autre: 'Autre' },
@@ -74,7 +74,7 @@ const T = {
     ctaSchools: 'Espas lekòl yo', ctaEvents: 'Gade evènman yo',
     ec: { all: 'Tout', inscriptions: 'Enskripsyon', evenements: 'Evènman', actualites: 'Nouvèl', examens: 'Egzamen ak rezilta', laureats: 'Laureya', autres: 'Lòt' },
     ecIntro: 'Tout anons lekòl yo pibliye, ranje pa kategori. Kreye yon kont gratis pou w swiv lekòl ou yo.',
-    ecEmpty: 'Poko gen anons nan kategori sa a.', ecAll: 'Gade tout', ecSchool: 'Lekòl', ecAllSchools: 'Tout lekòl yo',
+    ecAll: 'Gade tout', ecSchool: 'Lekòl', ecAllSchools: 'Tout lekòl yo',
     ecApply: 'Enskri sou entènèt', ecUntil: (d) => `Enskripsyon jiska ${d}`, ecFollow: 'Swiv lekòl sa a', ecPublished: (d) => `Pibliye ${d}`,
     ecRegTitle: 'Ou dirije yon lekòl ?', ecRegText: 'Pibliye anons, evènman ak rezilta ou yo isit la, apre ekip NORIA a fin verifye lekòl la.',
     joinTitle: 'Swiv lekòl yo', joinText: 'Yon kont gratis, san modpas, pou swiv anons, evènman ak nouvèl lekòl yo, pa imel.',
@@ -83,8 +83,8 @@ const T = {
     community: 'Kominote', communityHelp: 'Atik ak temwayaj lekòl yo, ekip NORIA a li yo anvan yo pibliye.', allCommunity: 'Tout kominote a',
     sponsored: 'Sponsorize', official: 'Anons', by: 'Pa', visit: 'Vizite sit la', read: 'Li rès la', back: 'Retounen',
     sponsoredBy: (s) => `Espas sa a peye pa ${s}`, until: (d) => `Jiska ${d}`,
-    noEvents: 'Poko gen evènman ki pibliye.', noLaureates: 'Pa gen laureya ki pibliye pou kritè sa yo.', noCommunity: 'Poko gen atik ki pibliye.',
-    noAds: 'Pa gen anons kounye a.', noPartners: 'Poko gen lekòl patnè.',
+    noEvents: 'Poko gen evènman ki pibliye.', noCommunity: 'Poko gen atik ki pibliye.',
+    noAds: 'Pa gen anons kounye a.',
     upcoming: 'K ap vini', past: 'Evènman ki pase deja', pastLink: 'Gade evènman ki pase yo', upcomingLink: 'Gade evènman k ap vini yo', allCats: 'Tout',
     category: 'Kategori', place: 'Kote', date: 'Dat', dateRange: (a, b) => `soti ${a} rive ${b}`,
     cat: { examens: 'Egzamen ofisyèl', concours: 'Konkou', culture: 'Kilti', sport: 'Espò', science: 'Syans', autre: 'Lòt' },
@@ -198,6 +198,8 @@ function postCard(p, L) {
 <p class="ex">${esc(excerpt(pick(p, 'body', L)))}</p>${p.author ? `<p class="meta">${esc(t.by)} ${esc(p.author)}</p>` : ''}</div></article>`;
 }
 const section = (id, title, inner, more) => `<section class="sec" aria-labelledby="${id}"><div class="sec-h"><h2 id="${id}">${esc(title)}</h2>${more || ''}</div>${inner}</section>`;
+// Bloc affiché seulement s'il a des éléments : pas de titre ni de carte vide.
+const filled = (id, title, inner, moreLink) => (inner ? section(id, title, inner, moreLink) : '');
 const more = (L, p, label) => `<a class="more" href="${href(L, p)}">${esc(label)} →</a>`;
 const empty = (s) => `<p class="empty">${esc(s)}</p>`;
 function pager(L, p, page, total, per, extra = {}) {
@@ -213,17 +215,18 @@ async function home(pub, L) {
   const [events, featured, ads, partners, posts] = await Promise.all([pub.latestEvents(3), pub.featured(6), pub.ads({ n: 3 }), pub.partners(), pub.community({ per: 3 })]);
   const hero = `<section class="hero"><h1>${esc(t.heroTitle)}</h1><p>${esc(t.heroText)}</p>
 <p class="cta"><a class="btn" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a> <a class="btn btn-o" href="${href(L, 'evenements')}">${esc(t.ctaEvents)}</a></p></section>`;
+  const partnerList = partners.length ? `<p class="mut">${esc(t.partnersHelp)}</p><ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : '';
   return {
     body: hero
-      + section('s-ev', t.latestEvents, events.length ? `<div class="list">${events.map((e) => eventCard(e, L, { thumb: false })).join('')}</div>` : empty(t.noEvents), more(L, 'evenements', t.allEvents))
-      + section('s-la', t.featured, featured.length ? `<ul class="grid la-g">${featured.map((p) => laureateCard(p, L, { photo: false })).join('')}</ul>` : empty(t.noLaureates), more(L, 'laureats', t.allLaureates))
-      + section('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : empty(t.noAds), more(L, 'annonces', t.allAds))
-      + section('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : empty(t.noCommunity), more(L, 'communaute', t.allCommunity))
+      + filled('s-ev', t.latestEvents, events.length ? `<div class="list">${events.map((e) => eventCard(e, L, { thumb: false })).join('')}</div>` : '', more(L, 'evenements', t.allEvents))
+      + filled('s-la', t.featured, featured.length ? `<ul class="grid la-g">${featured.map((p) => laureateCard(p, L, { photo: false })).join('')}</ul>` : '', more(L, 'laureats', t.allLaureates))
+      + filled('s-ad', t.ads, ads.length ? `<div class="grid ad-g">${ads.map((a) => adCard({ ...a, image: null }, L)).join('')}</div>` : '', more(L, 'annonces', t.allAds))
+      + filled('s-co', t.community, posts.list.length ? `<div class="list">${posts.list.map((p) => postCard({ ...p, image: null }, L)).join('')}</div>` : '', more(L, 'communaute', t.allCommunity))
       + `<section class="sec box-reg" aria-labelledby="s-join"><h2 id="s-join">${esc(t.joinTitle)}</h2><p>${esc(t.joinText)}</p><p class="cta"><a class="btn" href="${href(L, 'compte')}?inscription=1">${esc(t.signup)}</a> <a class="btn btn-o" href="${href(L, 'ecoles')}">${esc(t.ctaSchools)}</a></p></section>`
       + (L === 'ht'
         ? `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Pri NORIA pou lekòl yo</h2><p>Fòfè apati <strong>25 000 HTG / ane</strong> oswa <strong>250 HTG / elèv / ane</strong>. Esè gratis 60 jou, san angajman.</p><p class="cta"><a class="btn" href="/tarifs">Gade pri yo</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`
         : `<section class="sec box-reg" aria-labelledby="s-tarifs"><h2 id="s-tarifs">Tarifs NORIA pour les écoles</h2><p>Forfaits dès <strong>25 000 HTG / an</strong> ou <strong>250 HTG / élève / an</strong>. Essai gratuit de 60 jours, sans engagement.</p><p class="cta"><a class="btn" href="/tarifs">Voir les tarifs</a> <a class="btn btn-o" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></section>`)
-      + section('s-pa', t.partners, `<p class="mut">${esc(t.partnersHelp)}</p>${partners.length ? `<ul class="partners">${partners.map((s) => `<li>${s.logo ? img(s.logo, '', 'pa-logo', 48, 48, false) : `<span class="av" aria-hidden="true">${esc(s.name.split(/\s+/).filter((w) => w.length > 2).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</span>`}<span>${esc(s.name)}</span></li>`).join('')}</ul>` : empty(t.noPartners)}`),
+      + filled('s-pa', t.partners, partnerList),
   };
 }
 async function events(pub, L, q) {
@@ -268,10 +271,10 @@ async function laureates(pub, L, q) {
   // Regroupement par année puis par examen ou concours.
   const groups = new Map();
   for (const p of r.list) { const k = `${p.year}|${p.exam}`; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); }
-  const list = [...groups].map(([k, ps]) => { const [y, ex] = k.split('|'); return `<section class="lg"><h2>${esc(ex)} <span class="mut">${esc(y)}</span></h2><ul class="grid la-g">${ps.map((p) => laureateCard(p, L)).join('')}</ul></section>`; }).join('');
+  const list = [...groups].filter(([, ps]) => ps.length).map(([k, ps]) => { const [y, ex] = k.split('|'); return `<section class="lg"><h2>${esc(ex)} <span class="mut">${esc(y)}</span></h2><ul class="grid la-g">${ps.map((p) => laureateCard(p, L)).join('')}</ul></section>`; }).join('');
   return {
     title: t.nav.laureats,
-    body: `<h1>${esc(t.nav.laureats)}</h1>${form}${r.list.length ? list : empty(t.noLaureates)}${r.list.some((p) => p.masked) ? `<p class="mut small">* ${esc(t.masked)}</p>` : ''}
+    body: `<h1>${esc(t.nav.laureats)}</h1>${form}${list}${r.list.some((p) => p.masked) ? `<p class="mut small">* ${esc(t.masked)}</p>` : ''}
 ${pager(L, 'laureats', page, r.total, PER.laureats, { annee: year, type, departement: dep })}`,
   };
 }
@@ -332,12 +335,11 @@ async function schools(pub, L, q) {
   let inner;
   if (cat) {
     const r = await get(cat, { page, per: PER.ecoles });
-    inner = `${r.list.length ? `<div class="grid ec-g">${r.list.map((x) => ecCard(x, L)).join('')}</div>` : empty(t.ecEmpty)}${pager(L, 'ecoles', page, r.total, PER.ecoles, { categorie: cat, ecole: school })}`;
+    inner = r.list.length ? `<div class="grid ec-g">${r.list.map((x) => ecCard(x, L)).join('')}</div>${pager(L, 'ecoles', page, r.total, PER.ecoles, { categorie: cat, ecole: school })}` : '';
   } else {
     const all = await Promise.all(Pt.FEED_CATS.map((c) => get(c, { per: 3 })));
-    const secs = Pt.FEED_CATS.map((c, i) => (all[i].list.length ? section(`ec-${c}`, t.ec[c], `<div class="grid ec-g">${all[i].list.map((x) => ecCard(x, L)).join('')}</div>`,
+    inner = Pt.FEED_CATS.map((c, i) => (all[i].list.length ? section(`ec-${c}`, t.ec[c], `<div class="grid ec-g">${all[i].list.map((x) => ecCard(x, L)).join('')}</div>`,
       all[i].total > 3 ? `<a class="more" href="${href(L, 'ecoles')}${qs({ categorie: c, ecole: school })}">${esc(t.ecAll)} (${all[i].total}) →</a>` : '') : '')).join('');
-    inner = secs || empty(t.ecEmpty);
   }
   const reg = `<aside class="sec ec-reg" aria-labelledby="ec-reg"><h2 id="ec-reg">${esc(t.ecRegTitle)}</h2><p class="mut">${esc(t.ecRegText)}</p><p><a class="btn btn-o btn-s" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a></p></aside>`;
   return { title: cat ? `${t.nav.ecoles} — ${t.ec[cat]}` : t.nav.ecoles,
