@@ -27,7 +27,7 @@ Capacitor embarquerait un second projet natif et une WebView à maintenir, pour 
 | Adresse ouverte | `https://noriaedu.com/app` |
 | SDK minimal | Android 7 (API 24) |
 | SDK cible | Android 16 (API 36), exigé par Play pour une nouvelle appli |
-| Icône | Mot-symbole NORIA blanc, fond `#123048` |
+| Icône | Mot-symbole NORIA bleu, fond blanc |
 | Barre d’état | `#0E1218`, comme `theme_color` du manifeste web |
 
 L’identifiant `ca.klirline` suit le domaine de Klirline Inc. (`contact@klirline.ca`). Une fois la fiche créée dans Play Console, ce paquet ne se renomme pas.
@@ -66,9 +66,9 @@ printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
 
 ## Icônes
 
-Le lanceur, l’écran de démarrage et la fiche Play montrent le mot-symbole **NORIA** en blanc sur le bleu marine `#123048`. Le N blanc de `src/icon-512.png` reste l’icône du site installé depuis le navigateur ; cette coque ne le reprend plus. Le slogan du logo est illisible à cette taille : seule la bande « NORIA » de `src/noria-logo.png` est gardée. Le glyphe blanc reprend l’alpha de ce fichier.
+Le lanceur, l’écran de démarrage et la fiche Play montrent le mot-symbole **NORIA** en bleu sur fond blanc, comme sur le site. Le N blanc de `src/icon-512.png` reste l’icône du site installé depuis le navigateur ; cette coque ne le reprend plus. Le slogan du logo est illisible à cette taille : seule la bande « NORIA » de `src/noria-logo.png` est gardée, dans ses couleurs d’origine.
 
-À 48 px, le blanc sur marine se lit mieux que le bleu sur blanc, et le carré reste visible sur un lanceur clair. Le mot-symbole tient dans le cercle sûr de l’icône adaptative (66 dp dans un calque de 108 dp). `iconBackground` et `splashBackground` sont ce même `#123048`.
+Le mot-symbole tient dans le cercle sûr de l’icône adaptative (66 dp dans un calque de 108 dp). `iconBackground` et `splashBackground` sont `#FFFFFF`.
 
 `twa-manifest.json` garde `iconUrl` vers l’icône web (le N). Les images de cette coque viennent du script ci-dessous, pas de cette URL.
 

@@ -5,13 +5,8 @@ Source : src/noria-logo.png (mot-symbole + slogan, fond transparent).
 On ne garde que la bande « NORIA ». Le slogan (« Une école, une famille
 et un avenir ») disparaît à la taille d'une icône.
 
-Le fichier « blanc » joint à la demande est le même mot-symbole bleu posé
-sur une plaque blanche, pas un glyphe clair. Le glyphe blanc est donc
-dérivé ici : on garde l'alpha du logo et on peint les pixels en blanc.
-
-Fond retenu : bleu marine #123048 (déjà iconBackground, favicon, ancien N).
-À 48 px le blanc sur marine reste plus lisible que le bleu sur blanc :
-les traits clairs tiennent, et le carré ne se fond pas dans un lanceur clair.
+Le rendu retenu est celui du site : mot-symbole bleu (#123652) sur fond blanc.
+On garde les pixels d'origine, sans les repeindre en blanc.
 
 Zone sûre adaptative : cercle de 66 dp dans un calque de 108 dp. Le
 rectangle du mot-symbole est inscrit dans ce cercle (marge comprise).
@@ -36,15 +31,15 @@ DENSITIES = {
     "mipmap-xxxhdpi": 192,
 }
 
-# Bleu marine du favicon et de l'ancien N (src/favicon.svg, colors.xml).
-NAVY = (0x12, 0x30, 0x48, 255)
+# Fond du mot-symbole, comme sur le site.
+WHITE = (255, 255, 255, 255)
 
 # Marge à l'intérieur du cercle, pour que l'anticrénelage ne touche pas le masque.
 SAFE_MARGIN = 0.96
 
 
 def wordmark():
-    """Bande NORIA seule, glyphe blanc, alpha d'origine."""
+    """Bande NORIA seule, bleu d'origine, alpha d'origine."""
     logo = Image.open(ROOT / "src" / "noria-logo.png").convert("RGBA")
     # Le slogan commence vers y=96 (fichier 253×136). On coupe avant.
     band = logo.crop((0, 0, logo.width, 90))
@@ -52,10 +47,7 @@ def wordmark():
     bbox = alpha.point(lambda p: 255 if p > 20 else 0).getbbox()
     if bbox is None:
         raise SystemExit("mot-symbole introuvable dans src/noria-logo.png")
-    cropped = band.crop(bbox)
-    white = Image.new("RGBA", cropped.size, (255, 255, 255, 0))
-    white.putalpha(cropped.getchannel("A"))
-    return white
+    return band.crop(bbox)
 
 
 def max_width_fraction(aspect, diameter_fraction):
@@ -91,7 +83,7 @@ def main():
     splash_fraction = min(legacy_fraction, 300 / 512)
 
     for folder, size in DENSITIES.items():
-        icon = compose(size, mark, legacy_fraction, NAVY)
+        icon = compose(size, mark, legacy_fraction, WHITE)
         save_png(icon, APP_RES / folder / "ic_launcher.png")
 
     # Premier plan adaptatif. 432 px = 108 dp × 4 (xxxhdpi). Fond transparent :
@@ -99,11 +91,11 @@ def main():
     foreground = compose(432, mark, adaptive_fraction, (0, 0, 0, 0))
     save_png(foreground, APP_RES / "drawable-nodpi" / "ic_launcher_foreground.png")
 
-    splash = compose(512, mark, splash_fraction, NAVY)
+    splash = compose(512, mark, splash_fraction, WHITE)
     save_png(splash, APP_RES / "drawable-nodpi" / "splash.png")
 
     PLAY.mkdir(parents=True, exist_ok=True)
-    save_png(compose(512, mark, legacy_fraction, NAVY), PLAY / "icone-512.png")
+    save_png(compose(512, mark, legacy_fraction, WHITE), PLAY / "icone-512.png")
 
     # Bannière Play : mot-symbole complet (avec slogan) sur le fond de page du manifeste web.
     logo = Image.open(ROOT / "src" / "noria-logo.png").convert("RGBA")
@@ -118,7 +110,7 @@ def main():
     banner.convert("RGB").save(PLAY / "banniere-1024x500.png", quality=95)
 
     print(f"mot-symbole {mark.width}×{mark.height} px")
-    print(f"fond #123048")
+    print("fond #FFFFFF, glyphe bleu d'origine")
     print(f"largeur adaptative {adaptive_fraction:.3f} du calque, historique {legacy_fraction:.3f}")
 
 

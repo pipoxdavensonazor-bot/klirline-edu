@@ -6,7 +6,7 @@
   "display": "standalone",
   "themeColor": "#0E1218",
   "navigationColor": "#0E1218",
-  "backgroundColor": "#123048",
+  "backgroundColor": "#FFFFFF",
   "startUrl": "/app",
   "iconUrl": "https://noriaedu.com/src/icon-512.png",
   "maskableIconUrl": "https://noriaedu.com/src/icon-512.png",
