@@ -1,15 +1,17 @@
 # Politique de confidentialité publique
 
+> **Version publiable : 4 novembre 2026, Version 2.0.** Philippe a dit « Publier ». La page française suit le texte
+> nettoyé pour publication ; la page kreyòl reprend les mêmes sections et le même sens. Aucun bandeau « projet non
+> publié » et aucun crochet `[à confirmer]` / `[à compléter]` ne figurent sur la page.
+>
 > **À faire relire par un juriste** avant de s'en prévaloir (droit haïtien, droit canadien pour Klirline Inc., et
-> pays des familles le cas échéant). Le texte décrit ce que NORIA fait réellement au 3 novembre 2026 ; il ne revendique
-> aucune certification ni conformité à un règlement. Cette mention reste dans la documentation, pas sur la page.
+> pays des familles le cas échéant). Le texte ne revendique aucune certification. Cette mention reste dans la
+> documentation, pas sur la page.
 >
-> **Ne pas fusionner ni déployer tant que Philippe n'a pas dit « publier ».** La page en ligne
-> (https://noriaedu.com/confidentialite, 17 octobre 2026) reste celle en vigueur jusque-là.
->
-> Points encore ouverts pour un juriste en Haïti (et, pour le kreyòl, un locuteur natif) : minorité et autorité
-> parentale, archives scolaires, durée précise de conservation fiscale / TCA, autorité haïtienne compétente. Le kreyòl
-> suit les mêmes sections que le français ; il reste à faire relire.
+> Points encore ouverts, écrits en phrases sur la page (pas en crochets) : règles haïtiennes sur la minorité et
+> l'autorité parentale, statut fiscal de la TCA et mentions de facture, régions exactes selon les contrats fournisseurs,
+> durée fiscale précise, autorité haïtienne compétente. Le kreyòl suit le français ; une relecture par un locuteur natif
+> reste utile. La fusion dans la branche de production et le `git pull` sur le serveur restent au coordinateur.
 
 ## Adresses
 
@@ -28,15 +30,14 @@
 statique, aucune ressource externe, CSP du portail (`default-src 'none' ; script-src 'self'`), aucun cookie posé par
 la page elle-même. Test : `server/test/confidentialite.test.js`.
 
-Les deux crochets `[à confirmer : …]` qui restent sur la page sont voulus : régions contractuelles de Resend, Meta et
-Telegram ; durée fiscale précise en Haïti ; autorité haïtienne compétente. Le reste du projet du 3 novembre 2026 a été
-tranché avec le code et les faits ci-dessous.
+Le texte public est celui du 4 novembre 2026 (Version 2.0). Les faits ci-dessous décrivent le produit ; quand la page
+est plus prudente ou plus générale que le code, c'est le texte validé pour publication qui est affiché.
 
 ## Faits sur lesquels le texte s'appuie (à revoir si l'un change)
 
 | Point | Source |
 |---|---|
-| Exploitant Klirline Inc., Montréal (Québec), Canada, nº 777880576RC0001 ; rue non publiée | fait donné pour cette version ; pas d'adresse civique dans le dépôt |
+| Exploitant Klirline Inc., nº 777880576RC0001 ; adresse publiée : 10948 Avenue de Rome, Montréal-Nord (Québec) H1H 4P4, Canada | fait donné pour la version du 4 novembre 2026 |
 | Responsable : Philippe Davenson Azor, contact@klirline.ca | fait donné pour cette version |
 | Rôles : l'école décide des finalités scolaires ; Klirline traite sur instruction ; Klirline décide pour la sécurité, les comptes grand public et la facture d'abonnement | `docs/portail-public.md`, `docs/facturation.md`, `server/src/policy.js` |
 | Données scolaires (élève, classe, notes, présences, santé/famille pour la direction et le secrétariat seulement, photo, paiements de scolarité émis par l'école, bibliothèque, relevés, transferts, déclarations) | migrations 001–016, `policy.js` (`studentFields`) |
@@ -58,5 +59,7 @@ tranché avec le code et les faits ci-dessous.
 | Pas de témoin Cloudflare Web Analytics ; CSP `script-src 'self'` ; en-tête `nel` / `report-to` (cf-nel) observé sur https://noriaedu.com le 3 novembre 2026, sans `Set-Cookie` sur une consultation ordinaire | `server/src/portail-pages.js`, `server/src/app.js` (`no-transform`), en-têtes en production |
 | Stockage local du navigateur : langue, dernier code d'école, file hors ligne | `src/login.js`, `src/offline.js` |
 
-La salle Jitsi de démonstration (`meet.systemli.org`) est nommée dans la page parce que l'application peut encore l'ouvrir.
-Elle ne doit pas recevoir de dossiers d'élèves. Si elle est retirée du produit, retirer le paragraphe correspondant.
+La page Version 2.0 ne nomme pas Jitsi. Le produit peut encore ouvrir une salle (`reunions-parents.js`, démonstration
+`meet.systemli.org` dans `src/salles-cours.js`). Cette salle ne doit pas recevoir de dossiers d'élèves. Les invitations
+WhatsApp du code préparent un lien `wa.me` que l'école envoie elle-même ; la page, elle, dit que le numéro est communiqué
+à Meta lorsque la personne a accepté WhatsApp. Le cookie `noria_pub_in` existe dans le code et n'est pas nommé sur la page.
