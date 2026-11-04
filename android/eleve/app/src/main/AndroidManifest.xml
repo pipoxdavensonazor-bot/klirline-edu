@@ -15,6 +15,7 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/appName"
+        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
 
@@ -78,6 +79,34 @@
                     android:pathPrefix="/app/" />
             </intent-filter>
         </activity>
+
+        <!--
+            LauncherActivity.launchTwa() appelle toujours
+            ManageDataLauncherActivity.addSiteSettingsShortcut(), qui active ou
+            désactive ce composant. Sans cette déclaration, Android lève
+            IllegalArgumentException et ferme l'appli dès l'ouverture
+            (dialogue « elle comporte un bug »), même si Chrome est installé.
+        -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:enabled="true"
+            android:excludeFromRecents="true"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="@string/launchUrl" />
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Secours déclaré par FALLBACK_STRATEGY=webview. Absent du manifeste : ActivityNotFoundException. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
+            android:configChanges="orientation|screenSize"
+            android:exported="false"
+            android:theme="@android:style/Theme.NoTitleBar" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

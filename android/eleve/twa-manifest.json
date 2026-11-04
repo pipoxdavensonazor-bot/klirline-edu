@@ -15,8 +15,8 @@
     "path": "./upload.jks",
     "alias": "noria-eleve"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.0.1",
+  "appVersionCode": 2,
   "fallbackType": "webview",
   "minSdkVersion": 24,
   "orientation": "default",

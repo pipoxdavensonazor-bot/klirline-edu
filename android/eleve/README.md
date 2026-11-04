@@ -23,7 +23,7 @@ Capacitor embarquerait un second projet natif et une WebView à maintenir, pour 
 |---|---|
 | Nom affiché | NORIA Élève |
 | Identifiant de paquet | `ca.klirline.noria.eleve` |
-| Version | `1.0.0` (versionCode `1`) |
+| Version | `1.0.1` (versionCode `2`) |
 | Adresse ouverte | `https://noriaedu.com/app` |
 | SDK minimal | Android 7 (API 24) |
 | SDK cible | Android 16 (API 36), exigé par Play pour une nouvelle appli |
@@ -48,7 +48,7 @@ La première ouverture exige le réseau. Ensuite, le service worker déjà en pl
 
 Sans le fichier Digital Asset Links (plus bas), Chrome garde une barre d’adresse. L’espace fonctionne quand même. Avec le fichier en place et la vérification réussie, la barre disparaît.
 
-Si Chrome est absent ou trop ancien, la coque retombe sur la WebView du téléphone, à la même adresse.
+Si Chrome est absent ou trop ancien, la coque retombe sur la WebView du téléphone, à la même adresse. Cette activité (`WebViewFallbackActivity`) et `ManageDataLauncherActivity` sont déclarées dans le manifeste : la bibliothèque 2.7.4 les active au démarrage. Les retirer referme l’appli tout de suite, avec le dialogue système « elle comporte un bug ».
 
 ## Prérequis (gratuits)
 
