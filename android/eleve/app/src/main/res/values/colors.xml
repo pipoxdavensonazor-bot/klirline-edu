@@ -3,7 +3,7 @@
     <!-- theme_color du manifeste web (/manifest.webmanifest). -->
     <color name="colorPrimary">#0E1218</color>
     <color name="navigationColor">#0E1218</color>
-    <!-- Coin de src/icon-512.png. Régénéré par scripts/generer-icones.py. -->
-    <color name="iconBackground">#123048</color>
-    <color name="splashBackground">#123048</color>
+    <!-- Fond du mot-symbole NORIA bleu, comme sur le site. -->
+    <color name="iconBackground">#FFFFFF</color>
+    <color name="splashBackground">#FFFFFF</color>
 </resources>

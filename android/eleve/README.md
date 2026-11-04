@@ -23,11 +23,11 @@ Capacitor embarquerait un second projet natif et une WebView à maintenir, pour 
 |---|---|
 | Nom affiché | NORIA Élève |
 | Identifiant de paquet | `ca.klirline.noria.eleve` |
-| Version | `1.0.1` (versionCode `2`) |
+| Version | `1.0.2` (versionCode `3`) |
 | Adresse ouverte | `https://noriaedu.com/app` |
 | SDK minimal | Android 7 (API 24) |
 | SDK cible | Android 16 (API 36), exigé par Play pour une nouvelle appli |
-| Icône | `src/icon-512.png` (N blanc, fond `#123048`) |
+| Icône | Mot-symbole NORIA bleu, fond blanc |
 | Barre d’état | `#0E1218`, comme `theme_color` du manifeste web |
 
 L’identifiant `ca.klirline` suit le domaine de Klirline Inc. (`contact@klirline.ca`). Une fois la fiche créée dans Play Console, ce paquet ne se renomme pas.
@@ -66,15 +66,22 @@ printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
 
 ## Icônes
 
-Déjà générées depuis `src/icon-512.png` et `src/noria-logo.png`. Pour les refaire (Python 3, Pillow) :
+Le lanceur, l’écran de démarrage et la fiche Play montrent le mot-symbole **NORIA** en bleu sur fond blanc, comme sur le site. Le N blanc de `src/icon-512.png` reste l’icône du site installé depuis le navigateur ; cette coque ne le reprend plus. Le slogan du logo est illisible à cette taille : seule la bande « NORIA » de `src/noria-logo.png` est gardée, dans ses couleurs d’origine.
+
+Le mot-symbole tient dans le cercle sûr de l’icône adaptative (66 dp dans un calque de 108 dp). `iconBackground` et `splashBackground` sont `#FFFFFF`.
+
+`twa-manifest.json` garde `iconUrl` vers l’icône web (le N). Les images de cette coque viennent du script ci-dessous, pas de cette URL.
+
+Pour les refaire (Python 3, Pillow) :
 
 ```bash
 python3 android/eleve/scripts/generer-icones.py
 ```
 
-- Lanceur : `app/src/main/res/mipmap-*/ic_launcher.png` et l’icône adaptative.
+- Lanceur : `app/src/main/res/mipmap-*/ic_launcher.png` et l’icône adaptative (`ic_launcher_foreground` sur `iconBackground`).
+- Écran de démarrage : `app/src/main/res/drawable-nodpi/splash.png`.
 - Fiche Play, 512×512 : `play/icone-512.png`.
-- Bannière de fiche, 1024×500 : `play/banniere-1024x500.png` (le mot-symbole sur le fond `#f3f2ef`). On peut la remplacer par une autre image aux mêmes dimensions.
+- Bannière de fiche, 1024×500 : `play/banniere-1024x500.png` (le logo complet, slogan compris, sur le fond `#f3f2ef`). On peut la remplacer par une autre image aux mêmes dimensions.
 
 ## Produire l’AAB
 
