@@ -27,6 +27,7 @@ const BODY = `<div class="tarifs" lang="fr">
 <li><strong>Essai gratuit de 60 jours</strong>, sans engagement.</li>
 <li><strong>15 jours de grâce</strong> après l'échéance avant le passage en lecture seule (aucune donnée n'est supprimée).</li>
 <li><strong>TCA 10 %</strong> appliquée sur les factures, en plus des montants affichés.</li>
+<li>Pour une question de paiement, écrivez à <a href="mailto:facturation@noriaedu.com">facturation@noriaedu.com</a>.</li>
 </ul>
 <h3>Inclus dans toutes les options</h3>
 <ul class="t-incl">
@@ -56,7 +57,7 @@ const BODY = `<div class="tarifs" lang="fr">
 </section>
 <section class="t-hero">
 <h2>Prêt à essayer ?</h2>
-<p>60 jours gratuits pour toute votre école. Pour un réseau ou un devis, écrivez-nous depuis le formulaire d'inscription.</p>
+<p>60 jours gratuits pour toute votre école. Pour un réseau ou un devis, écrivez à <a href="mailto:ecoles@noriaedu.com">ecoles@noriaedu.com</a>. Vous pouvez aussi utiliser le formulaire d'inscription.</p>
 <p class="t-cta"><a class="t-btn" href="/inscrire-ecole">Inscrire mon école</a></p>
 </section>
 </div>`;

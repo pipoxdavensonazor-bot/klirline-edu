@@ -130,7 +130,8 @@ function invoicePdf(inv, school) {
   }
   if (inv.status === 'annulee') { y -= 10; p.text(50, y, `Facture annulée : ${inv.cancel_reason || ''}`.slice(0, 100), { size: 10, bold: true }); }
   p.text(50, 74, legal().slice(0, 120), { size: 8, gray: 0.35 });
-  p.text(50, 60, "En cas de retard, l'espace de l'école passe en lecture seule après le délai de grâce : aucune donnée n'est supprimée.", { size: 8, gray: 0.35 });
+  p.text(50, 62, 'Facturation : facturation@noriaedu.com', { size: 8, gray: 0.35 });
+  p.text(50, 50, "En cas de retard, l'espace de l'école passe en lecture seule après le délai de grâce : aucune donnée n'est supprimée.", { size: 8, gray: 0.35 });
   return buildDoc([p], { title: `Facture ${inv.number}` });
 }
 

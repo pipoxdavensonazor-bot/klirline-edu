@@ -20,8 +20,8 @@
 - Liens : pied de page de toutes les pages du portail, écran de connexion de l'application (`/app`), plan du site.
 - Adresse à donner à Meta (application WhatsApp, champ « Privacy Policy URL ») : `https://noriaedu.com/confidentialite`.
   Telegram (BotFather) n'en exige pas, mais la même adresse peut être indiquée dans la description du bot.
-- Contact publié : `contact@klirline.ca` (Philippe Davenson Azor, président). Ne pas annoncer `privacy@noriaedu.com` :
-  cette adresse n'est pas en service.
+- Contact publié : `confidentialite@noriaedu.com` (Philippe Davenson Azor, président). Ne pas annoncer
+  `privacy@noriaedu.com` sur la page : cette adresse est seulement une redirection de secours vers la même boîte.
 
 ## Où est le texte
 
@@ -38,7 +38,7 @@ est plus prudente ou plus générale que le code, c'est le texte validé pour pu
 | Point | Source |
 |---|---|
 | Exploitant Klirline Inc., nº 777880576RC0001 ; adresse publiée : 10948 Avenue de Rome, Montréal-Nord (Québec) H1H 4P4, Canada | fait donné pour la version du 4 novembre 2026 |
-| Responsable : Philippe Davenson Azor, contact@klirline.ca | fait donné pour cette version |
+| Responsable : Philippe Davenson Azor, confidentialite@noriaedu.com | fait donné pour cette version |
 | Rôles : l'école décide des finalités scolaires ; Klirline traite sur instruction ; Klirline décide pour la sécurité, les comptes grand public et la facture d'abonnement | `docs/portail-public.md`, `docs/facturation.md`, `server/src/policy.js` |
 | Données scolaires (élève, classe, notes, présences, santé/famille pour la direction et le secrétariat seulement, photo, paiements de scolarité émis par l'école, bibliothèque, relevés, transferts, déclarations) | migrations 001–016, `policy.js` (`studentFields`) |
 | Photo de badge privée, EXIF retiré, pas de reconnaissance faciale dans le code | `server/src/badges.js` |

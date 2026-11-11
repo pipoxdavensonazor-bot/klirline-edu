@@ -5,7 +5,7 @@
 // publication. Il ne revendique aucune certification. Les points encore ouverts (minorité, TCA, régions, durée fiscale,
 // autorité en Haïti) sont des phrases de la page, pas des crochets. Voir docs/confidentialite.md.
 const UPDATED = '2026-11-04';
-const CONTACT = 'contact@klirline.ca';
+const CONTACT = 'confidentialite@noriaedu.com';
 const ADDRESS = '10948 Avenue de Rome, Montréal-Nord (Québec) H1H 4P4, Canada';
 
 const C = {

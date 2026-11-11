@@ -56,6 +56,7 @@ const T = {
     mshort: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
     notFound: 'Page introuvable', notFoundText: 'Cette page n’existe pas ou n’est plus publiée.', home: 'Retour à l’accueil',
     footer: 'NORIA est un produit de Klirline Inc. Portail consultable sans compte, sans traceur ; un cookie de session est posé seulement si vous vous connectez à « Mon compte ».',
+    footerAsk: 'Une question ?', footerOfficial: 'Demandes officielles',
     footerSchools: 'Vous dirigez une école ? Inscrivez-la sur NORIA : chaque contenu publié est relu par l’équipe NORIA.', rss: 'Flux RSS des annonces',
     desc: {
       '': 'NORIA, gestion scolaire pour Haïti : événements nationaux, lauréats des examens et concours, vie des écoles partenaires, en français et en kreyòl.',
@@ -97,6 +98,7 @@ const T = {
     mshort: ['jan', 'fev', 'mas', 'avr', 'me', 'jen', 'jiy', 'out', 'sept', 'okt', 'nov', 'des'],
     notFound: 'Nou pa jwenn paj la', notFoundText: 'Paj sa a pa egziste oswa li pa pibliye ankò.', home: 'Retounen nan akèy la',
     footer: 'NORIA se yon pwodui Klirline Inc. Ou ka gade pòtay la san kont, pa gen traseur ; yon cookie sesyon parèt sèlman si ou konekte nan « Kont mwen ».',
+    footerAsk: 'Ou gen yon kesyon ?', footerOfficial: 'Demann ofisyèl',
     footerSchools: 'Ou dirije yon lekòl ? Enskri l sou NORIA : ekip NORIA a li chak kontni anvan li pibliye.', rss: 'Flux RSS anons yo',
     desc: {
       '': 'NORIA, jesyon lekòl pou Ayiti : evènman nasyonal, laureya egzamen ak konkou, lavi lekòl patnè yo, an franse ak an kreyòl.',
@@ -166,7 +168,7 @@ function layout({ L, page, title, desc, body, canonical, alt, base, image, type 
 <nav class="lang" aria-label="${esc(t.langLabel)}">${langs}</nav>${acc}</div>
 <nav class="nav" aria-label="${esc(t.mainNav)}"><div class="wrap nav-in">${nav}</div></nav></header>
 <main id="contenu" class="wrap" tabindex="-1">${body}</main>
-<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="${href(L, Tarifs.SLUG)}"${page === Tarifs.SLUG ? ' aria-current="page"' : ''}>${L === 'ht' ? 'Pri' : 'Tarifs'}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p class="mut">${esc(t.footer)}</p></div></footer>
+<footer class="ft"><div class="wrap"><p>${esc(t.footerSchools)} <a class="ft-reg" href="${href(L, 'inscrire-ecole')}">${esc(PP.X[L].register)}</a> · <a href="${href(L, Tarifs.SLUG)}"${page === Tarifs.SLUG ? ' aria-current="page"' : ''}>${L === 'ht' ? 'Pri' : 'Tarifs'}</a> · <a href="${L === 'ht' ? '/ht' : ''}/annonces.rss">${esc(t.rss)}</a> · <a href="${href(L, PV.SLUG)}">${esc(PV.C[L].link)}</a></p><p>${esc(t.footerAsk)} <a href="mailto:info@noriaedu.com">info@noriaedu.com</a></p><p class="mut">${esc(t.footer)} ${esc(t.footerOfficial)} : <a href="mailto:contact@klirline.ca">contact@klirline.ca</a>.</p></div></footer>
 </body></html>`;
 }
 

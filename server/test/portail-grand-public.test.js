@@ -170,6 +170,10 @@ test('/tarifs reprend l’en-tête et le pied de page du portail ; le texte des 
   assert.match(fr.text, /Forfaits annuels plafonnés ou prix par élève/);
   assert.match(fr.text, /25 000 HTG/); assert.match(fr.text, /250 HTG/); assert.match(fr.text, /TCA 10 %/);
   assert.match(fr.text, /Educa HT/); assert.match(fr.text, /href="\/inscrire-ecole">Inscrire mon école/);
+  assert.match(fr.text, /mailto:ecoles@noriaedu\.com">ecoles@noriaedu.com/);
+  assert.match(fr.text, /mailto:facturation@noriaedu\.com">facturation@noriaedu.com/);
+  assert.match(fr.text, /<footer[\s\S]*mailto:info@noriaedu\.com">info@noriaedu.com/);
+
   assert.doesNotMatch(fr.text, /class="m-top"|class="t-foot"|class="t-logo"/);
   assert.doesNotMatch(fr.text, /href="[^"]*\/app\b/);
   const htHome = await page('/ht'); const ht = await page('/ht/tarifs');

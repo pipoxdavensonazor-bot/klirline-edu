@@ -25,7 +25,7 @@ ajoute la **TCA 10 %** : `TCA = arrondi(HT × 10 %)` (au centime), `TTC = HT + T
 * PDF : ligne en HT, puis **Total HT / TCA 10 % / Total TTC**, déjà payé, reste dû.
 * Factures émises avant la migration : `tax_cents = 0`, montant inchangé, PDF avec un simple « Total ».
 * Mentions légales en pied de PDF depuis `NORIA_RAISON_SOCIALE`, `NORIA_NIF`, `NORIA_ADRESSE` ; sinon
-  « Mentions légales : à compléter » (rien n'est inventé).
+  « Mentions légales : à compléter » (rien n'est inventé). Contact de facturation : `facturation@noriaedu.com`.
 
 ## Lecture seule douce
 

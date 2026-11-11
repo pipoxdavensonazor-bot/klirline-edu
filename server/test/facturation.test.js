@@ -76,7 +76,7 @@ test('facture par élève : numéro NOR-AAAA-0001, montant = élèves actifs × 
   const pdf = await call(admin, 'GET', `/api/admin/facturation/factures/${inv.json.id}/pdf`);
   assert.equal(pdf.status, 200); assert.equal(pdf.buf.subarray(0, 5).toString(), '%PDF-');
   const txt = pdfText(pdf.buf);
-  assert.match(txt, /Total HT/); assert.match(txt, /TCA 10 %/); assert.match(txt, /Total TTC/); assert.match(txt, /Mentions légales : à compléter/);
+  assert.match(txt, /Total HT/); assert.match(txt, /TCA 10 %/); assert.match(txt, /Total TTC/); assert.match(txt, /Mentions légales : à compléter/); assert.match(txt, /facturation@noriaedu\.com/);
   // Paiement : méthode et référence obligatoires ; référence unique par méthode.
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'cheque', reference: 'ABC123' })).status, 400);
   assert.equal((await call(admin, 'POST', `/api/admin/facturation/factures/${inv2.json.id}/paiements`, { method: 'moncash', reference: '' })).status, 400);

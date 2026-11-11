@@ -40,7 +40,7 @@ for (const [L, p] of [['fr', '/confidentialite'], ['ht', '/ht/confidentialite']]
     assert.doesNotMatch(r.text, /(src|href)="https?:\/\/(?!127\.0\.0\.1)/);
     const c = PV.C[L];
     assert.ok(r.text.includes(`<h1>${c.title}</h1>`));
-    for (const s of ['Klirline Inc.', 'contact@klirline.ca', 'mailto:contact@klirline.ca', 'Philippe Davenson Azor', '777880576RC0001',
+    for (const s of ['Klirline Inc.', 'confidentialite@noriaedu.com', 'mailto:confidentialite@noriaedu.com', 'Philippe Davenson Azor', '777880576RC0001',
       '10948 Avenue de Rome', 'Montréal-Nord', 'H1H 4P4',
       'Vultr', 'Miami', 'Cloudflare', 'R2', 'Resend', 'WhatsApp', 'Telegram',
       'noria_session', 'noria_appareil', 'noria_public', 'noria_admin', 'noria_ministere',
@@ -72,9 +72,17 @@ test('liens : pied de page du portail (FR/HT), écran de connexion, plan du site
   const fr = await get('/'); const ht = await get('/ht');
   assert.match(fr.text, /<footer[\s\S]*href="\/confidentialite">Confidentialité<\/a>/);
   assert.match(ht.text, /<footer[\s\S]*href="\/ht\/confidentialite">Konfidansyalite<\/a>/);
+  for (const html of [fr.text, ht.text, (await get('/confidentialite')).text, (await get('/tarifs')).text]) {
+    assert.match(html, /<footer[\s\S]*mailto:info@noriaedu\.com">info@noriaedu.com/);
+    assert.match(html, /<footer[\s\S]*mailto:contact@klirline\.ca">contact@klirline.ca/);
+  }
+  assert.match(fr.text, /Une question \?/);
+  assert.match(ht.text, /Ou gen yon kesyon \?/);
   const login = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'login.js'), 'utf8');
   assert.match(login, /class="login-priv"><a href="\$\{lang\(\)==="ht"\?"\/ht":""\}\/confidentialite"/);
   assert.match(login, /priv:"Politique de confidentialité"/); assert.match(login, /priv:"Politik konfidansyalite"/);
+  assert.match(login, /help:"Besoin d'aide \?"/); assert.match(login, /help:"Ou bezwen èd \?"/);
+  assert.match(login, /mailto:support@noriaedu\.com">support@noriaedu.com/);
   const sm = await fetch(`${base}/sitemap.xml`).then((r) => r.text());
   assert.match(sm, /<loc>[^<]*\/confidentialite<\/loc><lastmod>2026-11-04<\/lastmod>/);
   assert.match(sm, /<loc>[^<]*\/ht\/confidentialite<\/loc>/);
