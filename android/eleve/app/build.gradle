@@ -1,0 +1,59 @@
+plugins {
+    id "com.android.application"
+}
+
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace = "ca.klirline.noria.eleve"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "ca.klirline.noria.eleve"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 3
+        versionName = "1.0.2"
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = rootProject.file(keystoreProperties["storeFile"])
+                storePassword = keystoreProperties["storePassword"]
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.release
+            }
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Dépendances AndroidX sans .so propres : évite un avertissement sur les .so non alignés.
+            useLegacyPackaging = false
+        }
+    }
+}
+
+dependencies {
+    // Apache 2.0. Même bibliothèque que l'outil Bubblewrap, sans installer Bubblewrap.
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.7.4"
+}

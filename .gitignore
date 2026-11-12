@@ -2,3 +2,12 @@
 .env
 deploy/certs/*
 !deploy/certs/LISEZMOI.md
+
+# Coque Android NORIA Élève : sorties de build et clé d'importation Play.
+android/eleve/.gradle/
+android/eleve/build/
+android/eleve/app/build/
+android/eleve/local.properties
+android/eleve/keystore.properties
+android/eleve/*.jks
+android/eleve/*.keystore

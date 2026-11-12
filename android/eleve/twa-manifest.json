@@ -1,0 +1,26 @@
+{
+  "packageId": "ca.klirline.noria.eleve",
+  "host": "noriaedu.com",
+  "name": "NORIA Élève",
+  "launcherName": "NORIA Élève",
+  "display": "standalone",
+  "themeColor": "#0E1218",
+  "navigationColor": "#0E1218",
+  "backgroundColor": "#FFFFFF",
+  "startUrl": "/app",
+  "iconUrl": "https://noriaedu.com/src/icon-512.png",
+  "maskableIconUrl": "https://noriaedu.com/src/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./upload.jks",
+    "alias": "noria-eleve"
+  },
+  "appVersionName": "1.0.2",
+  "appVersionCode": 3,
+  "fallbackType": "webview",
+  "minSdkVersion": 24,
+  "orientation": "default",
+  "webManifestUrl": "https://noriaedu.com/manifest.webmanifest",
+  "fullScopeUrl": "https://noriaedu.com/app",
+  "generatorApp": "gradle-manuel"
+}
